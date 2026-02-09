@@ -1,10 +1,10 @@
 use crate::{
-    ContextServerRegistry, CopyPathTool, CreateDirectoryTool, DbLanguageModel, DbThread,
-    DeletePathTool, DiagnosticsTool, EditFileTool, FetchTool, FindPathTool, GrepTool,
-    ListDirectoryTool, MovePathTool, NowTool, OpenTool, ProjectSnapshot, ReadFileTool,
-    RestoreFileFromDiskTool, SaveFileTool, StreamingEditFileTool, SubagentTool,
-    SystemPromptTemplate, Template, Templates, TerminalTool, ThinkingTool, ToolPermissionDecision,
-    WebSearchTool, decide_permission_from_settings,
+    ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
+    DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, FetchTool, FindPathTool, GrepTool,
+    ListDirectoryTool, MemoryDatabase, MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
+    ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SemanticIndex,
+    StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template, Templates, TerminalTool,
+    ThinkingTool, ToolPermissionDecision, WebSearchTool, decide_permission_from_settings,
 };
 use acp_thread::{MentionUri, UserMessageId};
 use action_log::ActionLog;
@@ -794,6 +794,8 @@ pub struct Thread {
     profile_id: AgentProfileId,
     project_context: Entity<ProjectContext>,
     templates: Arc<Templates>,
+    memory_store: Arc<MemoryStore>,
+    semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
     model: Option<Arc<dyn LanguageModel>>,
     summarization_model: Option<Arc<dyn LanguageModel>>,
     thinking_enabled: bool,
@@ -824,6 +826,8 @@ impl Thread {
         project_context: Entity<ProjectContext>,
         context_server_registry: Entity<ContextServerRegistry>,
         templates: Arc<Templates>,
+        memory_store: Arc<MemoryStore>,
+        semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
         model: Option<Arc<dyn LanguageModel>>,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -857,6 +861,8 @@ impl Thread {
             profile_id,
             project_context,
             templates,
+            memory_store,
+            semantic_index,
             model,
             summarization_model: None,
             thinking_enabled: true,
@@ -876,6 +882,8 @@ impl Thread {
         project_context: Entity<ProjectContext>,
         context_server_registry: Entity<ContextServerRegistry>,
         templates: Arc<Templates>,
+        memory_store: Arc<MemoryStore>,
+        semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
         model: Arc<dyn LanguageModel>,
         subagent_context: SubagentContext,
         parent_tools: BTreeMap<SharedString, Arc<dyn AnyAgentTool>>,
@@ -919,6 +927,8 @@ impl Thread {
             profile_id,
             project_context,
             templates,
+            memory_store,
+            semantic_index,
             model: Some(model),
             summarization_model: None,
             thinking_enabled: true,
@@ -933,6 +943,60 @@ impl Thread {
         }
     }
 
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn new_for_test(
+        project: Entity<Project>,
+        project_context: Entity<ProjectContext>,
+        context_server_registry: Entity<ContextServerRegistry>,
+        templates: Arc<Templates>,
+        model: Option<Arc<dyn LanguageModel>>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let connection = sqlez::connection::Connection::open_memory(None);
+        let db = Arc::new(MemoryDatabase::new(cx.background_executor().clone(), connection).unwrap());
+        let memory_store = Arc::new(MemoryStore::new(db, std::path::PathBuf::from("/test")));
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+        Self::new(
+            project,
+            project_context,
+            context_server_registry,
+            templates,
+            memory_store,
+            semantic_index,
+            model,
+            cx,
+        )
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn new_subagent_for_test(
+        project: Entity<Project>,
+        project_context: Entity<ProjectContext>,
+        context_server_registry: Entity<ContextServerRegistry>,
+        templates: Arc<Templates>,
+        model: Arc<dyn LanguageModel>,
+        subagent_context: SubagentContext,
+        parent_tools: BTreeMap<SharedString, Arc<dyn AnyAgentTool>>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let connection = sqlez::connection::Connection::open_memory(None);
+        let db = Arc::new(MemoryDatabase::new(cx.background_executor().clone(), connection).unwrap());
+        let memory_store = Arc::new(MemoryStore::new(db, std::path::PathBuf::from("/test")));
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+        Self::new_subagent(
+            project,
+            project_context,
+            context_server_registry,
+            templates,
+            memory_store,
+            semantic_index,
+            model,
+            subagent_context,
+            parent_tools,
+            cx,
+        )
+    }
+
     pub fn id(&self) -> &acp::SessionId {
         &self.id
     }
@@ -940,6 +1004,40 @@ impl Thread {
     /// Returns true if this thread was imported from a shared thread.
     pub fn is_imported(&self) -> bool {
         self.imported
+    }
+
+    pub fn memory_store(&self) -> Arc<MemoryStore> {
+        self.memory_store.clone()
+    }
+
+    pub fn remember_rule(&self, content: &str, cx: &App) {
+        use crate::memory_store::{Memory, MemoryCategory};
+        use chrono::Utc;
+        use uuid::Uuid;
+
+        let memory = Memory {
+            id: Uuid::new_v4(),
+            category: MemoryCategory::Architecture,
+            content: content.to_string(),
+            metadata: serde_json::Value::Null,
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+        };
+
+        log::info!("Thread::remember_rule - Creating memory with id: {}", memory.id);
+        self.memory_store.remember(memory).detach_and_log_err(cx);
+    }
+
+    pub fn memories(&self) -> Vec<crate::memory_store::Memory> {
+        self.memory_store.recall_sync("", None, 1000)
+    }
+
+    pub fn delete_memory(&self, id: uuid::Uuid, _cx: &App) -> Task<Result<()>> {
+        self.memory_store.forget(id)
+    }
+
+    pub fn semantic_index(&self) -> Arc<parking_lot::RwLock<SemanticIndex>> {
+        self.semantic_index.clone()
     }
 
     pub fn replay(
@@ -1059,6 +1157,8 @@ impl Thread {
         project_context: Entity<ProjectContext>,
         context_server_registry: Entity<ContextServerRegistry>,
         templates: Arc<Templates>,
+        memory_store: Arc<MemoryStore>,
+        semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
         cx: &mut Context<Self>,
     ) -> Self {
         let profile_id = db_thread
@@ -1117,6 +1217,8 @@ impl Thread {
             profile_id,
             project_context,
             templates,
+            memory_store,
+            semantic_index,
             model,
             summarization_model: None,
             // TODO: Persist this on the `DbThread`.
@@ -1236,6 +1338,38 @@ impl Thread {
         }
     }
 
+    fn log_traffic(&self, direction: &str, content: String, cx: &App) {
+        self.action_log.read(cx).log_chat_interaction(direction, content, cx);
+    }
+
+    fn format_request(request: &LanguageModelRequest) -> String {
+        let mut output = String::new();
+        use std::fmt::Write;
+        
+        for msg in &request.messages {
+            writeln!(output, "### {:?}\n", msg.role).ok();
+            for content in &msg.content {
+                 match content {
+                     language_model::MessageContent::Text(t) => { writeln!(output, "{}", t).ok(); }
+                     language_model::MessageContent::Thinking { text, .. } => { writeln!(output, "Thinking: {}", text).ok(); }
+                     language_model::MessageContent::RedactedThinking(_) => { writeln!(output, "[Redacted Thinking]").ok(); }
+                     language_model::MessageContent::Image(img) => { writeln!(output, "[Image: {} bytes]", img.len()).ok(); }
+                     language_model::MessageContent::ToolUse(tool) => { writeln!(output, "Tool Use: {} ({})", tool.name, tool.raw_input).ok(); }
+                     language_model::MessageContent::ToolResult(res) => { writeln!(output, "Tool Result: {}: {:?}", res.tool_name, res.content).ok(); }
+                 }
+            }
+        }
+        
+        if !request.tools.is_empty() {
+             writeln!(output, "### Tools").ok();
+             for tool in &request.tools {
+                 writeln!(output, "#### {}\n{}\nInput Schema: {}", tool.name, tool.description, tool.input_schema).ok();
+             }
+        }
+        
+        output
+    }
+
     pub fn add_default_tools(
         &mut self,
         environment: Rc<dyn ThreadEnvironment>,
@@ -1279,6 +1413,15 @@ impl Thread {
         self.add_tool(ThinkingTool);
         self.add_tool(WebSearchTool);
 
+        self.add_tool(ContextTool::new(self.project.clone()));
+        let remember_tool = RememberTool::new();
+        remember_tool.set_store(self.memory_store.clone());
+        self.add_tool(remember_tool);
+
+        let recall_tool = RecallTool::new();
+        recall_tool.set_store(self.memory_store.clone());
+        self.add_tool(recall_tool);
+
         if cx.has_flag::<SubagentsFeatureFlag>() && self.depth() < MAX_SUBAGENT_DEPTH {
             let parent_tools = self.tools.clone();
             self.add_tool(SubagentTool::new(
@@ -1287,6 +1430,8 @@ impl Thread {
                 self.project_context.clone(),
                 self.context_server_registry.clone(),
                 self.templates.clone(),
+                self.memory_store.clone(),
+                self.semantic_index.clone(),
                 self.depth(),
                 parent_tools,
             ));
@@ -1597,6 +1742,13 @@ impl Thread {
                     Ok(()) => {
                         log::debug!("Turn execution completed");
                         event_stream.send_stop(acp::StopReason::EndTurn);
+                        
+                        _ = this.update(cx, |this, cx| {
+                            if let Some(msg) = this.messages.last() {
+                                let content = msg.to_markdown();
+                                this.log_traffic("Incoming", content, cx);
+                            }
+                        });
                     }
                     Err(error) => {
                         log::error!("Turn execution failed: {:?}", error);
@@ -1633,6 +1785,11 @@ impl Thread {
         loop {
             let request =
                 this.update(cx, |this, cx| this.build_completion_request(intent, cx))??;
+
+            this.update(cx, |this, cx| {
+                let formatted = Self::format_request(&request);
+                this.log_traffic("Outgoing", formatted, cx);
+            }).ok();
 
             telemetry::event!(
                 "Agent Thread Completion",
@@ -2370,6 +2527,8 @@ impl Thread {
             })
             .collect::<BTreeMap<_, _>>();
 
+        log::info!("Enabled tools: {:?}", tools.keys().collect::<Vec<_>>());
+
         let mut context_server_tools = Vec::new();
         let mut seen_tools = tools.keys().cloned().collect::<HashSet<_>>();
         let mut duplicate_tool_names = HashSet::default();
@@ -2504,10 +2663,22 @@ impl Thread {
             self.messages.len()
         );
 
+        let index = self.semantic_index.read();
+        let memories = self.memory_store.recall_sync("", None, 1000); // Load ALL memories for every AI response
+
         let system_prompt = SystemPromptTemplate {
             project: self.project_context.read(cx),
             available_tools,
             model_name: self.model.as_ref().map(|m| m.name().0.to_string()),
+            has_cpp_files: index.has_cpp_files(),
+            has_python_files: index.has_python_files(),
+            memories: memories
+                .into_iter()
+                .map(|m| crate::MemoryContext {
+                    category: format!("{:?}", m.category),
+                    content: m.content,
+                })
+                .collect(),
         }
         .render(&self.templates)
         .context("failed to build system prompt")
