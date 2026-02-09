@@ -1,9 +1,11 @@
 mod db;
 mod edit_agent;
 mod legacy_thread;
+mod memory_store;
 mod native_agent_server;
 pub mod outline;
 mod pattern_extraction;
+mod semantic_search;
 mod shell_parser;
 mod templates;
 #[cfg(test)]
@@ -15,8 +17,10 @@ mod tools;
 
 use context_server::ContextServerId;
 pub use db::*;
+pub use memory_store::*;
 pub use native_agent_server::NativeAgentServer;
 pub use pattern_extraction::*;
+pub use semantic_search::*;
 pub use templates::*;
 pub use thread::*;
 pub use thread_store::*;
@@ -46,6 +50,7 @@ use prompt_store::{
 };
 use serde::{Deserialize, Serialize};
 use settings::{LanguageModelSelection, update_settings_file};
+use sqlez::connection::Connection;
 use std::any::Any;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -242,8 +247,20 @@ pub struct NativeAgent {
     models: LanguageModels,
     project: Entity<Project>,
     prompt_store: Option<Entity<PromptStore>>,
+    memory_store: Arc<MemoryStore>,
+    semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
+    is_indexing: watch::Receiver<bool>,
+    _maintain_semantic_index: Task<Result<()>>,
     fs: Arc<dyn Fs>,
     _subscriptions: Vec<Subscription>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NativeAgentStatus {
+    pub long_term_memory_count: usize,
+    pub short_term_memory_count: usize,
+    pub index_count: usize,
+    pub is_indexing: bool,
 }
 
 impl NativeAgent {
@@ -256,10 +273,21 @@ impl NativeAgent {
         cx: &mut AsyncApp,
     ) -> Result<Entity<NativeAgent>> {
         log::debug!("Creating new NativeAgent");
-
+    
         let project_context = cx
             .update(|cx| Self::build_project_context(&project, prompt_store.as_ref(), cx))
             .await;
+
+
+    
+        let (_is_indexing_tx, is_indexing_rx) = watch::channel(false);
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+        let maintain_semantic_index = Task::ready(Ok(()));
+
+        let memory_store = Arc::new(MemoryStore::new(
+            Arc::new(MemoryDatabase::new(cx.background_executor().clone(), Connection::open_memory(None)).unwrap()),
+            std::path::PathBuf::new()
+        ));
 
         Ok(cx.new(|cx| {
             let context_server_store = project.read(cx).context_server_store();
@@ -287,6 +315,8 @@ impl NativeAgent {
 
             let (project_context_needs_refresh_tx, project_context_needs_refresh_rx) =
                 watch::channel(());
+
+
             Self {
                 sessions: HashMap::default(),
                 thread_store,
@@ -299,11 +329,38 @@ impl NativeAgent {
                 templates,
                 models: LanguageModels::new(cx),
                 project,
+                memory_store,
+                semantic_index,
+                is_indexing: is_indexing_rx,
                 prompt_store,
+                _maintain_semantic_index: maintain_semantic_index,
                 fs,
                 _subscriptions: subscriptions,
             }
         }))
+    }
+
+    pub fn status(&self) -> NativeAgentStatus {
+        let memories = self.memory_store.recall_sync("", None, 1000);
+        NativeAgentStatus {
+            long_term_memory_count: memories.iter().filter(|m| m.category != crate::memory_store::MemoryCategory::Notes).count(),
+            short_term_memory_count: memories.iter().filter(|m| m.category == crate::memory_store::MemoryCategory::Notes).count(),
+            index_count: self.semantic_index.read().symbol_count(),
+            is_indexing: *self.is_indexing.clone().borrow(),
+        }
+    }
+
+    pub fn add_long_term_memory(&self, content: String) -> Task<Result<()>> {
+        log::info!("Attempting to save long-term memory: {}", content);
+        let memory = crate::memory_store::Memory {
+            id: uuid::Uuid::new_v4(),
+            category: crate::memory_store::MemoryCategory::Architecture,
+            content,
+            metadata: serde_json::Value::Null,
+            created_at: chrono::Utc::now(),
+            last_accessed: chrono::Utc::now(),
+        };
+        self.memory_store.remember(memory)
     }
 
     fn register_session(
@@ -752,6 +809,8 @@ impl NativeAgent {
                         this.project_context.clone(),
                         this.context_server_registry.clone(),
                         this.templates.clone(),
+                        this.memory_store.clone(),
+                        this.semantic_index.clone(),
                         cx,
                     );
                     thread.set_summarization_model(summarization_model, cx);
@@ -923,6 +982,14 @@ impl NativeAgent {
 pub struct NativeAgentConnection(pub Entity<NativeAgent>);
 
 impl NativeAgentConnection {
+    pub fn status(&self, cx: &App) -> NativeAgentStatus {
+        self.0.read(cx).status()
+    }
+
+    pub fn add_long_term_memory(&self, content: String, cx: &mut App) -> Task<Result<()>> {
+        self.0.update(cx, |this, _| this.add_long_term_memory(content))
+    }
+
     pub fn thread(&self, session_id: &acp::SessionId, cx: &App) -> Option<Entity<Thread>> {
         self.0
             .read(cx)
@@ -1093,11 +1160,7 @@ impl acp_thread::AgentModelSelector for NativeAgentModelSelector {
     fn list_models(&self, cx: &mut App) -> Task<Result<acp_thread::AgentModelList>> {
         log::debug!("NativeAgentConnection::list_models called");
         let list = self.connection.0.read(cx).models.model_list.clone();
-        Task::ready(if list.is_empty() {
-            Err(anyhow::anyhow!("No models available"))
-        } else {
-            Ok(list)
-        })
+        Task::ready(Ok(list))
     }
 
     fn select_model(&self, model_id: acp::ModelId, cx: &mut App) -> Task<Result<()>> {
@@ -1212,6 +1275,8 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
                         agent.project_context.clone(),
                         agent.context_server_registry.clone(),
                         agent.templates.clone(),
+                        agent.memory_store.clone(),
+                        agent.semantic_index.clone(),
                         default_model,
                         cx,
                     )
@@ -1370,6 +1435,11 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
     fn session_list(&self, cx: &mut App) -> Option<Rc<dyn AgentSessionList>> {
         let thread_store = self.0.read(cx).thread_store.clone();
         Some(Rc::new(NativeAgentSessionList::new(thread_store, cx)) as _)
+    }
+
+    fn status(&self, cx: &App) -> Option<Task<Result<serde_json::Value>>> {
+        let status = self.0.read(cx).status();
+        Some(Task::ready(Ok(serde_json::to_value(status).unwrap())))
     }
 
     fn telemetry(&self) -> Option<Rc<dyn acp_thread::AgentTelemetry>> {
