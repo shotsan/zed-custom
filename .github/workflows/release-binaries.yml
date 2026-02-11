@@ -1,0 +1,153 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ./script/linux
+          sudo apt-get install -y gettext-base # for envsubst
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Build and Bundle
+        run: |
+          ./script/bundle-linux
+        env:
+          ZED_BUNDLE: "true"
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p dist
+          cp target/release/zed-linux-x86_64.tar.gz dist/
+          cp target/zed-remote-server-linux-x86_64.gz dist/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-linux
+          path: dist/*
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+
+      - name: Build and Bundle (x86_64)
+        run: |
+          ./script/bundle-mac x86_64-apple-darwin
+        env:
+          ZED_BUNDLE: "true"
+
+      - name: Build and Bundle (aarch64)
+        run: |
+          ./script/bundle-mac aarch64-apple-darwin
+        env:
+          ZED_BUNDLE: "true"
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p dist
+          cp target/x86_64-apple-darwin/release/Zed-x86_64.dmg dist/
+          cp target/aarch64-apple-darwin/release/Zed-aarch64.dmg dist/
+          cp target/zed-remote-server-macos-x86_64.gz dist/
+          cp target/zed-remote-server-macos-aarch64.gz dist/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-macos
+          path: dist/*
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup
+
+      - name: Build and Bundle
+        shell: pwsh
+        run: |
+          # Bypassing the CI check in bundle-windows.ps1 by unsetting CI
+          # This allows the script to skip mandatory Azure signing secrets
+          $env:CI = ""
+          
+          # Run the bundle script for x86_64
+          ./script/bundle-windows.ps1 -Architecture x86_64
+
+      - name: Prepare Artifacts
+        shell: pwsh
+        run: |
+          mkdir dist
+          # The setup file name depends on the version and architecture
+          # Using wildcard to be safe
+          cp target/Zed-x86_64.exe dist/
+          cp target/zed-remote-server-windows-x86_64.zip dist/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-windows
+          path: dist/*
+
+  release:
+    name: Create GitHub Release
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts directory
+        run: |
+          mkdir -p release-assets
+          # Collect all files from the various artifact folders
+          find artifacts -type f -exec cp {} release-assets/ \;
+          ls -R release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
