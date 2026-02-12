@@ -217,6 +217,7 @@ dependencies = [
  "text",
  "theme",
  "thiserror 2.0.17",
+ "tokio",
  "tree-sitter-rust",
  "ui",
  "unindent",

@@ -92,7 +92,7 @@ impl AgentTool for DiagnosticsTool {
         input: Self::Input,
         event_stream: ToolCallEventStream,
         cx: &mut App,
-    ) -> Task<Result<Self::Output>> {
+    ) -> Task<Result<Self::Output, anyhow::Error>> {
         match input.path {
             Some(path) if !path.is_empty() => {
                 let Some(project_path) = self.project.read(cx).find_project_path(&path, cx) else {

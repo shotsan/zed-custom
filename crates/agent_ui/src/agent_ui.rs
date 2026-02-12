@@ -143,6 +143,8 @@ actions!(
         OpenPermissionDropdown,
         /// Toggles thinking mode for models that support extended thinking.
         ToggleThinkingMode,
+        /// Opens a modal to teach a new project rule.
+        TeachRule,
     ]
 );
 

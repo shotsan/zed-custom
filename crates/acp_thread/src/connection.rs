@@ -141,6 +141,10 @@ pub trait AgentConnection {
         None
     }
 
+    fn status(&self, _cx: &App) -> Option<Task<Result<serde_json::Value>>> {
+        None
+    }
+
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 }
 

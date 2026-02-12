@@ -1,0 +1,71 @@
+# Python Development Rules
+
+This file contains coding guidelines and best practices for Python development in this project.
+
+## Code Style
+
+- Follow PEP 8 style guide
+- Use type hints for function signatures and class attributes
+- Maximum line length: 88 characters (Black formatter default)
+- Use meaningful variable and function names (snake_case)
+- Use docstrings for modules, classes, and functions
+
+## Type Hints and Annotations
+
+- Use type hints for all function parameters and return values
+- Use `Optional[T]` for values that may be None
+- Use `Union[T1, T2]` for values that can be multiple types
+- Use `List[T]`, `Dict[K, V]`, `Set[T]` for collections
+- Consider using `TypedDict` for structured dictionaries
+
+## Error Handling
+
+- Use specific exception types, not bare `except:`
+- Raise exceptions for exceptional circumstances
+- Use context managers (`with` statement) for resource management
+- Document which exceptions a function may raise
+
+## Modern Python Features
+
+- Use f-strings for string formatting: `f"Hello {name}"`
+- Use list/dict/set comprehensions when appropriate
+- Use `pathlib.Path` instead of `os.path` for file operations
+- Use `dataclasses` or `attrs` for data containers
+- Use `Enum` for constants and enumerated values
+
+## Functions and Classes
+
+- Keep functions small and focused (single responsibility)
+- Use `@property` for computed attributes
+- Use `@staticmethod` and `@classmethod` appropriately
+- Prefer composition over inheritance
+- Use `__slots__` for memory-efficient classes
+
+## Async Programming
+
+- Use `async`/`await` for I/O-bound operations
+- Use `asyncio.gather()` for concurrent tasks
+- Use `asyncio.create_task()` to run tasks in background
+- Avoid blocking calls in async functions
+
+## Testing
+
+- Write unit tests using `pytest`
+- Use fixtures for test setup
+- Aim for high test coverage (>80%)
+- Use `pytest.mark.parametrize` for testing multiple cases
+
+## Dependencies
+
+- Use `requirements.txt` or `pyproject.toml` for dependencies
+- Pin dependency versions for reproducibility
+- Use virtual environments (`venv` or `conda`)
+- Keep dependencies minimal and up-to-date
+
+## Performance
+
+- Profile before optimizing (`cProfile`, `line_profiler`)
+- Use generators for large datasets
+- Use `__slots__` for memory efficiency
+- Consider `numpy` for numerical computations
+- Use `lru_cache` for expensive function calls

@@ -67,6 +67,7 @@ task.workspace = true
 telemetry.workspace = true
 text.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 ui.workspace = true
 url.workspace = true
 util.workspace = true

@@ -1,3 +1,4 @@
+use crate::MemoryDatabase;
 use acp_thread::{AcpThread, AgentConnection, UserMessageId};
 use action_log::ActionLog;
 use agent_client_protocol as acp;
@@ -20,8 +21,9 @@ use util::ResultExt;
 use watch;
 
 use crate::{
-    AgentTool, AnyAgentTool, ContextServerRegistry, MAX_PARALLEL_SUBAGENTS, MAX_SUBAGENT_DEPTH,
-    SubagentContext, Templates, Thread, ThreadEvent, ToolCallAuthorization, ToolCallEventStream,
+    AgentTool, AnyAgentTool, ContextServerRegistry, MemoryStore, semantic_search::SemanticIndex,
+    MAX_PARALLEL_SUBAGENTS, MAX_SUBAGENT_DEPTH, SubagentContext, Templates, Thread, ThreadEvent,
+    ToolCallAuthorization, ToolCallEventStream,
 };
 
 /// When a subagent's remaining context window falls below this fraction (25%),
@@ -91,6 +93,8 @@ pub struct SubagentTool {
     project_context: Entity<ProjectContext>,
     context_server_registry: Entity<ContextServerRegistry>,
     templates: Arc<Templates>,
+    memory_store: Arc<MemoryStore>,
+    semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
     current_depth: u8,
     /// The tools available to the parent thread, captured before SubagentTool was added.
     /// Subagents inherit from this set (or a subset via `allowed_tools` in the config).
@@ -105,6 +109,8 @@ impl SubagentTool {
         project_context: Entity<ProjectContext>,
         context_server_registry: Entity<ContextServerRegistry>,
         templates: Arc<Templates>,
+        memory_store: Arc<MemoryStore>,
+        semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
         current_depth: u8,
         parent_tools: BTreeMap<SharedString, Arc<dyn AnyAgentTool>>,
     ) -> Self {
@@ -114,9 +120,38 @@ impl SubagentTool {
             project_context,
             context_server_registry,
             templates,
+            memory_store,
+            semantic_index,
             current_depth,
             parent_tools,
         }
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn new_for_test(
+        parent_thread: WeakEntity<Thread>,
+        project: Entity<Project>,
+        project_context: Entity<ProjectContext>,
+        context_server_registry: Entity<ContextServerRegistry>,
+        templates: Arc<Templates>,
+        current_depth: u8,
+        parent_tools: BTreeMap<SharedString, Arc<dyn AnyAgentTool>>,
+    ) -> Self {
+        let connection = sqlez::connection::Connection::open_memory(None);
+        let db = Arc::new(MemoryDatabase::new(gpui::BackgroundExecutor::new(std::sync::Arc::new(gpui::TestDispatcher::new(0))), connection).unwrap());
+        let memory_store = Arc::new(MemoryStore::new(db, std::path::PathBuf::from("/test")));
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+        Self::new(
+            parent_thread,
+            project,
+            project_context,
+            context_server_registry,
+            templates,
+            memory_store,
+            semantic_index,
+            current_depth,
+            parent_tools,
+        )
     }
 
     pub fn validate_allowed_tools(&self, allowed_tools: &Option<Vec<String>>) -> Result<()> {
@@ -241,6 +276,8 @@ impl AgentTool for SubagentTool {
                     project_context.clone(),
                     context_server_registry.clone(),
                     templates.clone(),
+                    self.memory_store.clone(),
+                    self.semantic_index.clone(),
                     model.clone(),
                     subagent_context,
                     subagent_tools,
@@ -594,5 +631,13 @@ impl AgentConnection for SubagentDisplayConnection {
 
     fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
         self
+    }
+
+    fn session_list(&self, _cx: &mut App) -> Option<Rc<dyn acp_thread::AgentSessionList>> {
+        None
+    }
+
+    fn status(&self, _cx: &App) -> Option<Task<Result<serde_json::Value>>> {
+        None
     }
 }

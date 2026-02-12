@@ -669,6 +669,9 @@ mod tests {
     use prompt_store::ProjectContext;
     use serde_json::json;
     use settings::SettingsStore;
+    use crate::memory_store::{MemoryDatabase, MemoryStore};
+    use crate::semantic_search::SemanticIndex;
+    use sqlez::connection::Connection;
     use util::{path, rel_path::rel_path};
 
     #[gpui::test]
@@ -682,12 +685,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model),
                 cx,
             )
@@ -878,12 +889,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1019,12 +1038,20 @@ mod tests {
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let language_registry = project.read_with(cx, |project, _cx| project.languages().clone());
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1152,12 +1179,20 @@ mod tests {
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let language_registry = project.read_with(cx, |project, _cx| project.languages().clone());
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1293,12 +1328,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1406,12 +1449,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry.clone(),
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1491,12 +1542,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry.clone(),
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1581,12 +1640,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry.clone(),
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1666,12 +1733,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1751,12 +1826,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry.clone(),
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1865,12 +1948,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -1962,12 +2053,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -2076,12 +2175,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
@@ -2187,12 +2294,20 @@ mod tests {
         let context_server_registry =
             cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
         let model = Arc::new(FakeLanguageModel::default());
+        let memory_db = MemoryDatabase::new(cx.executor(), Connection::open_memory(None)).unwrap();
+
+        let memory_store = Arc::new(MemoryStore::new(Arc::new(memory_db), "/root".into()));
+
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
         let thread = cx.new(|cx| {
             Thread::new(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 context_server_registry,
                 Templates::new(),
+                memory_store,
+                semantic_index,
                 Some(model.clone()),
                 cx,
             )
