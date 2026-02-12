@@ -39,6 +39,18 @@ pub struct SystemPromptTemplate<'a> {
     pub project: &'a prompt_store::ProjectContext,
     pub available_tools: Vec<SharedString>,
     pub model_name: Option<String>,
+    #[serde(default)]
+    pub has_cpp_files: bool,
+    #[serde(default)]
+    pub has_python_files: bool,
+    #[serde(default)]
+    pub memories: Vec<MemoryContext>,
+}
+
+#[derive(Serialize)]
+pub struct MemoryContext {
+    pub category: String,
+    pub content: String,
 }
 
 impl Template for SystemPromptTemplate<'_> {
@@ -81,6 +93,9 @@ mod tests {
             project: &project,
             available_tools: vec!["echo".into()],
             model_name: Some("test-model".to_string()),
+            has_cpp_files: false,
+            has_python_files: false,
+            memories: Vec::new(),
         };
         let templates = Templates::new();
         let rendered = template.render(&templates).unwrap();

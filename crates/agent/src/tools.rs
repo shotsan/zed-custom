@@ -1,4 +1,5 @@
 mod context_server_registry;
+mod context_tool;
 mod copy_path_tool;
 mod create_directory_tool;
 mod delete_path_tool;
@@ -8,6 +9,7 @@ mod fetch_tool;
 mod find_path_tool;
 mod grep_tool;
 mod list_directory_tool;
+mod memory_tools;
 mod move_path_tool;
 mod now_tool;
 mod open_tool;
@@ -26,6 +28,7 @@ use gpui::App;
 use language_model::{LanguageModelRequestTool, LanguageModelToolSchemaFormat};
 
 pub use context_server_registry::*;
+pub use context_tool::*;
 pub use copy_path_tool::*;
 pub use create_directory_tool::*;
 pub use delete_path_tool::*;
@@ -35,6 +38,7 @@ pub use fetch_tool::*;
 pub use find_path_tool::*;
 pub use grep_tool::*;
 pub use list_directory_tool::*;
+pub use memory_tools::*;
 pub use move_path_tool::*;
 pub use now_tool::*;
 pub use open_tool::*;
@@ -111,4 +115,7 @@ tools! {
     TerminalTool,
     ThinkingTool,
     WebSearchTool,
+    ContextTool,
+    RememberTool,
+    RecallTool,
 }

@@ -1,3 +1,4 @@
+use super::MemoryManagerModal;
 use acp_thread::{
     AcpThread, AcpThreadEvent, AgentSessionInfo, AgentThreadEntry, AssistantMessage,
     AssistantMessageChunk, AuthRequired, LoadError, MentionUri, PermissionOptionChoice,
@@ -6,7 +7,9 @@ use acp_thread::{
 };
 use acp_thread::{AgentConnection, Plan};
 use action_log::{ActionLog, ActionLogTelemetry};
-use agent::{NativeAgentServer, NativeAgentSessionList, SharedThread, ThreadStore};
+use agent::{
+    NativeAgentServer, NativeAgentSessionList, NativeAgentStatus, SharedThread, ThreadStore,
+};
 use agent_client_protocol::{self as acp, PromptCapabilities};
 use agent_servers::{AgentServer, AgentServerDelegate};
 use agent_settings::{AgentProfileId, AgentSettings};
@@ -28,7 +31,7 @@ use file_icons::FileIcons;
 use fs::Fs;
 use futures::FutureExt as _;
 use gpui::{
-    Action, Animation, AnimationExt, AnyView, App, ClickEvent, ClipboardItem, CursorStyle,
+    Action, Animation, AnimationExt, AnyView, App, AsyncWindowContext, ClickEvent, ClipboardItem, CursorStyle,
     ElementId, Empty, Entity, FocusHandle, Focusable, Hsla, ListOffset, ListState, ObjectFit,
     PlatformDisplay, ScrollHandle, SharedString, Subscription, Task, TextStyle, WeakEntity, Window,
     WindowHandle, div, ease_in_out, img, linear_color_stop, linear_gradient, list, point,
@@ -81,8 +84,9 @@ use crate::{
     CycleFavoriteModels, CycleModeSelector, EditFirstQueuedMessage, ExpandMessageEditor,
     ExternalAgentInitialContent, Follow, KeepAll, NewThread, OpenAddContextMenu, OpenAgentDiff,
     OpenHistory, RejectAll, RejectOnce, RemoveFirstQueuedMessage, SelectPermissionGranularity,
-    SendImmediately, SendNextQueuedMessage, ToggleProfileSelector, ToggleThinkingMode,
+    SendImmediately, SendNextQueuedMessage, TeachRule, ToggleProfileSelector, ToggleThinkingMode,
 };
+use super::teach_rule_modal::TeachRuleModal;
 
 const STOPWATCH_THRESHOLD: Duration = Duration::from_secs(30);
 const TOKEN_THRESHOLD: u64 = 250;
@@ -347,6 +351,8 @@ pub struct AcpThreadView {
     show_codex_windows_warning: bool,
     in_flight_prompt: Option<Vec<acp::ContentBlock>>,
     add_context_menu_handle: PopoverMenuHandle<ContextMenu>,
+    status: Option<NativeAgentStatus>,
+    last_status_refresh: Option<std::time::Instant>,
 }
 
 impl AcpThreadView {
@@ -473,6 +479,24 @@ impl AcpThreadView {
             && project.read(cx).is_local()
             && agent.clone().downcast::<agent_servers::Codex>().is_some();
 
+        cx.spawn_in(window, |this: WeakEntity<Self>, mut cx: &mut AsyncWindowContext| {
+            let mut cx = cx.clone();
+            async move {
+            loop {
+                // Wait for 1 second
+                cx.background_executor().timer(std::time::Duration::from_secs(1)).await;
+                
+                // Update using update_in
+                 let update_result = this.update_in(&mut cx, |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                      this.refresh_status(window, cx);
+                 });
+                    
+                 if update_result.is_err() {
+                      break;
+                 }
+            }
+        }}).detach();
+
         // Create SlashCommandRegistry to cache user-defined slash commands and watch for changes
         let slash_command_registry = if cx.has_flag::<UserSlashCommandsFeatureFlag>() {
             let fs = project.read(cx).fs().clone();
@@ -551,6 +575,8 @@ impl AcpThreadView {
             show_codex_windows_warning,
             in_flight_prompt: None,
             add_context_menu_handle: PopoverMenuHandle::default(),
+            status: None,
+            last_status_refresh: None,
         }
     }
 
@@ -6266,6 +6292,9 @@ impl AcpThreadView {
                         h_flex()
                             .gap_0p5()
                             .child(self.render_add_context_button(cx))
+                            .child(self.render_teach_rule_button(cx))
+                            .child(self.render_memories_button(cx))
+                            .child(self.render_native_agent_status(cx))
                             .child(self.render_follow_toggle(cx))
                             .children(self.render_thinking_toggle(cx)),
                     )
@@ -6421,6 +6450,7 @@ impl AcpThreadView {
     }
 
     fn sync_queued_message_editors(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.refresh_status(window, cx);
         let needed_count = self.queued_messages_len();
         let queued_messages = self.queued_message_contents();
 
@@ -7005,6 +7035,103 @@ impl AcpThreadView {
                     .update(cx, |this, cx| this.build_add_context_menu(window, cx))
                     .ok()
             })
+    }
+
+    fn render_teach_rule_button(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let focus_handle = self.message_editor.focus_handle(cx);
+        IconButton::new("teach-rule", IconName::ToolHammer)
+            .icon_size(IconSize::Medium)
+            .icon_color(Color::Accent)
+            .tooltip(move |_window, cx| {
+                Tooltip::for_action_in(
+                    "Teach a Rule",
+                    &TeachRule,
+                    &focus_handle,
+                    cx,
+                )
+            })
+            .on_click(cx.listener(|this, _, window, cx| {
+                this.show_teach_rule_dialog(window, cx);
+            }))
+    }
+
+    fn render_memories_button(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let rules_count = self
+            .status
+            .as_ref()
+            .map(|s| s.long_term_memory_count)
+            .unwrap_or(0);
+
+        div()
+            .relative()
+            .child(
+                IconButton::new("memories", IconName::Library)
+                    .icon_size(IconSize::Medium)
+                    .icon_color(Color::Accent)
+                    .tooltip(Tooltip::text("Project Memories & Rules"))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.show_memories_dialog(window, cx);
+                    })),
+            )
+            .when(rules_count > 0, |this| {
+                this.child(
+                    div()
+                        .absolute()
+                        .top_px()
+                        .right_px()
+                        .bg(cx.theme().colors().text_accent)
+                        .rounded_full()
+                        .size_2()
+                        .border_1()
+                        .border_color(cx.theme().colors().editor_background),
+                )
+            })
+    }
+
+    fn show_memories_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(thread) = self.as_native_thread(cx) {
+            self.workspace
+                .update(cx, |workspace, cx| {
+                    workspace.toggle_modal(window, cx, move |window, cx| {
+                        MemoryManagerModal::new(thread, window, cx)
+                    });
+                })
+                .ok();
+        }
+    }
+
+    fn render_native_agent_status(&self, _cx: &mut Context<Self>) -> impl IntoElement {
+        let Some(status) = &self.status else {
+            return h_flex();
+        };
+
+        let label = if status.is_indexing {
+            format!("Indexing ({} symbols)...", status.index_count)
+        } else {
+            format!("{} symbols indexed", status.index_count)
+        };
+
+        h_flex()
+            .gap_1()
+            .ml_1()
+            .child(
+                Label::new(label)
+                    .size(LabelSize::XSmall)
+                    .color(Color::Muted),
+            )
+            .when(status.is_indexing, |this| this.child(Label::new("Indexing...").size(LabelSize::XSmall).color(Color::Accent)))
+    }
+
+    fn show_teach_rule_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(thread) = self.as_native_thread(cx) {
+            self.workspace
+                .update(cx, |workspace, cx| {
+                    workspace.toggle_modal(window, cx, move |window, cx| {
+                        TeachRuleModal::new(thread, window, cx)
+                    });
+                })
+                .ok();
+        }
     }
 
     fn build_add_context_menu(
@@ -8130,6 +8257,26 @@ impl AcpThreadView {
         self.refresh_cached_user_commands_from_registry(&registry, cx);
     }
 
+    fn refresh_status(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(last_refresh) = self.last_status_refresh {
+            if last_refresh.elapsed() < std::time::Duration::from_secs(2) {
+                return;
+            }
+        }
+        self.last_status_refresh = Some(std::time::Instant::now());
+
+        if let Some(conn) = self.as_native_connection(cx) {
+            let status = conn.status(cx);
+            cx.spawn_in(window, async move |this: WeakEntity<Self>, cx| {
+                this.update(cx, |this: &mut Self, cx: &mut Context<Self>| {
+                    this.status = Some(status);
+                    cx.notify();
+                }).ok();
+            }).detach();
+        }
+    }
+
+
     fn refresh_cached_user_commands_from_registry(
         &mut self,
         registry: &Entity<SlashCommandRegistry>,
@@ -8570,6 +8717,9 @@ impl Render for AcpThreadView {
             .on_action(cx.listener(Self::handle_select_permission_granularity))
             .on_action(cx.listener(Self::open_permission_dropdown))
             .on_action(cx.listener(Self::open_add_context_menu))
+            .on_action(cx.listener(|this, _: &TeachRule, window, cx| {
+                this.show_teach_rule_dialog(window, cx);
+            }))
             .on_action(cx.listener(|this, _: &ToggleThinkingMode, _window, cx| {
                 if let Some(thread) = this.as_native_thread(cx) {
                     thread.update(cx, |thread, cx| {

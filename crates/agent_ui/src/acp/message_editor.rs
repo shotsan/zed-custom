@@ -1382,6 +1382,12 @@ impl MessageEditor {
             editor.set_text(text, window, cx);
         });
     }
+
+    pub fn insert_text(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.editor.update(cx, |editor, cx| {
+            editor.insert(text, window, cx);
+        });
+    }
 }
 
 impl Focusable for MessageEditor {

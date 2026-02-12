@@ -39,7 +39,7 @@ async fn test_edit_file_tool_in_thread_context(cx: &mut TestAppContext) {
     let fake_model = model.as_fake();
 
     let thread = cx.new(|cx| {
-        let mut thread = crate::Thread::new(
+        let mut thread = crate::Thread::new_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -249,7 +249,7 @@ async fn test_subagent_uses_read_file_tool(cx: &mut TestAppContext) {
         let action_log = cx.new(|_| ActionLog::new(project.clone()));
         // Create a "fake" parent thread reference - this should get rebound
         let fake_parent_thread = cx.new(|cx| {
-            crate::Thread::new(
+            crate::Thread::new_for_test(
                 project.clone(),
                 cx.new(|_cx| ProjectContext::default()),
                 cx.new(|cx| crate::ContextServerRegistry::new(context_server_store.clone(), cx)),
@@ -270,7 +270,7 @@ async fn test_subagent_uses_read_file_tool(cx: &mut TestAppContext) {
 
     // Create subagent - tools should be rebound to use subagent's thread
     let subagent = cx.new(|cx| {
-        crate::Thread::new_subagent(
+        crate::Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -396,7 +396,7 @@ async fn test_subagent_uses_edit_file_tool(cx: &mut TestAppContext) {
 
     // Create a "parent" thread to simulate the real scenario where tools are inherited
     let parent_thread = cx.new(|cx| {
-        crate::Thread::new(
+        crate::Thread::new_for_test(
             project.clone(),
             cx.new(|_cx| ProjectContext::default()),
             cx.new(|cx| crate::ContextServerRegistry::new(context_server_store.clone(), cx)),
@@ -442,7 +442,7 @@ async fn test_subagent_uses_edit_file_tool(cx: &mut TestAppContext) {
 
     // Create subagent - tools should be rebound to use subagent's thread
     let subagent = cx.new(|cx| {
-        crate::Thread::new_subagent(
+        crate::Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,

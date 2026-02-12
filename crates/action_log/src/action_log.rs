@@ -797,6 +797,31 @@ impl ActionLog {
             })
             .map(|(buffer, _)| buffer)
     }
+
+    pub fn log_chat_interaction(&self, direction: &str, content: String, cx: &App) {
+        if let Some(worktree) = self.project.read(cx).visible_worktrees(cx).next() {
+            let worktree_path = worktree.read(cx).abs_path().to_path_buf();
+            let direction = direction.to_string();
+
+            cx.background_executor().spawn(async move {
+                let log_dir = worktree_path.join(".zed").join("agent_logs");
+                let log_file = log_dir.join("traffic.md");
+
+                _ = std::fs::create_dir_all(&log_dir);
+
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                let log_entry = format!("\n# {} [Timestamp: {}]\n{}\n", direction, timestamp, content);
+
+                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_file) {
+                    use std::io::Write;
+                    _ = file.write_all(log_entry.as_bytes());
+                }
+            }).detach();
+        }
+    }
 }
 
 #[derive(Clone)]

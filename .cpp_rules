@@ -1,0 +1,68 @@
+# C/C++ Development Rules
+
+This file contains coding guidelines and best practices for C/C++ development in this project.
+
+## Code Style
+
+- Follow modern C++ standards (C++20/23 when possible)
+- Use clang-format for consistent formatting
+- Maximum line length: 100 characters
+- Use meaningful variable and function names
+- Prefer explicit over implicit
+
+## Memory Safety
+
+- **Always use RAII patterns** for resource management
+- Avoid manual `new`/`delete` - use smart pointers instead
+- Use `std::unique_ptr` for exclusive ownership
+- Use `std::shared_ptr` for shared ownership  
+- Use `std::weak_ptr` to break circular references
+- Prefer stack allocation over heap when possible
+
+## Modern C++ Features
+
+- Use `nullptr` instead of `NULL` or `0`
+- Use `auto` for type deduction when it improves readability
+- Use range-based for loops: `for (const auto& item : container)`
+- Use `constexpr` for compile-time computation
+- Leverage move semantics with `std::move` for large objects
+- Use structured bindings: `auto [key, value] = map.find(...)`
+
+## Containers and Algorithms
+
+- Prefer STL containers over C-style arrays
+- Use `std::array` for fixed-size arrays
+- Use `std::vector` for dynamic arrays
+- Use STL algorithms (`std::find`, `std::transform`, etc.) over manual loops
+- Use `std::string_view` for non-owning string references
+
+## Error Handling
+
+- Use exceptions for exceptional circumstances
+- Use `std::optional` for values that may not exist
+- Use `std::expected` (C++23) or custom Result types for operations that may fail
+- Document which exceptions a function may throw
+
+## Performance
+
+- Profile before optimizing
+- Use `const` and `constexpr` liberally
+- Pass large objects by const reference
+- Return large objects by value (rely on RVO/NRVO)
+- Use `std::move` when transferring ownership
+- Consider `noexcept` for functions that don't throw
+
+## Threading and Concurrency
+
+- Use `std::thread`, `std::async`, or thread pools
+- Protect shared data with `std::mutex` or `std::shared_mutex`
+- Use `std::lock_guard` or `std::scoped_lock` for RAII mutex locking
+- Prefer `std::atomic` for simple atomic operations
+- Use `std::condition_variable` for thread synchronization
+
+## Build System
+
+- Use CMake as the build system
+- Organize code into logical libraries/modules
+- Enable all warnings: `-Wall -Wextra -Wpedantic`
+- Treat warnings as errors in CI: `-Werror`

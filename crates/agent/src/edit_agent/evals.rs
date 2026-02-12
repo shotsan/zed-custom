@@ -1522,6 +1522,9 @@ impl EditAgentTest {
                 project: &project_context,
                 available_tools: tool_names,
                 model_name: None,
+                has_cpp_files: false,
+                has_python_files: false,
+                memories: Vec::new(),
             };
             let templates = Templates::new();
             template.render(&templates).unwrap()

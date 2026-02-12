@@ -3220,6 +3220,8 @@ struct ThreadTest {
     thread: Entity<Thread>,
     project_context: Entity<ProjectContext>,
     context_server_store: Entity<ContextServerStore>,
+    _memory_store: Arc<MemoryStore>,
+    _semantic_index: Arc<parking_lot::RwLock<SemanticIndex>>,
     fs: Arc<FakeFs>,
 }
 
@@ -3295,6 +3297,11 @@ async fn setup(cx: &mut TestAppContext, model: TestModel) -> ThreadTest {
     fs.insert_tree(path!("/test"), json!({})).await;
     let project = Project::test(fs.clone(), [path!("/test").as_ref()], cx).await;
 
+    let connection = sqlez::connection::Connection::open_memory(Some("test_memory_db"));
+    let db = Arc::new(MemoryDatabase::new(cx.executor(), connection).unwrap());
+    let memory_store = Arc::new(MemoryStore::new(db, std::path::PathBuf::from("/test")));
+    let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+
     let model = cx
         .update(|cx| {
             if let TestModel::Fake = model {
@@ -3328,6 +3335,8 @@ async fn setup(cx: &mut TestAppContext, model: TestModel) -> ThreadTest {
             project_context.clone(),
             context_server_registry,
             templates,
+            memory_store.clone(),
+            semantic_index.clone(),
             Some(model.clone()),
             cx,
         )
@@ -3337,6 +3346,8 @@ async fn setup(cx: &mut TestAppContext, model: TestModel) -> ThreadTest {
         thread,
         project_context,
         context_server_store,
+        _memory_store: memory_store,
+        _semantic_index: semantic_index,
         fs,
     }
 }
@@ -3868,7 +3879,7 @@ async fn test_subagent_tool_is_present_when_feature_flag_enabled(cx: &mut TestAp
     let environment = Rc::new(FakeThreadEnvironment { handle });
 
     let thread = cx.new(|cx| {
-        let mut thread = Thread::new(
+        let mut thread = Thread::new_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -3914,7 +3925,7 @@ async fn test_subagent_thread_inherits_parent_model(cx: &mut TestAppContext) {
     };
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -3962,7 +3973,7 @@ async fn test_max_subagent_depth_prevents_tool_registration(cx: &mut TestAppCont
     let environment = Rc::new(FakeThreadEnvironment { handle });
 
     let deep_subagent = cx.new(|cx| {
-        let mut thread = Thread::new_subagent(
+        let mut thread = Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4009,7 +4020,7 @@ async fn test_subagent_receives_task_prompt(cx: &mut TestAppContext) {
         cx.new(|cx| ContextServerRegistry::new(context_server_store.clone(), cx));
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4068,7 +4079,7 @@ async fn test_subagent_returns_summary_on_completion(cx: &mut TestAppContext) {
         cx.new(|cx| ContextServerRegistry::new(context_server_store.clone(), cx));
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4143,7 +4154,7 @@ async fn test_allowed_tools_restricts_subagent_capabilities(cx: &mut TestAppCont
     };
 
     let subagent = cx.new(|cx| {
-        let mut thread = Thread::new_subagent(
+        let mut thread = Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4206,7 +4217,7 @@ async fn test_parent_cancel_stops_subagent(cx: &mut TestAppContext) {
     let model = Arc::new(FakeLanguageModel::default());
 
     let parent = cx.new(|cx| {
-        Thread::new(
+        Thread::new_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4225,7 +4236,7 @@ async fn test_parent_cancel_stops_subagent(cx: &mut TestAppContext) {
     };
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4283,7 +4294,7 @@ async fn test_subagent_tool_cancellation(cx: &mut TestAppContext) {
     let model = Arc::new(FakeLanguageModel::default());
 
     let parent = cx.new(|cx| {
-        Thread::new(
+        Thread::new_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4297,7 +4308,7 @@ async fn test_subagent_tool_cancellation(cx: &mut TestAppContext) {
         std::collections::BTreeMap::new();
 
     #[allow(clippy::arc_with_non_send_sync)]
-    let tool = Arc::new(SubagentTool::new(
+    let tool = Arc::new(SubagentTool::new_for_test(
         parent.downgrade(),
         project.clone(),
         project_context,
@@ -4373,7 +4384,7 @@ async fn test_subagent_model_error_returned_as_tool_error(cx: &mut TestAppContex
         cx.new(|cx| ContextServerRegistry::new(context_server_store.clone(), cx));
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4432,7 +4443,7 @@ async fn test_subagent_timeout_triggers_early_summary(cx: &mut TestAppContext) {
         cx.new(|cx| ContextServerRegistry::new(context_server_store.clone(), cx));
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4514,7 +4525,7 @@ async fn test_context_low_check_returns_true_when_usage_high(cx: &mut TestAppCon
         cx.new(|cx| ContextServerRegistry::new(context_server_store.clone(), cx));
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4577,7 +4588,7 @@ async fn test_allowed_tools_rejects_unknown_tool(cx: &mut TestAppContext) {
     let model = Arc::new(FakeLanguageModel::default());
 
     let parent = cx.new(|cx| {
-        let mut thread = Thread::new(
+        let mut thread = Thread::new_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4596,7 +4607,7 @@ async fn test_allowed_tools_rejects_unknown_tool(cx: &mut TestAppContext) {
     parent_tools.insert("echo".into(), EchoTool.erase());
 
     #[allow(clippy::arc_with_non_send_sync)]
-    let tool = Arc::new(SubagentTool::new(
+    let tool = Arc::new(SubagentTool::new_for_test(
         parent.downgrade(),
         project,
         project_context,
@@ -4646,7 +4657,7 @@ async fn test_subagent_empty_response_handled(cx: &mut TestAppContext) {
         cx.new(|cx| ContextServerRegistry::new(context_server_store.clone(), cx));
 
     let subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4702,7 +4713,7 @@ async fn test_nested_subagent_at_depth_2_succeeds(cx: &mut TestAppContext) {
     };
 
     let depth_1_subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4728,7 +4739,7 @@ async fn test_nested_subagent_at_depth_2_succeeds(cx: &mut TestAppContext) {
     };
 
     let depth_2_subagent = cx.new(|cx| {
-        Thread::new_subagent(
+        Thread::new_subagent_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4787,7 +4798,7 @@ async fn test_subagent_uses_tool_and_returns_result(cx: &mut TestAppContext) {
     };
 
     let subagent = cx.new(|cx| {
-        let mut thread = Thread::new_subagent(
+        let mut thread = Thread::new_subagent_for_test(
             project.clone(),
             project_context,
             context_server_registry,
@@ -4863,7 +4874,7 @@ async fn test_max_parallel_subagents_enforced(cx: &mut TestAppContext) {
     let model = Arc::new(FakeLanguageModel::default());
 
     let parent = cx.new(|cx| {
-        Thread::new(
+        Thread::new_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4884,7 +4895,7 @@ async fn test_max_parallel_subagents_enforced(cx: &mut TestAppContext) {
         };
 
         let subagent = cx.new(|cx| {
-            Thread::new_subagent(
+            Thread::new_subagent_for_test(
                 project.clone(),
                 project_context.clone(),
                 context_server_registry.clone(),
@@ -4914,7 +4925,7 @@ async fn test_max_parallel_subagents_enforced(cx: &mut TestAppContext) {
         std::collections::BTreeMap::new();
 
     #[allow(clippy::arc_with_non_send_sync)]
-    let tool = Arc::new(SubagentTool::new(
+    let tool = Arc::new(SubagentTool::new_for_test(
         parent.downgrade(),
         project.clone(),
         project_context,
@@ -4971,7 +4982,7 @@ async fn test_subagent_tool_end_to_end(cx: &mut TestAppContext) {
     let fake_model = model.as_fake();
 
     let parent = cx.new(|cx| {
-        let mut thread = Thread::new(
+        let mut thread = Thread::new_for_test(
             project.clone(),
             project_context.clone(),
             context_server_registry.clone(),
@@ -4990,7 +5001,7 @@ async fn test_subagent_tool_end_to_end(cx: &mut TestAppContext) {
     parent_tools.insert("echo".into(), EchoTool.erase());
 
     #[allow(clippy::arc_with_non_send_sync)]
-    let tool = Arc::new(SubagentTool::new(
+    let tool = Arc::new(SubagentTool::new_for_test(
         parent.downgrade(),
         project.clone(),
         project_context,
@@ -5106,7 +5117,7 @@ async fn test_edit_file_tool_deny_rule_blocks_edit(cx: &mut TestAppContext) {
     let language_registry = project.read_with(cx, |project, _cx| project.languages().clone());
     let templates = crate::Templates::new();
     let thread = cx.new(|cx| {
-        crate::Thread::new(
+        crate::Thread::new_for_test(
             project.clone(),
             cx.new(|_cx| prompt_store::ProjectContext::default()),
             context_server_registry,
@@ -5535,7 +5546,7 @@ async fn test_edit_file_tool_allow_rule_skips_confirmation(cx: &mut TestAppConte
     let language_registry = project.read_with(cx, |project, _cx| project.languages().clone());
     let templates = crate::Templates::new();
     let thread = cx.new(|cx| {
-        crate::Thread::new(
+        crate::Thread::new_for_test(
             project.clone(),
             cx.new(|_cx| prompt_store::ProjectContext::default()),
             context_server_registry,
