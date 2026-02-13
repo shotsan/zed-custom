@@ -79,50 +79,9 @@ jobs:
           name: zed-macos
           path: dist/*
 
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Install Inno Setup
-        run: |
-          choco install innosetup
-
-      - name: Build and Bundle
-        shell: pwsh
-        run: |
-          # Bypassing the CI check in bundle-windows.ps1 by unsetting CI
-          # This allows the script to skip mandatory Azure signing secrets
-          $env:CI = ""
-          
-          # Run the bundle script for x86_64
-          ./script/bundle-windows.ps1 -Architecture x86_64
-
-      - name: Prepare Artifacts
-        shell: pwsh
-        run: |
-          mkdir dist
-          # The setup file name depends on the version and architecture
-          # Using wildcard to be safe
-          cp target/Zed-x86_64.exe dist/
-          cp target/zed-remote-server-windows-x86_64.zip dist/
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: zed-windows
-          path: dist/*
-
   release:
     name: Create GitHub Release
-    needs: [build-linux, build-macos, build-windows]
+    needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
