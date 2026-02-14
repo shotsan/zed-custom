@@ -26,6 +26,7 @@ agent_servers.workspace = true
 agent_settings.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
+chromiumoxide.workspace = true
 client.workspace = true
 cloud_api_types.workspace = true
 cloud_llm_client.workspace = true
@@ -38,6 +39,7 @@ fs.workspace = true
 futures.workspace = true
 git.workspace = true
 gpui.workspace = true
+gpui_tokio.workspace = true
 handlebars = { workspace = true, features = ["rust-embed"] }
 html_to_markdown.workspace = true
 http_client.workspace = true
@@ -55,6 +57,7 @@ prompt_store.workspace = true
 regex.workspace = true
 rust-embed.workspace = true
 schemars.workspace = true
+scraper.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 settings.workspace = true
@@ -67,7 +70,7 @@ task.workspace = true
 telemetry.workspace = true
 text.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["fs"] }
+tokio = { workspace = true, features = ["fs", "sync", "rt"] }
 ui.workspace = true
 url.workspace = true
 util.workspace = true

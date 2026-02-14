@@ -479,7 +479,7 @@ impl AcpThreadView {
             && project.read(cx).is_local()
             && agent.clone().downcast::<agent_servers::Codex>().is_some();
 
-        cx.spawn_in(window, |this: WeakEntity<Self>, mut cx: &mut AsyncWindowContext| {
+        cx.spawn_in(window, |this: WeakEntity<Self>, cx: &mut AsyncWindowContext| {
             let mut cx = cx.clone();
             async move {
             loop {

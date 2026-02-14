@@ -1,5 +1,5 @@
 use crate::{
-    ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
+    BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
     DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, FetchTool, FindPathTool, GrepTool,
     ListDirectoryTool, MemoryDatabase, MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
     ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SemanticIndex,
@@ -1396,6 +1396,7 @@ impl Thread {
             Templates::new(),
         ));
         self.add_tool(FetchTool::new(self.project.read(cx).client().http_client()));
+        self.add_tool(BrowserTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(FindPathTool::new(self.project.clone()));
         self.add_tool(GrepTool::new(self.project.clone()));
         self.add_tool(ListDirectoryTool::new(self.project.clone()));

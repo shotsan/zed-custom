@@ -499,6 +499,7 @@ brush-parser = "0.3"
 cfg-if = "1.0.3"
 chardetng = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
+chromiumoxide = { version = "0.8.0", default-features = false, features = ["tokio-runtime"] }
 ciborium = "0.2"
 circular-buffer = "1.0"
 clap = { version = "4.4", features = ["derive", "wrap_help"] }
@@ -641,6 +642,7 @@ rustls = { version = "0.23.26" }
 rustls-platform-verifier = "0.5.0"
 # WARNING: If you change this, you must also publish a new version of zed-scap to crates.io
 scap = { git = "https://github.com/zed-industries/scap", rev = "4afea48c3b002197176fb19cd0f9b180dd36eaac", default-features = false, package = "zed-scap", version = "0.0.8-zed" }
+scraper = "0.25.0"
 schemars = { version = "1.0", features = ["indexmap2"] }
 semver = { version = "1.0", features = ["serde"] }
 serde = { version = "1.0.221", features = ["derive", "rc"] }

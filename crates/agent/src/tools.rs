@@ -1,3 +1,4 @@
+mod browser_tool;
 mod context_server_registry;
 mod context_tool;
 mod copy_path_tool;
@@ -27,6 +28,7 @@ use feature_flags::{FeatureFlagAppExt, SubagentsFeatureFlag};
 use gpui::App;
 use language_model::{LanguageModelRequestTool, LanguageModelToolSchemaFormat};
 
+pub use browser_tool::*;
 pub use context_server_registry::*;
 pub use context_tool::*;
 pub use copy_path_tool::*;
@@ -96,6 +98,7 @@ macro_rules! tools {
 }
 
 tools! {
+    BrowserTool,
     CopyPathTool,
     CreateDirectoryTool,
     DeletePathTool,

@@ -66,6 +66,24 @@ Custom UI modals for managing agent memory and teaching custom rules.
 
 ---
 
+### 4. **Headless Web Browsing & Search**
+**Status:** ✅ Implemented
+
+Integrated a full headless Chrome engine for web browsing and a user-invokable search command.
+
+**Features:**
+- 🌐 **Headless Chrome**: Uses `chromiumoxide` to render JavaScript-heavy sites (React, SPAs, etc.)
+- 🔍 **Web Search**: `/search` slash command for instant DuckDuckGo results in the chat panel
+- 🔗 **Deep Dive**: Leverages `@fetch` mentions to pull rendered markdown from websites into context
+- ⚡ **Async Bridged**: Custom `gpui_tokio` integration for stable, non-blocking background browsing
+
+**Implementation:**
+- [`crates/agent/src/tools/browser_tool.rs`](crates/agent/src/tools/browser_tool.rs) - Headless Chrome engine
+- [`crates/assistant_slash_commands/src/search_command.rs`](crates/assistant_slash_commands/src/search_command.rs) - Search command logic
+- [`crates/agent_ui/src/acp/message_editor.rs`](crates/agent_ui/src/acp/message_editor.rs) - ACP panel integration
+
+---
+
 ## 🔧 Setup & Usage
 
 ### Building from Source
@@ -138,10 +156,12 @@ Same as [Zed](https://github.com/zed-industries/zed) - see their LICENSE files.
 | Background Indexing | Heavy CPU usage | ✅ Disabled (uses LSP) |
 | Memory Categories | N/A | ✅ 5 categories |
 | Cross-Session Context | ❌ | ✅ Yes |
+| Web Search (/search) | ❌ | ✅ Instant DuckDuckGo |
+| JS-Heavy Browsing | ❌ | ✅ Headless Chrome |
 
 ---
 
-**Last Updated:** 2026-02-09
+**Last Updated:** 2026-02-13
 # Zed
 
 [![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)
