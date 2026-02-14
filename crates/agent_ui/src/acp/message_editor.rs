@@ -11,6 +11,7 @@ use crate::{
     },
     user_slash_command::{self, CommandLoadError, UserSlashCommand},
 };
+use assistant_slash_commands::SearchSlashCommand;
 use acp_thread::{AgentSessionInfo, MentionUri};
 use agent::ThreadStore;
 use agent_client_protocol as acp;
@@ -524,6 +525,7 @@ impl MessageEditor {
             .update(cx, |store, cx| store.contents(full_mention_content, cx));
         let editor = self.editor.clone();
         let supports_embedded_context = self.prompt_capabilities.borrow().embedded_context;
+        let http_client = self.workspace.upgrade().map(|w| w.read(cx).client().http_client());
 
         cx.spawn(async move |_, cx| {
             let (mut user_commands, mut user_command_errors) = match user_slash_commands {
@@ -572,6 +574,34 @@ impl MessageEditor {
                 Ok(Some(expanded)) => return Ok((vec![expanded.into()], Vec::new())),
                 Err(err) => return Err(err),
                 Ok(None) => {} // Not a user command, continue with normal processing
+            }
+
+            // Intercept built-in /search command
+            if let Some(parsed) = user_slash_command::try_parse_user_command(&text) {
+                if parsed.name == "search" && !parsed.raw_arguments.is_empty() {
+                    if let Some(http_client) = http_client {
+                        let results = SearchSlashCommand::search(http_client, parsed.raw_arguments).await?;
+                        if !results.is_empty() {
+                            let mut text = String::new();
+                            for (index, result) in results.iter().enumerate() {
+                                text.push_str(&format!(
+                                    "{}. [{}]({})\n",
+                                    index + 1,
+                                    result.title,
+                                    result.url
+                                ));
+                                if !result.snippet.is_empty() {
+                                    text.push_str(&format!("   {}\n", result.snippet));
+                                }
+                                text.push('\n');
+                            }
+                            return Ok((
+                                vec![acp::ContentBlock::Text(acp::TextContent::new(text))],
+                                Vec::new(),
+                            ));
+                        }
+                    }
+                }
             }
 
             if let Err(err) = Self::validate_slash_commands(&text, &available_commands, &agent_name)
