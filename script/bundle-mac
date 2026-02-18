@@ -112,29 +112,43 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
     AVAILABLE_IDENTITIES=$(security find-identity -v -p codesigning zed.keychain)
     echo "$AVAILABLE_IDENTITIES"
     
-    if [[ -z "$IDENTITY" ]]; then
-        echo "MACOS_SIGNING_IDENTITY not set. Attempting auto-detection..."
-        # Extract the thumbprint (40 hex chars) of the first Developer ID Application
-        AUTO_ID=$(echo "$AVAILABLE_IDENTITIES" | grep "Developer ID Application" | head -n 1 | awk '{print $2}')
-        
-        if [[ -n "$AUTO_ID" ]]; then
-            echo "----------------------------------------------------------------"
-            echo "AUTO-DETECTED: Using identity '$AUTO_ID'"
-            echo "----------------------------------------------------------------"
-            IDENTITY="$AUTO_ID"
-        else
-            echo "Auto-detection failed. Falling back to default 'Zed Industries, Inc.'"
-            IDENTITY="Zed Industries, Inc."
-        fi
-    fi
+    # Normalize and clean up the identity string
+    IDENTITY=$(echo "$IDENTITY" | xargs | tr -d '\n\r')
     
-    if ! echo "$AVAILABLE_IDENTITIES" | grep -q "$IDENTITY"; then
-        echo "----------------------------------------------------------------"
-        echo "ERROR: Code signing identity '$IDENTITY' not found in keychain."
-        echo "Failing early to save build time (3 hours saved)."
-        echo "Please verify MACOS_SIGNING_IDENTITY or certificate validity."
-        echo "----------------------------------------------------------------"
-        exit 1
+    # Check if the requested identity exists in the valid list
+    if [[ -n "$IDENTITY" ]] && echo "$AVAILABLE_IDENTITIES" | grep -q "$IDENTITY"; then
+        echo "SUCCESS: Found specific identity '$IDENTITY'"
+    else
+        echo "Requested identity '$IDENTITY' not found or not set. Attempting auto-detection..."
+        # Strategy:
+        # 1. Look for any "Developer ID Application" identity
+        # 2. Prefer the one matching the requested string if it was a partial match
+        # 3. Otherwise pick the first one available
+        
+        MATCHING_ID=""
+        if [[ -n "$IDENTITY" ]]; then
+            # Try to find a thumbprint or name match in the identities list
+            MATCHING_ID=$(echo "$AVAILABLE_IDENTITIES" | grep -i "$IDENTITY" | head -n 1 | awk '{print $2}' || echo "")
+        fi
+        
+        if [[ -z "$MATCHING_ID" ]]; then
+            # Just pick the first Developer ID Application
+            MATCHING_ID=$(echo "$AVAILABLE_IDENTITIES" | grep "Developer ID Application" | head -n 1 | awk '{print $2}' || echo "")
+        fi
+
+        if [[ -n "$MATCHING_ID" ]]; then
+            echo "----------------------------------------------------------------"
+            echo "MATCHED: Using identity '$MATCHING_ID'"
+            echo "----------------------------------------------------------------"
+            IDENTITY="$MATCHING_ID"
+        else
+            echo "----------------------------------------------------------------"
+            echo "ERROR: No valid code signing identity found in keychain."
+            echo "Failing early to save build time (3 hours saved)."
+            echo "Please ensure your .p12 certificate is valid for 'Developer ID Application'."
+            echo "----------------------------------------------------------------"
+            exit 1
+        fi
     fi
     echo "SUCCESS: Identity verified. Starting build."
 
