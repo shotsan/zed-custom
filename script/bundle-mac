@@ -10,7 +10,7 @@ local_install=false
 can_code_sign=false
 
 # This must match the team in the provisioning profile.
-IDENTITY="${MACOS_SIGNING_IDENTITY:-Zed Industries, Inc.}"
+IDENTITY="${MACOS_SIGNING_IDENTITY:-}"
 APPLE_NOTARIZATION_TEAM="${APPLE_TEAM_ID:-MQ55VZLNZQ}"
 
 # Function for displaying help info
@@ -109,9 +109,26 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
 
     echo "Verifying signing identity existence..."
-    security find-identity -v -p codesigning zed.keychain
+    AVAILABLE_IDENTITIES=$(security find-identity -v -p codesigning zed.keychain)
+    echo "$AVAILABLE_IDENTITIES"
     
-    if ! security find-identity -v -p codesigning zed.keychain | grep -q "$IDENTITY"; then
+    if [[ -z "$IDENTITY" ]]; then
+        echo "MACOS_SIGNING_IDENTITY not set. Attempting auto-detection..."
+        # Extract the thumbprint (40 hex chars) of the first Developer ID Application
+        AUTO_ID=$(echo "$AVAILABLE_IDENTITIES" | grep "Developer ID Application" | head -n 1 | awk '{print $2}')
+        
+        if [[ -n "$AUTO_ID" ]]; then
+            echo "----------------------------------------------------------------"
+            echo "AUTO-DETECTED: Using identity '$AUTO_ID'"
+            echo "----------------------------------------------------------------"
+            IDENTITY="$AUTO_ID"
+        else
+            echo "Auto-detection failed. Falling back to default 'Zed Industries, Inc.'"
+            IDENTITY="Zed Industries, Inc."
+        fi
+    fi
+    
+    if ! echo "$AVAILABLE_IDENTITIES" | grep -q "$IDENTITY"; then
         echo "----------------------------------------------------------------"
         echo "ERROR: Code signing identity '$IDENTITY' not found in keychain."
         echo "Failing early to save build time (3 hours saved)."
