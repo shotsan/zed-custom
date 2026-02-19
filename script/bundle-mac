@@ -158,7 +158,7 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
     echo "$APPLE_NOTARIZATION_KEY" > "$preflight_key_file"
     
     # Check history to validate credentials
-    if ! xcrun notarytool history --key "$preflight_key_file" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER_ID" --limit 1 > /dev/null; then
+    if ! xcrun notarytool history --key "$preflight_key_file" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER_ID" > /dev/null; then
         echo "ERROR: Notarization credentials rejected by Apple. Aborting build."
         rm "$preflight_key_file"
         exit 1
