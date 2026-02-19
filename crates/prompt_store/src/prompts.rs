@@ -40,13 +40,25 @@ pub struct ProjectContext {
     pub user_rules: Vec<UserRulesContext>,
     /// `!user_rules.is_empty()` - provided as a field because handlebars can't do this.
     pub has_user_rules: bool,
+    pub biological_feedback: Option<BiologicalFeedbackContext>,
     pub os: String,
     pub arch: String,
     pub shell: String,
 }
 
+#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
+pub struct BiologicalFeedbackContext {
+    pub error_count: usize,
+    pub warning_count: usize,
+    pub active_file: Option<String>,
+}
+
 impl ProjectContext {
-    pub fn new(worktrees: Vec<WorktreeContext>, default_user_rules: Vec<UserRulesContext>) -> Self {
+    pub fn new(
+        worktrees: Vec<WorktreeContext>,
+        default_user_rules: Vec<UserRulesContext>,
+        biological_feedback: Option<BiologicalFeedbackContext>,
+    ) -> Self {
         let has_rules = worktrees
             .iter()
             .any(|worktree| worktree.rules_file.is_some());
@@ -55,6 +67,7 @@ impl ProjectContext {
             has_rules,
             has_user_rules: !default_user_rules.is_empty(),
             user_rules: default_user_rules,
+            biological_feedback,
             os: std::env::consts::OS.to_string(),
             arch: std::env::consts::ARCH.to_string(),
             shell: ShellKind::new(&get_default_system_shell_preferring_bash(), cfg!(windows))

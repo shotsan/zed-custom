@@ -150,7 +150,21 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
             exit 1
         fi
     fi
-    echo "SUCCESS: Identity verified. Starting build."
+    echo "SUCCESS: Identity verified."
+
+    echo "Verifying Notarization Credentials (Pre-flight)..."
+    # Create a temporary file for the key
+    preflight_key_file=$(mktemp)
+    echo "$APPLE_NOTARIZATION_KEY" > "$preflight_key_file"
+    
+    # Check history to validate credentials
+    if ! xcrun notarytool history --key "$preflight_key_file" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER_ID" --limit 1 > /dev/null; then
+        echo "ERROR: Notarization credentials rejected by Apple. Aborting build."
+        rm "$preflight_key_file"
+        exit 1
+    fi
+    rm "$preflight_key_file"
+    echo "SUCCESS: Notarization credentials accepted. Starting build."
 
     function cleanup() {
         echo "Cleaning up keychain"
@@ -329,7 +343,23 @@ function sign_app_binaries() {
             echo "Notarizing DMG with Apple"
             /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "$(pwd)/${dmg_file_path}" -v
             echo "$APPLE_NOTARIZATION_KEY" > "$notarization_key_file"
-            "${xcode_bin_dir_path}/notarytool" submit --wait --key "$notarization_key_file" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER_ID" "${dmg_file_path}"
+            
+            for attempt in 1 2 3; do
+                echo "Notarization attempt $attempt..."
+                if "${xcode_bin_dir_path}/notarytool" submit --verbose --timeout 20m --wait --key "$notarization_key_file" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER_ID" "${dmg_file_path}"; then
+                    echo "Notarization successful on attempt $attempt"
+                    break
+                else
+                    echo "Notarization failed on attempt $attempt"
+                    if [ $attempt -eq 3 ]; then
+                        echo "All notarization attempts failed"
+                        rm "$notarization_key_file"
+                        exit 1
+                    fi
+                    # Wait a bit before retrying to let transient network issues clear
+                    sleep 10
+                fi
+            done
             rm "$notarization_key_file"
             "${xcode_bin_dir_path}/stapler" staple "${dmg_file_path}"
         fi

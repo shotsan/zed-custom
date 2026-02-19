@@ -50,6 +50,19 @@ the project.
 - The user might specify a partial file path. If you don't know the full path, use `find_path` (not `grep`) before you
 read the file.
 {{/if}}
+
+{{#if biological_feedback}}
+## Epistemic State (Sensory Context)
+
+The following information reflects the real-time state of the project, sensed automatically from the environment:
+
+<epistemic_state>
+- **Active File**: {{#if biological_feedback.active_file}}`{{biological_feedback.active_file}}`{{else}}None{{/if}}
+- **Project Health**: {{biological_feedback.error_count}} error(s), {{biological_feedback.warning_count}} warning(s)
+</epistemic_state>
+
+If there are errors, you should prioritize fixing them before proceeding with new features.
+{{/if}}
 {{else}}
 You are being tasked with providing a response, but you have no ability to use tools or to read or write any aspect of
 the user's system (other than any context the user might have provided to you).

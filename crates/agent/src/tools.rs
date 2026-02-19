@@ -22,6 +22,7 @@ mod subagent_tool;
 mod terminal_tool;
 mod thinking_tool;
 mod web_search_tool;
+mod lsp_tools;
 
 use crate::AgentTool;
 use feature_flags::{FeatureFlagAppExt, SubagentsFeatureFlag};
@@ -52,6 +53,7 @@ pub use subagent_tool::*;
 pub use terminal_tool::*;
 pub use thinking_tool::*;
 pub use web_search_tool::*;
+pub use lsp_tools::*;
 
 macro_rules! tools {
     ($($tool:ty),* $(,)?) => {
@@ -85,6 +87,7 @@ macro_rules! tools {
                     name: T::name().to_string(),
                     description: T::description().to_string(),
                     input_schema: T::input_schema(LanguageModelToolSchemaFormat::JsonSchema).to_value(),
+                    cache: false,
                 }
             }
             [
@@ -121,4 +124,7 @@ tools! {
     ContextTool,
     RememberTool,
     RecallTool,
+    LspGetDefinitionTool,
+    LspFindReferencesTool,
+    LspGetImplementationsTool,
 }

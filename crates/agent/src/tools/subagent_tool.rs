@@ -1,4 +1,3 @@
-use crate::MemoryDatabase;
 use acp_thread::{AcpThread, AgentConnection, UserMessageId};
 use action_log::ActionLog;
 use agent_client_protocol as acp;
@@ -21,7 +20,7 @@ use util::ResultExt;
 use watch;
 
 use crate::{
-    AgentTool, AnyAgentTool, ContextServerRegistry, MemoryStore, semantic_search::SemanticIndex,
+    AgentTool, AnyAgentTool, ContextServerRegistry, MemoryStore, MemoryDatabase, semantic_search::SemanticIndex,
     MAX_PARALLEL_SUBAGENTS, MAX_SUBAGENT_DEPTH, SubagentContext, Templates, Thread, ThreadEvent,
     ToolCallAuthorization, ToolCallEventStream,
 };

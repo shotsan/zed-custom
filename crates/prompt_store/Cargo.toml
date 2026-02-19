@@ -32,6 +32,7 @@ strum.workspace = true
 text.workspace = true
 util.workspace = true
 uuid.workspace = true
+schemars.workspace = true
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }

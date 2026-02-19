@@ -43,14 +43,15 @@ use gpui::{
     App, AppContext, AsyncApp, Context, Entity, SharedString, Subscription, Task, WeakEntity,
 };
 use language_model::{IconOrSvg, LanguageModel, LanguageModelProvider, LanguageModelRegistry};
-use project::{Project, ProjectItem, ProjectPath, Worktree};
+use project::{Project, ProjectItem, Worktree};
 use prompt_store::{
-    ProjectContext, PromptStore, RULES_FILE_NAMES, RulesFileContext, UserRulesContext,
-    WorktreeContext,
+    BiologicalFeedbackContext, ProjectContext, PromptStore, RULES_FILE_NAMES, RulesFileContext,
+    UserRulesContext, WorktreeContext,
 };
 use serde::{Deserialize, Serialize};
 use settings::{LanguageModelSelection, update_settings_file};
 use sqlez::connection::Connection;
+use workspace::Workspace;
 use std::any::Any;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -455,6 +456,32 @@ impl NativeAgent {
         prompt_store: Option<&Entity<PromptStore>>,
         cx: &mut App,
     ) -> Task<ProjectContext> {
+        let summary = project.read(cx).diagnostic_summary(false, cx);
+        let active_file = cx
+            .active_window()
+            .and_then(|window| {
+                window
+                    .update(cx, |view, _window, cx| {
+                        view.downcast::<Workspace>().ok().and_then(|workspace| {
+                            workspace.read_with(cx, |workspace: &Workspace, cx| {
+                                workspace
+                                    .active_item(cx)
+                                    .and_then(|item: Box<dyn workspace::ItemHandle>| item.project_path(cx))
+                                    .and_then(|path: project::ProjectPath| project.read(cx).absolute_path(&path, cx))
+                                    .map(|path: std::path::PathBuf| path.to_string_lossy().to_string())
+                            })
+                        })
+                    })
+                    .ok()
+                    .flatten()
+            });
+
+        let biological_feedback = Some(BiologicalFeedbackContext {
+            error_count: summary.error_count,
+            warning_count: summary.warning_count,
+            active_file,
+        });
+
         let worktrees = project.read(cx).visible_worktrees(cx).collect::<Vec<_>>();
         let worktree_tasks = worktrees
             .into_iter()
@@ -469,7 +496,7 @@ impl NativeAgent {
                     let contents = prompt_store.load(prompt_metadata.id, cx);
                     async move { (contents.await, prompt_metadata) }
                 });
-                cx.background_spawn(future::join_all(load_tasks))
+                cx.background_spawn(futures::future::join_all(load_tasks))
             })
         } else {
             Task::ready(vec![])
@@ -511,7 +538,7 @@ impl NativeAgent {
                 })
                 .collect::<Vec<_>>();
 
-            ProjectContext::new(worktrees, default_user_rules)
+            ProjectContext::new(worktrees, default_user_rules, biological_feedback)
         })
     }
 
@@ -570,19 +597,22 @@ impl NativeAgent {
         // Note that Cline supports `.clinerules` being a directory, but that is not currently
         // supported. This doesn't seem to occur often in GitHub repositories.
         selected_rules_file.map(|path_in_worktree| {
-            let project_path = ProjectPath {
-                worktree_id,
-                path: path_in_worktree.clone(),
-            };
-            let buffer_task =
-                project.update(cx, |project, cx| project.open_buffer(project_path, cx));
-            let rope_task = cx.spawn(async move |cx| {
-                let buffer = buffer_task.await?;
-                let (project_entry_id, rope) = buffer.read_with(cx, |buffer, cx| {
+            let path_in_worktree_for_buffer = path_in_worktree.clone();
+            let rope_task: Task<Result<(project::ProjectEntryId, text::Rope)>> = cx.spawn(async move |cx| {
+                let (buffer_task, _) = project
+                    .update(cx, |project, cx| {
+                        let project_path = project::ProjectPath {
+                            worktree_id,
+                            path: path_in_worktree_for_buffer,
+                        };
+                        let buffer_task = project.open_buffer(project_path, cx);
+                        (buffer_task, ())
+                    });
+                let buffer: Entity<language::Buffer> = buffer_task.await?;
+                buffer.read_with(cx, |buffer: &language::Buffer, cx| {
                     let project_entry_id = buffer.entry_id(cx).context("buffer has no file")?;
                     anyhow::Ok((project_entry_id, buffer.as_rope().clone()))
-                })?;
-                anyhow::Ok((project_entry_id, rope))
+                })
             });
             // Build a string from the rope on a background thread.
             cx.background_spawn(async move {
@@ -1326,6 +1356,31 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
         let session_id = params.session_id.clone();
         log::info!("Received prompt request for session: {}", session_id);
         log::debug!("Prompt blocks count: {}", params.prompt.len());
+
+        let project_context_entity = self.0.read(cx).project_context.clone();
+        let database_task = ThreadsDatabase::connect(cx);
+        cx.spawn({
+            let session_id = session_id.clone();
+            async move |cx| {
+                if let Some(db) = database_task.await.log_err() {
+                    let feedback = cx.update(|cx| {
+                        project_context_entity.read(cx).biological_feedback.clone()
+                    });
+                    if let Some(feedback) = feedback {
+                        db.save_sensory_log(
+                            session_id,
+                            feedback.active_file,
+                            feedback.error_count,
+                            feedback.warning_count,
+                        )
+                        .await
+                        .log_err();
+                    }
+                }
+                anyhow::Ok(())
+            }
+        })
+        .detach();
 
         if let Some(parsed_command) = Command::parse(&params.prompt) {
             let registry = self.0.read(cx).context_server_registry.read(cx);

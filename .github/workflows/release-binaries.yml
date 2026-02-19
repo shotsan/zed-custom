@@ -23,6 +23,9 @@ jobs:
         with:
           targets: x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl
 
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Build and Bundle
         run: |
           ./script/bundle-linux
@@ -43,7 +46,7 @@ jobs:
 
   build-macos:
     name: Build macOS
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,7 +56,11 @@ jobs:
         with:
           targets: x86_64-apple-darwin, aarch64-apple-darwin
 
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Build and Bundle (x86_64)
+        timeout-minutes: 90
         run: |
           ./script/bundle-mac x86_64-apple-darwin
         env:
@@ -67,6 +74,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build and Bundle (aarch64)
+        timeout-minutes: 90
         run: |
           ./script/bundle-mac aarch64-apple-darwin
         env:
