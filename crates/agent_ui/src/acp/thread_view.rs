@@ -7878,8 +7878,7 @@ impl AcpThreadView {
             })
             .flatten();
 
-        let last_turn_tokens_label = last_turn_clock
-            .is_some()
+        let last_turn_tokens_label = show_stats
             .then(|| {
                 active
                     .turn_fields
@@ -7896,6 +7895,32 @@ impl AcpThreadView {
             })
             .flatten();
 
+        let last_turn_cache_read_label = active
+            .turn_fields
+            .last_turn_cache_read_input_tokens
+            .filter(|&tokens| tokens > 0)
+            .map(|tokens| {
+                Label::new(format!(
+                    "{} cached",
+                    crate::text_thread_editor::humanize_token_count(tokens)
+                ))
+                .size(LabelSize::Small)
+                .color(Color::Success)
+            });
+
+        let last_turn_cache_created_label = active
+            .turn_fields
+            .last_turn_cache_creation_input_tokens
+            .filter(|&tokens| tokens > 0)
+            .map(|tokens| {
+                Label::new(format!(
+                    "+{} saved",
+                    crate::text_thread_editor::humanize_token_count(tokens)
+                ))
+                .size(LabelSize::Small)
+                .color(Color::Accent)
+            });
+
         let mut container = h_flex()
             .w_full()
             .py_2()
@@ -7905,13 +7930,18 @@ impl AcpThreadView {
             .hover(|s| s.opacity(1.))
             .justify_end()
             .when(
-                last_turn_tokens_label.is_some() || last_turn_clock.is_some(),
+                last_turn_tokens_label.is_some()
+                    || last_turn_clock.is_some()
+                    || last_turn_cache_read_label.is_some()
+                    || last_turn_cache_created_label.is_some(),
                 |this| {
                     this.child(
                         h_flex()
                             .gap_1()
                             .px_1()
                             .when_some(last_turn_tokens_label, |this, label| this.child(label))
+                            .when_some(last_turn_cache_read_label, |this, label| this.child(label))
+                            .when_some(last_turn_cache_created_label, |this, label| this.child(label))
                             .when_some(last_turn_clock, |this, label| this.child(label)),
                     )
                 },

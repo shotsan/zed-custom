@@ -64,7 +64,7 @@ impl crate::tools::AgentTool for ContextTool {
         let query = input.query.clone();
 
         cx.spawn(|cx: &mut AsyncApp| {
-            let mut cx = cx.clone();
+            let cx = cx.clone();
             async move {
             let task: Task<Result<Vec<Symbol>>> = cx.update(|cx| {
                 project.update(cx, |project, cx| {

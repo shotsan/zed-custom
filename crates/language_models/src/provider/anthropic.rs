@@ -362,6 +362,7 @@ pub fn into_anthropic_count_tokens_request(
                 name: tool.name,
                 description: tool.description,
                 input_schema: tool.input_schema,
+                cache_control: None,
             })
             .collect(),
         tool_choice: request.tool_choice.map(|choice| match choice {
@@ -614,7 +615,7 @@ pub fn into_anthropic(
     let mut new_messages: Vec<anthropic::Message> = Vec::new();
     let mut system_message = String::new();
 
-    for message in request.messages {
+    for message in &request.messages {
         if message.contents_empty() {
             continue;
         }
@@ -623,7 +624,8 @@ pub fn into_anthropic(
             Role::User | Role::Assistant => {
                 let mut anthropic_message_content: Vec<anthropic::RequestContent> = message
                     .content
-                    .into_iter()
+                    .iter()
+                    .cloned()
                     .filter_map(|content| match content {
                         MessageContent::Text(text) => {
                             let text = if text.chars().last().is_some_and(|c| c.is_whitespace()) {
@@ -755,7 +757,20 @@ pub fn into_anthropic(
         system: if system_message.is_empty() {
             None
         } else {
-            Some(anthropic::StringOrContents::String(system_message))
+            let mut cache_control = None;
+            // Check if any system message in the request was marked for caching
+            if request.messages.iter().any(|m| m.role == Role::System && m.cache) {
+                cache_control = Some(anthropic::CacheControl {
+                    cache_type: anthropic::CacheControlType::Ephemeral,
+                });
+            }
+
+            Some(anthropic::StringOrContents::Content(vec![
+                anthropic::RequestContent::Text {
+                    text: system_message,
+                    cache_control,
+                },
+            ]))
         },
         thinking: if request.thinking_allowed
             && let AnthropicModelMode::Thinking { budget_tokens } = mode
@@ -764,15 +779,30 @@ pub fn into_anthropic(
         } else {
             None
         },
-        tools: request
-            .tools
-            .into_iter()
-            .map(|tool| anthropic::Tool {
-                name: tool.name,
-                description: tool.description,
-                input_schema: tool.input_schema,
-            })
-            .collect(),
+        tools: {
+            let tools = request.tools;
+            // Find the last tool marked for caching and apply cache_control to it.
+            // Anthropic caches the entire prefix before the cache_control, so one
+            // breakpoint at the end of the tool list is sufficient.
+            let last_cached_index = tools.iter().rposition(|t| t.cache);
+
+            tools
+                .into_iter()
+                .enumerate()
+                .map(|(i, tool)| anthropic::Tool {
+                    name: tool.name,
+                    description: tool.description,
+                    input_schema: tool.input_schema,
+                    cache_control: if Some(i) == last_cached_index {
+                        Some(anthropic::CacheControl {
+                            cache_type: anthropic::CacheControlType::Ephemeral,
+                        })
+                    } else {
+                        None
+                    },
+                })
+                .collect::<Vec<_>>()
+        },
         tool_choice: request.tool_choice.map(|choice| match choice {
             LanguageModelToolChoice::Auto => anthropic::ToolChoice::Auto,
             LanguageModelToolChoice::Any => anthropic::ToolChoice::Any,

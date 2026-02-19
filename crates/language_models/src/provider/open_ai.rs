@@ -1565,6 +1565,7 @@ mod tests {
                 name: "get_weather".into(),
                 description: "Fetches the weather".into(),
                 input_schema: json!({ "type": "object" }),
+                cache: false,
             }],
             tool_choice: Some(LanguageModelToolChoice::Any),
             stop: vec!["<STOP>".into()],

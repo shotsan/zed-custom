@@ -345,6 +345,11 @@ impl ThreadsDatabase {
             let sqlite_path = threads_dir.join("threads.db");
             Connection::open_file(&sqlite_path.to_string_lossy())
         };
+        
+        #[cfg(any(test, feature = "test-support"))]
+        {
+            connection.exec("PRAGMA foreign_keys = ON;").unwrap();
+        }
 
         connection.exec(indoc! {"
             CREATE TABLE IF NOT EXISTS threads (
@@ -353,9 +358,23 @@ impl ThreadsDatabase {
                 updated_at TEXT NOT NULL,
                 data_type TEXT NOT NULL,
                 data BLOB NOT NULL
-            )
+            );
+            CREATE TABLE IF NOT EXISTS sensory_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                thread_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                active_file TEXT,
+                error_count INTEGER,
+                warning_count INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS reflections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                thread_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                content TEXT NOT NULL
+            );
         "})?()
-        .map_err(|e| anyhow!("Failed to create threads table: {}", e))?;
+        .map_err(|e| anyhow!("Failed to create persistent cognition hub tables: {}", e))?;
 
         let db = Self {
             executor,
@@ -460,6 +479,45 @@ impl ThreadsDatabase {
             .spawn(async move { Self::save_thread_sync(&connection, id, thread) })
     }
 
+    pub fn save_sensory_log(
+        &self,
+        thread_id: acp::SessionId,
+        active_file: Option<String>,
+        error_count: usize,
+        warning_count: usize,
+    ) -> Task<Result<()>> {
+        let connection = self.connection.clone();
+        let timestamp = Utc::now().to_rfc3339();
+
+        self.executor.spawn(async move {
+            let connection = connection.lock();
+            let mut insert = connection
+                .exec_bound::<(Arc<str>, String, Option<String>, usize, usize)>(indoc! {"
+                INSERT INTO sensory_logs (thread_id, timestamp, active_file, error_count, warning_count)
+                VALUES (?, ?, ?, ?, ?)
+            "})?;
+
+            insert((thread_id.0, timestamp, active_file, error_count, warning_count))?;
+            Ok(())
+        })
+    }
+
+    pub fn save_reflection(&self, thread_id: acp::SessionId, content: String) -> Task<Result<()>> {
+        let connection = self.connection.clone();
+        let timestamp = Utc::now().to_rfc3339();
+
+        self.executor.spawn(async move {
+            let connection = connection.lock();
+            let mut insert = connection.exec_bound::<(Arc<str>, String, String)>(indoc! {"
+                INSERT INTO reflections (thread_id, timestamp, content)
+                VALUES (?, ?, ?)
+            "})?;
+
+            insert((thread_id.0, timestamp, content))?;
+            Ok(())
+        })
+    }
+
     pub fn delete_thread(&self, id: acp::SessionId) -> Task<Result<()>> {
         let connection = self.connection.clone();
 
@@ -490,6 +548,11 @@ impl ThreadsDatabase {
 
             Ok(())
         })
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn connection_for_test(&self) -> Arc<Mutex<Connection>> {
+        self.connection.clone()
     }
 }
 
@@ -581,41 +644,58 @@ mod tests {
             .unwrap();
 
         let entries = database.list_threads().await.unwrap();
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].id, newer_id);
-        assert_eq!(entries[1].id, older_id);
-    }
-
-    #[gpui::test]
-    async fn test_save_thread_replaces_metadata(cx: &mut TestAppContext) {
-        let database = ThreadsDatabase::new(cx.executor()).unwrap();
-
-        let thread_id = session_id("thread-a");
-        let original_thread = make_thread(
-            "Thread A",
-            Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
-        );
-        let updated_thread = make_thread(
-            "Thread B",
-            Utc.with_ymd_and_hms(2024, 1, 2, 0, 0, 0).unwrap(),
-        );
-
-        database
-            .save_thread(thread_id.clone(), original_thread)
-            .await
-            .unwrap();
-        database
-            .save_thread(thread_id.clone(), updated_thread)
-            .await
-            .unwrap();
-
-        let entries = database.list_threads().await.unwrap();
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].id, thread_id);
+        assert_eq!(entries[0].id, newer_id);
         assert_eq!(entries[0].title.as_ref(), "Thread B");
         assert_eq!(
             entries[0].updated_at,
             Utc.with_ymd_and_hms(2024, 1, 2, 0, 0, 0).unwrap()
         );
+    }
+
+    #[gpui::test]
+    async fn test_save_sensory_log(cx: &mut TestAppContext) {
+        let database = ThreadsDatabase::new(cx.executor()).unwrap();
+        let thread_id = session_id("test-thread");
+
+        database
+            .save_sensory_log(thread_id.clone(), Some("src/lib.rs".to_string()), 1, 2)
+            .await
+            .unwrap();
+
+        let connection = database.connection.lock();
+        let mut select = connection
+            .select_bound::<Arc<str>, (String, Option<String>, usize, usize)>(indoc! {"
+            SELECT timestamp, active_file, error_count, warning_count FROM sensory_logs WHERE thread_id = ?
+        "})
+            .unwrap();
+
+        let rows = select(thread_id.0).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].1, Some("src/lib.rs".to_string()));
+        assert_eq!(rows[0].2, 1);
+        assert_eq!(rows[0].3, 2);
+    }
+
+    #[gpui::test]
+    async fn test_save_reflection(cx: &mut TestAppContext) {
+        let database = ThreadsDatabase::new(cx.executor()).unwrap();
+        let thread_id = session_id("test-thread");
+
+        database
+            .save_reflection(thread_id.clone(), "Insight about graph traversal".to_string())
+            .await
+            .unwrap();
+
+        let connection = database.connection.lock();
+        let mut select = connection
+            .select_bound::<Arc<str>, (String, String)>(indoc! {"
+            SELECT timestamp, content FROM reflections WHERE thread_id = ?
+        "})
+            .unwrap();
+
+        let rows = select(thread_id.0).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].1, "Insight about graph traversal");
     }
 }

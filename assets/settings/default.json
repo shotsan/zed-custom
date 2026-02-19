@@ -1151,6 +1151,10 @@
           "terminal": true,
           "thinking": true,
           "web_search": true,
+          "lsp_get_definition": true,
+          "lsp_find_references": true,
+          "lsp_get_implementations": true,
+          "lsp_save_reflection": true,
         },
       },
       "ask": {
@@ -1171,6 +1175,10 @@
           "subagent": true,
           "thinking": true,
           "web_search": true,
+          "lsp_get_definition": true,
+          "lsp_find_references": true,
+          "lsp_get_implementations": true,
+          "lsp_save_reflection": true,
         },
       },
       "minimal": {

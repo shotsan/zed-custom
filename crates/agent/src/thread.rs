@@ -1,10 +1,12 @@
 use crate::{
     BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
     DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, FetchTool, FindPathTool, GrepTool,
-    ListDirectoryTool, MemoryDatabase, MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
-    ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SemanticIndex,
-    StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template, Templates, TerminalTool,
-    ThinkingTool, ToolPermissionDecision, WebSearchTool, decide_permission_from_settings,
+    ListDirectoryTool, LspFindReferencesTool, LspGetDefinitionTool, LspGetImplementationsTool,
+    MemoryStore, MemoryDatabase, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
+    ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SaveReflectionTool,
+    SemanticIndex, StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template,
+    Templates, TerminalTool, ThreadsDatabase, ThinkingTool, ToolPermissionDecision, WebSearchTool,
+    decide_permission_from_settings,
 };
 use acp_thread::{MentionUri, UserMessageId};
 use action_log::ActionLog;
@@ -821,6 +823,10 @@ impl Thread {
             .embedded_context(true)
     }
 
+    pub fn tools(&self) -> &BTreeMap<SharedString, Arc<dyn AnyAgentTool>> {
+        &self.tools
+    }
+
     pub fn new(
         project: Entity<Project>,
         project_context: Entity<ProjectContext>,
@@ -1414,6 +1420,14 @@ impl Thread {
         self.add_tool(ThinkingTool);
         self.add_tool(WebSearchTool);
 
+        self.add_tool(LspGetDefinitionTool::new(self.project.clone()));
+        self.add_tool(LspFindReferencesTool::new(self.project.clone()));
+        self.add_tool(LspGetImplementationsTool::new(self.project.clone()));
+        self.add_tool(SaveReflectionTool::new(
+            cx.weak_entity(),
+            ThreadsDatabase::connect(cx),
+        ));
+
         self.add_tool(ContextTool::new(self.project.clone()));
         let remember_tool = RememberTool::new();
         remember_tool.set_store(self.memory_store.clone());
@@ -1548,6 +1562,8 @@ impl Thread {
             used_tokens: usage.total_tokens(),
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
+            cache_creation_input_tokens: usage.cache_creation_input_tokens,
+            cache_read_input_tokens: usage.cache_read_input_tokens,
         })
     }
 
@@ -2446,6 +2462,7 @@ impl Thread {
                         name: tool_name.to_string(),
                         description: tool.description().to_string(),
                         input_schema: tool.input_schema(model.tool_input_format()).log_err()?,
+                        cache: true,
                     })
                 })
                 .collect::<Vec<_>>()
@@ -2687,15 +2704,34 @@ impl Thread {
         let mut messages = vec![LanguageModelRequestMessage {
             role: Role::System,
             content: vec![system_prompt.into()],
-            cache: false,
+            cache: true,
             reasoning_details: None,
         }];
-        for message in &self.messages {
-            messages.extend(message.to_request());
+
+        const CACHE_INTERVAL: usize = 15;
+        let total_messages = self.messages.len();
+
+        for (i, message) in self.messages.iter().enumerate() {
+            let mut request_messages = message.to_request();
+            // Implement interval caching to keep checkpoints within Anthropic's lookback window.
+            // We cache every 15 blocks, and always cache the mid-point if the conversation is long.
+            let is_interval = (i + 1) % CACHE_INTERVAL == 0;
+            let is_midpoint = total_messages > 30 && i == total_messages / 2;
+
+            if (is_interval || is_midpoint) && !request_messages.is_empty() {
+                if let Some(last) = request_messages.last_mut() {
+                    last.cache = true;
+                }
+            }
+            messages.extend(request_messages);
         }
 
-        if let Some(last_message) = messages.last_mut() {
-            last_message.cache = true;
+        if messages.len() > 1 {
+            // Always cache the second to last message to ensure the immediate prefix is ready.
+            let second_to_last_index = messages.len() - 1;
+            if let Some(msg) = messages.get_mut(second_to_last_index) {
+                msg.cache = true;
+            }
         }
 
         if let Some(message) = self.pending_message.as_ref() {

@@ -830,6 +830,8 @@ pub struct Tool {
     pub name: String,
     pub description: String,
     pub input_schema: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -61,9 +61,13 @@ pub struct TurnFields {
     pub _turn_timer_task: Option<Task<()>>,
     pub last_turn_duration: Option<Duration>,
     pub last_turn_tokens: Option<u64>,
+    pub last_turn_cache_creation_input_tokens: Option<u64>,
+    pub last_turn_cache_read_input_tokens: Option<u64>,
     pub turn_generation: usize,
     pub turn_started_at: Option<Instant>,
     pub turn_tokens: Option<u64>,
+    pub turn_cache_creation_input_tokens: Option<u64>,
+    pub turn_cache_read_input_tokens: Option<u64>,
 }
 
 impl ActiveThreadState {
@@ -207,13 +211,23 @@ impl ActiveThreadState {
             .take()
             .map(|started| started.elapsed());
         self.turn_fields.last_turn_tokens = self.turn_fields.turn_tokens.take();
+        self.turn_fields.last_turn_cache_creation_input_tokens =
+            self.turn_fields.turn_cache_creation_input_tokens.take();
+        self.turn_fields.last_turn_cache_read_input_tokens =
+            self.turn_fields.turn_cache_read_input_tokens.take();
         self.turn_fields._turn_timer_task = None;
     }
 
     pub fn update_turn_tokens(&mut self, cx: &App) {
         if let Some(usage) = self.thread.read(cx).token_usage() {
             if let Some(tokens) = &mut self.turn_fields.turn_tokens {
-                *tokens += usage.output_tokens;
+                *tokens = usage.used_tokens;
+            }
+            if let Some(tokens) = &mut self.turn_fields.turn_cache_creation_input_tokens {
+                *tokens = usage.cache_creation_input_tokens;
+            }
+            if let Some(tokens) = &mut self.turn_fields.turn_cache_read_input_tokens {
+                *tokens = usage.cache_read_input_tokens;
             }
         }
     }

@@ -53,6 +53,7 @@ use std::{
 use util::path;
 
 mod edit_file_thread_test;
+mod secret_sauce_test;
 mod test_tools;
 use test_tools::*;
 
@@ -2438,6 +2439,8 @@ async fn test_truncate_first_message(cx: &mut TestAppContext) {
                 max_tokens: 1_000_000,
                 input_tokens: 32_000,
                 output_tokens: 16_000,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
             })
         );
     });
@@ -2499,6 +2502,8 @@ async fn test_truncate_first_message(cx: &mut TestAppContext) {
                 max_tokens: 1_000_000,
                 input_tokens: 40_000,
                 output_tokens: 20_000,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
             })
         );
     });
@@ -2549,6 +2554,8 @@ async fn test_truncate_second_message(cx: &mut TestAppContext) {
                     max_tokens: 1_000_000,
                     input_tokens: 32_000,
                     output_tokens: 16_000,
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
                 })
             );
         });
@@ -2605,6 +2612,8 @@ async fn test_truncate_second_message(cx: &mut TestAppContext) {
                 max_tokens: 1_000_000,
                 input_tokens: 40_000,
                 output_tokens: 20_000,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
             })
         );
     });
