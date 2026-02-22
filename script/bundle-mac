@@ -84,29 +84,31 @@ fi
 # Generate the licenses first, so they can be baked into the binaries
 
 # Setup keychain and verify identity BEFORE the 3-hour build
-if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n "${APPLE_NOTARIZATION_KEY:-}" && -n "${APPLE_NOTARIZATION_KEY_ID:-}" && -n "${APPLE_NOTARIZATION_ISSUER_ID:-}" ]]; then
+if [[ (-n "${MACOS_SIGNING_IDENTITY:-}" || (-n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}")) && -n "${APPLE_NOTARIZATION_KEY:-}" && -n "${APPLE_NOTARIZATION_KEY_ID:-}" && -n "${APPLE_NOTARIZATION_ISSUER_ID:-}" ]]; then
     can_code_sign=true
+    
+    if [[ -n "${MACOS_CERTIFICATE:-}" ]]; then
+        echo "Setting up keychain for code signing..."
+        KEYCHAIN_PATH="$HOME/Library/Keychains/zed.keychain-db"
+        # Create the keychain if it doesn't exist
+        if [ ! -f "$KEYCHAIN_PATH" ]; then
+            security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
+        fi
+        
+        security default-keychain -s zed.keychain
+        security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
+        # Calling set-keychain-settings without `-t` disables the auto-lock timeout
+        security set-keychain-settings zed.keychain
+        
+        # Ensure zed.keychain is at the FRONT of the search list
+        echo "Updating keychain search list..."
+        security list-keychains -d user -s zed.keychain $(security list-keychains -d user | xargs)
 
-    echo "Setting up keychain for code signing..."
-    KEYCHAIN_PATH="$HOME/Library/Keychains/zed.keychain-db"
-    # Create the keychain if it doesn't exist
-    if [ ! -f "$KEYCHAIN_PATH" ]; then
-        security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
+        echo -n "$MACOS_CERTIFICATE" | base64 --decode > /tmp/zed-certificate.p12
+        security import /tmp/zed-certificate.p12 -k zed.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        rm /tmp/zed-certificate.p12
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
     fi
-    
-    security default-keychain -s zed.keychain
-    security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
-    # Calling set-keychain-settings without `-t` disables the auto-lock timeout
-    security set-keychain-settings zed.keychain
-    
-    # Ensure zed.keychain is at the FRONT of the search list
-    echo "Updating keychain search list..."
-    security list-keychains -d user -s zed.keychain $(security list-keychains -d user | xargs)
-
-    echo -n "$MACOS_CERTIFICATE" | base64 --decode > /tmp/zed-certificate.p12
-    security import /tmp/zed-certificate.p12 -k zed.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-    rm /tmp/zed-certificate.p12
-    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
 
     echo "Verifying signing identity existence..."
     AVAILABLE_IDENTITIES=$(security find-identity -v -p codesigning zed.keychain)
@@ -397,7 +399,6 @@ function upload_debug_symbols() {
         fi
         # note: this uploads the unstripped binary which is needed because it contains
         # .eh_frame data for stack unwinding. see https://github.com/getsentry/symbolic/issues/783
-        sentry-cli debug-files upload --include-sources --wait -p zed -o zed-dev \
         # Try uploading up to 3 times
         for attempt in 1 2 3; do
             echo "Sentry upload attempt $attempt..."
