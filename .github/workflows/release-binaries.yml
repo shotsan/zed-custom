@@ -6,44 +6,6 @@ on:
       - 'v*'
 
 jobs:
-  build-linux:
-    name: Build Linux
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          ./script/linux
-          sudo apt-get install -y gettext-base # for envsubst
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl
-
-      - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build and Bundle
-        run: |
-          ./script/bundle-linux
-        env:
-          ZED_BUNDLE: "true"
-
-      - name: Prepare Artifacts
-        run: |
-          mkdir -p dist
-          cp target/release/zed-linux-x86_64.tar.gz dist/
-          cp target/zed-remote-server-linux-x86_64.gz dist/
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: zed-linux
-          path: dist/*
-
   build-macos:
     name: Build macOS
     runs-on: macos-14
@@ -103,7 +65,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-linux, build-macos]
+    needs: [build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
