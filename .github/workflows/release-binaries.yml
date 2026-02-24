@@ -7,8 +7,11 @@ on:
 
 jobs:
   build-macos:
-    name: Build macOS
+    name: Build macOS (${{ matrix.target }})
     runs-on: macos-14
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -16,29 +19,15 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-apple-darwin, aarch64-apple-darwin
+          targets: ${{ matrix.target }}
 
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Build and Bundle (x86_64)
+      - name: Build and Bundle (${{ matrix.target }})
         timeout-minutes: 150
         run: |
-          ./script/bundle-mac x86_64-apple-darwin
-        env:
-          ZED_BUNDLE: "true"
-          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
-          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
-          APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
-          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Build and Bundle (aarch64)
-        timeout-minutes: 150
-        run: |
-          ./script/bundle-mac aarch64-apple-darwin
+          ./script/bundle-mac ${{ matrix.target }}
         env:
           ZED_BUNDLE: "true"
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
@@ -52,15 +41,19 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p dist
-          cp target/x86_64-apple-darwin/release/Zed-x86_64.dmg dist/
-          cp target/aarch64-apple-darwin/release/Zed-aarch64.dmg dist/
-          cp target/zed-remote-server-macos-x86_64.gz dist/
-          cp target/zed-remote-server-macos-aarch64.gz dist/
+          # The bundle script outputs the DMG to target/<target>/release/
+          # and the gz straight to target/. We just copy what's actually there.
+          if [ -f "target/${{ matrix.target }}/release/Zed-"*.dmg ]; then
+            cp target/${{ matrix.target }}/release/Zed-*.dmg dist/
+          fi
+          if [ -f "target/zed-remote-server-"*".gz" ]; then
+            cp target/zed-remote-server-*.gz dist/
+          fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: zed-macos
+          name: zed-macos-${{ matrix.target }}
           path: dist/*
 
   release:
