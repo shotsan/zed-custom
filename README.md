@@ -24,63 +24,50 @@ Replaced the original regex-based semantic indexing with native Language Server 
 
 ---
 
-### 2. **Long-Term Memory System** 
+### 2. **Agent Memory System: `remember`**
 **Status:** ✅ Implemented
 
-AI agent can now remember and recall information across sessions using a persistent SQLite database.
-
-**Features:**
-- 💾 **Persistent Storage**: Memories survive across editor restarts
-- 🏷️ **Categorized**: Architecture, Patterns, Issues, Procedures, Notes
-- 🔍 **Searchable**: Query memories by content or category
-- 📊 **Project-Scoped**: Memories are tied to specific projects
-
-**Agent Tools:**
-- `remember` - Store important information for future sessions
-- `recall` - Retrieve previously stored memories
-
-**Implementation:**
-- [`crates/agent/src/memory_store.rs`](crates/agent/src/memory_store.rs) - SQLite-based memory database
-- [`crates/agent/src/tools/memory_tools.rs`](crates/agent/src/tools/memory_tools.rs) - Remember/Recall agent tools
+The AI agent can proactively remember critical information using the built-in memory tools to store it in a persistent SQLite database tying knowledge directly to specific projects across editor restarts.
 
 **Example Usage:**
 ```
 User: "Remember that this project uses a microservices architecture with gRPC for inter-service communication"
-Agent: Uses the 'remember' tool to store this in the Architecture category
-
-[Later session]
-User: "What architecture does this project use?"
-Agent: Uses the 'recall' tool to retrieve the stored memory
+Agent: Uses the 'remember' tool to permanently store this under the 'Architecture' category.
 ```
+![Remember Tool Demo](assets/images/demo-remember.gif)
 
 ---
 
-### 3. **Enhanced UI Components**
-**Status:** 🚧 In Development
-
-Custom UI modals for managing agent memory and teaching custom rules.
-
-**Components:**
-- [`crates/agent_ui/src/acp/memory_manager_modal.rs`](crates/agent_ui/src/acp/memory_manager_modal.rs) - Memory management interface
-- [`crates/agent_ui/src/acp/teach_rule_modal.rs`](crates/agent_ui/src/acp/teach_rule_modal.rs) - Rule teaching interface
-
----
-
-### 4. **Headless Web Browsing & Search**
+### 3. **Agent Memory System: `recall`**
 **Status:** ✅ Implemented
 
-Integrated a full headless Chrome engine for web browsing and a user-invokable search command.
+The agent can retrieve previously stored memories using the recall tools to instantly pull up context stored days or weeks ago without needing to re-read files.
+
+**Example Usage:**
+```
+[Later session]
+User: "What architecture does this project use?"
+Agent: Uses the 'recall' tool to retrieve the microservices architecture memory stored previously.
+```
+![Recall Tool Demo](assets/images/demo-recall.gif)
+
+---
+
+### 4. **Instant Web Search**
+**Status:** ✅ Implemented
+
+Integrated a full headless Chrome engine (`chromiumoxide`) mapped to a user-invokable `/search` slash command. This allows the agent to pull real-time information from the web directly into your editor context.
 
 **Features:**
-- 🌐 **Headless Chrome**: Uses `chromiumoxide` to render JavaScript-heavy sites (React, SPAs, etc.)
-- 🔍 **Web Search**: `/search` slash command for instant DuckDuckGo results in the chat panel
-- 🔗 **Deep Dive**: Leverages `@fetch` mentions to pull rendered markdown from websites into context
-- ⚡ **Async Bridged**: Custom `gpui_tokio` integration for stable, non-blocking background browsing
+- 🔍 **Web Search**: Type `/search <query>` to instantly fetch DuckDuckGo results.
+- 🔗 **Deep Dive**: The agent can navigate and extract rendered Markdown from websites (even JavaScript-heavy React SPAs).
 
-**Implementation:**
-- [`crates/agent/src/tools/browser_tool.rs`](crates/agent/src/tools/browser_tool.rs) - Headless Chrome engine
-- [`crates/assistant_slash_commands/src/search_command.rs`](crates/assistant_slash_commands/src/search_command.rs) - Search command logic
-- [`crates/agent_ui/src/acp/message_editor.rs`](crates/agent_ui/src/acp/message_editor.rs) - ACP panel integration
+**Example Usage:**
+```
+User: "/search latest tailwind css features"
+Agent: Fetches the search results and synthesizes the latest framework changes without leaving Zed.
+```
+![Search Tool Demo](assets/images/demo-search.gif)
 
 ---
 
