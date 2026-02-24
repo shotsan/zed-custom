@@ -56,9 +56,54 @@ jobs:
           name: zed-macos-${{ matrix.target }}
           path: dist/*
 
+  build-linux:
+    name: Build Linux (x86_64)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux Dependencies
+        run: ./script/linux
+
+      - name: Install mold
+        run: ./script/install-mold
+
+      - name: Download WASI SDK
+        run: ./script/download-wasi-sdk
+
+      - name: Build and Bundle
+        timeout-minutes: 150
+        run: |
+          ./script/bundle-linux
+        env:
+          ZED_BUNDLE: "true"
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p dist
+          if [ -f "target/release/zed-linux-x86_64.tar.gz" ]; then
+            cp target/release/zed-linux-x86_64.tar.gz dist/
+          fi
+          if [ -f "target/zed-remote-server-linux-x86_64.gz" ]; then
+            cp target/zed-remote-server-linux-x86_64.gz dist/
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-linux-x86_64
+          path: dist/*
+
   release:
     name: Create GitHub Release
-    needs: [build-macos]
+    needs: [build-macos, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
