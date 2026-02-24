@@ -84,6 +84,36 @@ Integrated a full headless Chrome engine for web browsing and a user-invokable s
 
 ---
 
+### 5. **Azure Anthropic & Token Caching UI** 
+**Status:** ✅ Implemented
+
+Enhanced support for Azure Anthropic deployments and natively enabled token caching visualization to help developers optimize their context reuse without manual config hacking.
+
+**Features:**
+- ☁️ **Azure Ready**: Passes exact `serde_name` string models to Azure APIs to resolve `404 DeploymentNotFound` errors natively.
+- 💾 **Token Caching UI**: Enabled `show_turn_stats` by default so users automatically see the `+X saved` and `X cached` badges without tweaking `settings.json`.
+
+![Azure Anthropic Token Caching Demo](assets/images/azure-anthropic-demo.gif)
+
+**Implementation:**
+- [`crates/anthropic/src/anthropic.rs`](crates/anthropic/src/anthropic.rs) - Added `serde_name()` context to Model enums
+- [`crates/language_models/src/provider/anthropic.rs`](crates/language_models/src/provider/anthropic.rs) - Preserved model name transparently
+- [`crates/agent_ui/src/agent_ui.rs`](crates/agent_ui/src/agent_ui.rs) - Flipped default config
+
+---
+
+### 6. **Automated Cross-Platform Releases**
+**Status:** ✅ Implemented
+
+Fully automated GitHub Actions CI/CD to build, bundle, sign, and notarize binaries across macOS and Linux, keeping parity with upstream without the internal namespace-based build tooling.
+
+**Features:**
+- 🍏 **macOS Notarization**: Complete Apple code-signing and notarization architecture.
+- 🐧 **Linux Builds**: Tarball and remote server `gz` builds enabled out-of-the-box (`x86_64`).
+- 📦 **Releases**: Triggers reliably on any `v*` tags with attached binaries for distribution.
+
+---
+
 ## 🔧 Setup & Usage
 
 ### Building from Source
@@ -158,10 +188,13 @@ Same as [Zed](https://github.com/zed-industries/zed) - see their LICENSE files.
 | Cross-Session Context | ❌ | ✅ Yes |
 | Web Search (/search) | ❌ | ✅ Instant DuckDuckGo |
 | JS-Heavy Browsing | ❌ | ✅ Headless Chrome |
+| Azure Anthropic | ❌ Needs proxy | ✅ Transparently |
+| Token Caching UI | ❌ Hidden | ✅ Enabled by Default |
+| Auto Release actions | ❌ Internal tooling | ✅ Public runners |
 
 ---
 
-**Last Updated:** 2026-02-13
+**Last Updated:** 2026-02-24
 # Zed
 
 [![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)
