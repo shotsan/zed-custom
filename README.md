@@ -102,18 +102,6 @@ Enhanced support for Azure Anthropic deployments and natively enabled token cach
 
 ---
 
-### 6. **Automated Cross-Platform Releases**
-**Status:** ✅ Implemented
-
-Fully automated GitHub Actions CI/CD to build, bundle, sign, and notarize binaries across macOS and Linux, keeping parity with upstream without the internal namespace-based build tooling.
-
-**Features:**
-- 🍏 **macOS Notarization**: Complete Apple code-signing and notarization architecture.
-- 🐧 **Linux Builds**: Tarball and remote server `gz` builds enabled out-of-the-box (`x86_64`).
-- 📦 **Releases**: Triggers reliably on any `v*` tags with attached binaries for distribution.
-
----
-
 ## 🔧 Setup & Usage
 
 ### Building from Source
@@ -190,7 +178,7 @@ Same as [Zed](https://github.com/zed-industries/zed) - see their LICENSE files.
 | JS-Heavy Browsing | ❌ | ✅ Headless Chrome |
 | Azure Anthropic | ❌ Needs proxy | ✅ Transparently |
 | Token Caching UI | ❌ Hidden | ✅ Enabled by Default |
-| Auto Release actions | ❌ Internal tooling | ✅ Public runners |
+
 
 ---
 
