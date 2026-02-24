@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Load secrets if available
+if [[ -f "local_secrets.env" ]]; then
+    source local_secrets.env
+fi
+
+# Check variables
+if [[ -z "${APPLE_NOTARIZATION_KEY:-}" || -z "${APPLE_NOTARIZATION_KEY_ID:-}" || -z "${APPLE_NOTARIZATION_ISSUER_ID:-}" ]]; then
+    echo "Error: Missing Notarization credentials."
+    echo "Please set APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, and APPLE_NOTARIZATION_ISSUER_ID in local_secrets.env"
+    exit 1
+fi
+
+DMG_PATH="${1:-}"
+
+# Find DMG if not provided
+if [[ -z "$DMG_PATH" ]]; then
+    # Look deeply in target/ because the structure can be complex
+    DMG_PATH=$(find target -name "*.dmg" -not -path "*/.*" | head -n 1)
+fi
+
+if [[ -z "$DMG_PATH" || ! -f "$DMG_PATH" ]]; then
+    echo "Error: DMG file not found. Please provide path to .dmg file."
+    echo "Usage: $0 [path/to/zed.dmg]"
+    exit 1
+fi
+
+echo "--------------------------------------------------------"
+echo "Notarizing: $DMG_PATH"
+echo "Issuer ID:  $APPLE_NOTARIZATION_ISSUER_ID"
+echo "Key ID:     $APPLE_NOTARIZATION_KEY_ID"
+echo "--------------------------------------------------------"
+
+# Write key to temp file to verify content (without printing secret)
+KEY_FILE=$(mktemp)
+echo "$APPLE_NOTARIZATION_KEY" > "$KEY_FILE"
+
+# Cleanup trap
+trap "rm -f '$KEY_FILE'" EXIT
+
+# Run notarytool
+xcrun notarytool submit \
+  --key "$KEY_FILE" \
+  --key-id "$APPLE_NOTARIZATION_KEY_ID" \
+  --issuer "$APPLE_NOTARIZATION_ISSUER_ID" \
+  --wait \
+  "$DMG_PATH"
+
+echo "--------------------------------------------------------"
+echo "Stapling ticket to DMG..."
+xcrun stapler staple "$DMG_PATH"
+echo "Done!"

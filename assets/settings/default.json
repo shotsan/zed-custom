@@ -1222,7 +1222,7 @@
     // Whether to show turn statistics (elapsed time during generation, final turn duration).
     //
     // Default: false
-    "show_turn_stats": false,
+    "show_turn_stats": true,
   },
   // Whether the screen sharing icon is shown in the os status bar.
   "show_call_status_icon": true,

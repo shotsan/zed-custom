@@ -263,6 +263,34 @@ impl Model {
         }
     }
 
+    /// Returns the model name as it appears in serde (the user-facing config name).
+    /// This is used when talking to third-party API proxies (like Azure) that
+    /// expect the exact deployment name rather than Anthropic's dated version string.
+    pub fn serde_name(&self) -> &str {
+        match self {
+            Self::ClaudeOpus4 => "claude-opus-4",
+            Self::ClaudeOpus4_1 => "claude-opus-4-1",
+            Self::ClaudeOpus4Thinking => "claude-opus-4-thinking",
+            Self::ClaudeOpus4_1Thinking => "claude-opus-4-1-thinking",
+            Self::ClaudeOpus4_5 => "claude-opus-4-5",
+            Self::ClaudeOpus4_5Thinking => "claude-opus-4-5-thinking",
+            Self::ClaudeSonnet4 => "claude-sonnet-4",
+            Self::ClaudeSonnet4Thinking => "claude-sonnet-4-thinking",
+            Self::ClaudeSonnet4_5 => "claude-sonnet-4-5",
+            Self::ClaudeSonnet4_5Thinking => "claude-sonnet-4-5-thinking",
+            Self::Claude3_5Sonnet => "claude-3-5-sonnet",
+            Self::Claude3_7Sonnet => "claude-3-7-sonnet",
+            Self::Claude3_7SonnetThinking => "claude-3-7-sonnet-thinking",
+            Self::ClaudeHaiku4_5 => "claude-haiku-4-5",
+            Self::ClaudeHaiku4_5Thinking => "claude-haiku-4-5-thinking",
+            Self::Claude3_5Haiku => "claude-3-5-haiku",
+            Self::Claude3Opus => "claude-3-opus",
+            Self::Claude3Sonnet => "claude-3-sonnet",
+            Self::Claude3Haiku => "claude-3-haiku",
+            Self::Custom { name, .. } => name,
+        }
+    }
+
     pub fn display_name(&self) -> &str {
         match self {
             Self::ClaudeOpus4 => "Claude Opus 4",
@@ -541,6 +569,7 @@ async fn send_request(
 
     let serialized_request =
         serde_json::to_string(&request).map_err(AnthropicError::SerializeRequest)?;
+
     let request = request_builder
         .body(AsyncBody::from(serialized_request))
         .map_err(AnthropicError::BuildRequestBody)?;
