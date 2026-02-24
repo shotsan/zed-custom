@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Load secrets
+if [[ -f "local_secrets.env" ]]; then
+    source local_secrets.env
+fi
+
+# Verify required variables
+if [[ -z "${MACOS_SIGNING_IDENTITY:-}" ]]; then
+    echo "Error: MACOS_SIGNING_IDENTITY is not set in local_secrets.env."
+    exit 1
+fi
+if [[ -z "${APPLE_NOTARIZATION_KEY:-}" || -z "${APPLE_NOTARIZATION_KEY_ID:-}" || -z "${APPLE_NOTARIZATION_ISSUER_ID:-}" ]]; then
+    echo "Error: Notarization credentials not set in local_secrets.env."
+    exit 1
+fi
+
+IDENTITY="$MACOS_SIGNING_IDENTITY"
+
+# Find the app bundle (excluding the build/ directory where helper apps live)
+APP_PATH=$(find target -name "Zed*.app" -type d -not -path "*/build/*" | head -n 1)
+if [[ -z "$APP_PATH" ]]; then
+    echo "Error: No .app bundle found in target/. Please run the build first."
+    exit 1
+fi
+APP_NAME=$(basename "$APP_PATH")
+DMG_NAME="${APP_NAME%.*}.dmg"
+DMG_PATH="$(dirname "$APP_PATH")/$DMG_NAME"
+
+echo "Found app: $APP_PATH"
+echo "Signing with identity: $IDENTITY"
+
+# Sign binaries inside the app
+echo "Signing internal binaries..."
+find "$APP_PATH/Contents/MacOS" -type f -perm +111 -exec \
+    /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" {} \;
+
+# Sign the main bundle with entitlements
+echo "Signing app bundle..."
+ENTITLEMENTS="crates/zed/resources/zed.entitlements"
+if [[ -f "$ENTITLEMENTS" ]]; then
+    /usr/bin/codesign --force --timestamp --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
+else
+    echo "Warning: Entitlements file not found at $ENTITLEMENTS. Signing without specific entitlements."
+    /usr/bin/codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP_PATH"
+fi
+
+# Create simple DMG
+echo "Creating DMG..."
+rm -f "$DMG_PATH"
+hdiutil create -volname "${APP_NAME%.*}" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+
+# Sign the DMG
+echo "Signing DMG..."
+/usr/bin/codesign --force --timestamp --options runtime --sign "$IDENTITY" "$DMG_PATH"
+
+# Notarize
+echo "Notarizing DMG..."
+KEY_FILE=$(mktemp)
+echo "$APPLE_NOTARIZATION_KEY" > "$KEY_FILE"
+trap "rm -f '$KEY_FILE'" EXIT
+
+xcrun notarytool submit \
+  --key "$KEY_FILE" \
+  --key-id "$APPLE_NOTARIZATION_KEY_ID" \
+  --issuer "$APPLE_NOTARIZATION_ISSUER_ID" \
+  --wait \
+  "$DMG_PATH"
+
+echo "Stapling ticket..."
+xcrun stapler staple "$DMG_PATH"
+
+echo "Done! Notarized DMG is at: $DMG_PATH"

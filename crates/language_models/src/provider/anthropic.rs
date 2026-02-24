@@ -533,7 +533,6 @@ impl LanguageModel for AnthropicModel {
         cx: &App,
     ) -> BoxFuture<'static, Result<u64>> {
         let http_client = self.http_client.clone();
-        let model_id = self.model.request_id().to_string();
         let mode = self.model.mode();
 
         let (api_key, api_url) = self.state.read_with(cx, |state, cx| {
@@ -543,6 +542,12 @@ impl LanguageModel for AnthropicModel {
                 api_url.to_string(),
             )
         });
+
+        let model_id = if api_url == ANTHROPIC_API_URL {
+            self.model.request_id().to_string()
+        } else {
+            self.model.serde_name().to_string()
+        };
 
         async move {
             // If no API key, fall back to tiktoken estimation
@@ -579,9 +584,19 @@ impl LanguageModel for AnthropicModel {
             LanguageModelCompletionError,
         >,
     > {
+        let model_name = {
+            let api_url = self.state.read_with(cx, |_state, cx| {
+                AnthropicLanguageModelProvider::api_url(cx)
+            });
+            if api_url == ANTHROPIC_API_URL {
+                self.model.request_id().to_string()
+            } else {
+                self.model.serde_name().to_string()
+            }
+        };
         let request = into_anthropic(
             request,
-            self.model.request_id().into(),
+            model_name,
             self.model.default_temperature(),
             self.model.max_output_tokens(),
             self.model.mode(),
