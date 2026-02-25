@@ -1,21 +1,49 @@
-# 🌐 Tool: `search`
+# 🌐 Web Search (Headless Chromium)
 
-The `search` tool is an incredibly powerful addition that grants the agent access to real-time information on the open internet using a custom headless Chromium engine.
+Execute real-time web searches directly in the chat panel using a localized, headless Chromium instance.
 
-## Technical Details
+## Execution Flow
 
-**Internal File:** `crates/agent/src/tools/web_search_tool.rs`
+### Step 1: Query Discovery
+The agent identifies missing info and searches via the DuckDuckGo API.
 
-When the user types `/search <query>` into the chat panel, it immediately bypasses standard LLM context and invokes the specific DuckDuckGo search API underneath the Chromium headless layer.
+<ZedChat>
+  <template #user>
+    How do I fix Rust error E0277 in Axum?
+  </template>
+  <template #assistant>
+    Searching for recent Axum documentation...
+  </template>
+  <template #output>
+    @search({ query: "axum rust error E0277" })
+    >> Found: [docs.rs/axum, github.com/tokio-rs/axum/issues]
+  </template>
+</ZedChat>
 
-Because it uses `chromiumoxide` to execute this, it can bypass standard bot protection, render complete JavaScript Single Page Applications (SPAs), and extract the pure Markdown representation of the page.
+### Step 2: Content Extraction
+The agent navigates to the best result, rendering JavaScript to ensure full data capture.
 
-## Use Cases
+<ZedChat>
+  <template #assistant>
+    Navigating to docs.rs to extract solution...
+  </template>
+  <template #output>
+    @browser({ action: "navigate", target: "https://docs.rs/axum/latest/axum" })
+    >> Status: Rendered (JS Hydrated)
+    >> Extracted: [Solution Markdown]
+  </template>
+</ZedChat>
 
-1. **Reading Modern Docs**: Scraping new libraries or frameworks that were released after the LLM's static training cutoff date.
-2. **Finding Solutions**: Taking an obscure compiler error and letting the agent silently search StackOverflow to find identical issues.
+## Why Headless?
 
-```md
-User: "/search What is the latest API shape for VuePress?"
-Agent: [Invokes search, scrapes 3 links, distills the answer]
-```
+- **JS Execution**: Captures React/Next.js rendered content that simple scrapers miss.
+- **Bot Resilience**: Mimics human browser patterns to avoid blocks.
+- **Privacy**: No external tracking; all rendering happens locally.
+
+## Technical Superiority over Standard IDEs
+
+Unlike other "AI-powered" editors that use simple text-based scrappers, our headless engine ensures:
+
+*   **JavaScript Execution**: We see exactly what you see in Chrome. If the documentation uses a single-page app (SPA) framework like Next.js or Docusaurus, we capture the content accurately.
+*   **Anti-Bot Resilience**: By mimicking human browsing patterns and headers, we can access resources that typically block automated scrapers.
+*   **Markdown Conversion Logic**: Once the page is rendered, our custom transformer converts the DOM into a clean, hierarchical Markdown format, preserving code block languages and table structures for the agent's consumption.
