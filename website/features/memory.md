@@ -1,32 +1,44 @@
-# 🧠 Agent Long-Term Memory System
+# 🧠 Long-Term Memory (SQLite)
 
-The most significant upgrade to this Zed fork is the deeply integrated, persistent SQLite memory database. Most AI coding assistants suffer from "amnesia" between editor restarts, forcing developers to re-explain their architectural constraints, internal libraries, and known issues every single day. 
+This build features a persistent SQLite database that stores project context across editor restarts, avoiding "context amnesia."
 
-We solved this.
+## Core Workflow
 
-## How it works
+### Step 1: Fact Ingestion (`@remember`)
+When the agent learns something new (e.g., an architectural rule), it records it in the local DB.
 
-The agent uses two primitive tools: `@remember` and `@recall`.
+<ZedChat>
+  <template #user>
+    Always use the "Service Layer" for DB queries.
+  </template>
+  <template #assistant>
+    Stored as an architectural rule.
+  </template>
+  <template #output>
+    @remember({ category: "Architecture", content: "Use Service Layer for DB queries." })
+  </template>
+</ZedChat>
 
-### 1. The `@remember` Tool
-When you make a significant design decision, setup a new internal API, or figure out a tricky bug, you can tell the agent to remember it. The agent will categorize the memory (e.g., *Architecture*, *Patterns*, *Issues*, *Procedures*, or *Notes*) and record it in a local database scoped entirely to your current project. 
+### Step 2: Context Retrieval (`@recall`)
+In future sessions, the agent queries the DB to maintain consistency.
 
-**Practical Example:**
-> **You:** "We just decided that all database mutations must be routed through the `MutationManager` service. Never modify the database directly. Use @remember to store this."
-> 
-> **Agent:** *Uses the `remember` tool.* "I have stored this pattern under Architecture for this project. I will ensure future mutations go through the `MutationManager`."
+<ZedChat>
+  <template #user>
+    How should I write this new query?
+  </template>
+  <template #assistant>
+    Recalling database patterns...
+  </template>
+  <template #output>
+    @recall({ query: "database pattern" })
+    >> Found: "Use Service Layer for DB queries."
+  </template>
+</ZedChat>
 
-![Remember Tool Demo](/demo-remember.gif)
+## Key Advantages
 
-### 2. The `@recall` Tool
-When you start a new session, you don't need to feed it 50 files of context. Simply ask a question, and the agent will use the `@recall` tool to retrieve exactly what you saved previously—whether it was yesterday or six months ago.
-
-**Practical Example:**
-> **You:** *(Next day, new session)* "Can you write a new function to update the user's email?"
-> 
-> **Agent:** *Uses the `recall` tool, retrieves the `MutationManager` memory.* "Certainly! Based on this project's architecture, I see we need to route this through the `MutationManager` service rather than updating the DB directly. Here is the implementation..."
-
-![Recall Tool Demo](/demo-recall.gif)
-
-### Privacy First
-Because this is built on SQLite directly into the Zed binary, your memories are stored purely on your local file system (`~/.local/share/zed/...`). No embeddings are sent to third parties for storage, and you retain 100% control over the context database.
+| Feature | standard `.md` Rules | Zed SQLite Memory |
+| :--- | :--- | :--- |
+| **Storage** | Single file | Structured SQL DB |
+| **Retrieval** | Global (Bloat) | Selective (@recall) |
+| **Evolution** | Manual | Organic (@remember) |

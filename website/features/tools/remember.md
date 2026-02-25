@@ -1,25 +1,24 @@
 # 🧠 Tool: `@remember`
 
-The `remember` tool gives the Zed AI Agent the ability to write permanent context directly to a SQLite database tied exclusively to your current workspace root.
+Persist architectural facts and patterns directly to the project's SQLite database.
 
 ## Technical Details
+- **Internal File**: `crates/agent/src/tools/memory_tools.rs`
+- **Logic**: Executes `INSERT OR REPLACE` into the `memories` table.
 
-**Internal File:** `crates/agent/src/tools/memory_tools.rs`
+## Usage Example
 
-When invoked, the tool executes an `INSERT OR REPLACE` SQL statement against your project's `memories` table. The LLM is forced to categorize the input into one of 5 distinct schemas:
-1. `Architecture`
-2. `Patterns`
-3. `Issues`
-4. `Procedures`
-5. `Notes`
+<ZedChat>
+  <template #user>
+    Remember that this crate uses Rust 1.76 specifically for this workspace.
+  </template>
+  <template #assistant>
+    Recording project constraint...
+  </template>
+  <template #output>
+    @remember({ category: "Procedures", content: "Uses Rust 1.76 strictly." })
+  </template>
+</ZedChat>
 
-## How it's Used
-
-Because the LLM is autonomous, it can choose to use the `remember` tool proactively when it solves a complex bug, or you can explicitly command it to memory.
-
-```md
-User: "Please remember that we use Rust 1.76 and strict Clippy warnings."
-Agent: [Invokes remember(category="Constraints", content="Uses Rust 1.76...")]
-```
-
-> **Note:** The memory database is stored locally in `~/.local/share/zed/`. No context is sent to third-party databases for storage.
+> [!NOTE]
+> Database is stored locally at `~/.local/share/zed/`. No context is sent to third-party databases.
