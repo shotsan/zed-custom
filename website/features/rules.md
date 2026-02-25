@@ -6,31 +6,42 @@ To solve this, our Zed agent natively supports **Custom Rule Insertion** via `.r
 
 # 📝 Custom Rules (.rules)
 
-Tailor the AI agent's behavior by placing `.rules`, `.cpp_rules`, or `.python_rules` files in your project root.
+Custom rules allow you to enforce project-specific coding standards, architectural constraints, and team preferences directly on the AI agent.
 
-## Rule Injection
+## Rule Detection & Injection
 
-These files are injected at the very bottom of the [System Prompt](/features/system-prompts), giving them the highest "recency bias" for the LLM.
+The agent's context engine (implemented in `crates/agent/src/templates.rs`) automatically scans your workspace root for specific rule files:
+- **`.rules`**: Global rules applied to every turn.
+- **`.cpp_rules`**: Specific logic injected only when a C++ file is in context.
+- **`.python_rules`**: Specific logic injected only when a Python file is in context.
 
-### Example: `.python_rules`
+These files are injected at the **very bottom** of the system prompt. Because they appear last, they benefit from the "recency bias" of Large Language Models, ensuring your specific instructions take precedence over the agent's general training.
+
+## Visual Walkthrough
+
+### Enforcing Team Standards
+
+If you have a `.python_rules` file containing:
 ```md
 - Always use Pydantic v2 for data models.
 - Type hints are mandatory for all public APIs.
 ```
 
-## Strategy: Rules vs Memory
-
-| Strategy | Usage | Injection Point |
-| :--- | :--- | :--- |
-| **`.rules` Files** | Permanent team standards | Bottom of Prompt (Highest Priority) |
-| **SQLite Memory** | Evolving codebase facts | Middleware (Contextual) |
+The agent will automatically align its output without you needing to mention these rules in the chat:
 
 <ZedChat>
   <template #user>
-    Write a user model.
+    Write a simple User model with an email field.
   </template>
   <template #assistant>
-    Consulting `.python_rules`...
+    Consulting `.python_rules` for project standards...
     Implementing with Pydantic v2 and mandatory type hints.
   </template>
 </ZedChat>
+
+## Strategy: Rules vs Memory
+
+| Strategy | Usage | Persistance |
+| :--- | :--- | :--- |
+| **`.rules` Files** | Permanent team standards (Static) | Committed to Git |
+| **SQLite Memory** | Evolving codebase facts (Dynamic) | Local Project DB |

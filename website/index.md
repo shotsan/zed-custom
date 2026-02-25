@@ -3,29 +3,26 @@
 layout: home
 
 hero:
-  name: "The Zed AI Fork"
-  text: "10x Developer Velocity."
-  tagline: Limitless Headless Browsing. Deep SQLite Memory. Pure Speed.
-  image:
-    src: /logo.png
-    alt: Zed Custom Fork Logo
+  name: "Zed Custom"
+  text: "The High-Performance AI Agent Fork"
+  tagline: "Custom features for Zed including Long-Term Memory, LSP-based Context, and Headless Searching."
   actions:
     - theme: brand
-      text: Explore Features
+      text: Features
       link: /features/memory
     - theme: alt
-      text: View Source
+      text: GitHub
       link: https://github.com/shotsan/zed-custom
 
 features:
-  - title: 🧠 Persistent Local DB
-    details: Standard IDEs lose context on restart. We automatically persist architectural decisions, patterns, and bugs in a lightweight SQLite database using `@remember` and `@recall`.
-  - title: 🌐 Headless Chromium Search
-    details: Hit an obscure compiler bug? Type `/search` in the chat panel to instantly bypass bot protection and extract JavaScript-rendered documentation without ever leaving the IDE.
-  - title: ☁️ Azure Anthropic Caching
-    details: Stop waiting for 200k context requests. Natively handles Azure deployment string endpoints and exposes token caching (`X saved`, `X cached`) visualizations directly above the chat box.
-  - title: ⚡️ LSP Powered Context
-    details: We disabled the CPU-destroying background Regex indexers. Our AI agent queries your language server (`rust-analyzer`, `pyright`) natively for perfectly typed, hallucination-free context.
+  - title: 🧠 Long-Term Memory
+    details: Persistent SQLite database that stores project context across restarts. No more context amnesia.
+  - title: ⚡ LSP Symbol Search
+    details: Native Language Server Protocol integration for 100% accurate, type-aware code context.
+  - title: 🌐 Headless Chromium
+    details: Built-in chromiumoxide engine for real-time web search and JavaScript-heavy documentation.
+  - title: ☁️ Azure Anthropic
+    details: Native support for Azure deployments and real-time Token Caching (Prompt Caching) visualization.
   - title: 📝 Custom System Prompts & Rules
     details: Project-scoped `.rules` files drop directly into the agent's subconscious prompt, perfectly aligning its persona and coding standards to your exact repository requirements.
   - title: 🕵️ Full Message Privacy

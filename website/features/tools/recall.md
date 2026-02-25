@@ -1,10 +1,15 @@
 # 🧠 Tool: `@recall`
 
-Query historical project context from the SQLite database.
+The `@recall` tool is the retrieval engine for the SQLite long-term memory system, allowing the agent to pull past context dynamically based on search queries or categories.
 
-## Technical Details
-- **Internal File**: `crates/agent/src/tools/memory_tools.rs`
-- **Logic**: Executes a `SELECT` query with optional `query` and `category` filters.
+## Technical Implementation
+
+The agent invokes `@recall` to execute a `SELECT` query against the project's `memories` table. Unlike a global prompt injection, this tool allows for **selective retrieval**, keeping the prompt window clean while providing the necessary context.
+
+The LLM can provide:
+- `query`: A string for simple fuzzy matching.
+- `category`: A filter to narrow down results (e.g., searching only in `Architecture`).
+- `limit`: Controls how many facts are returned (defaults to the 5 most recent).
 
 ## Usage Example
 
@@ -13,7 +18,7 @@ Query historical project context from the SQLite database.
     How did we implement auth in this project?
   </template>
   <template #assistant>
-    Searching project memories for "authentication"...
+    Searching project history for authentication patterns...
   </template>
   <template #output>
     @recall({ query: "authentication", category: "Architecture" })
@@ -21,5 +26,5 @@ Query historical project context from the SQLite database.
   </template>
 </ZedChat>
 
-> [!TIP]
-> Use specific keywords to filter through months of development history instantly.
+## Advanced Usage
+If the agent is facing a recurring compiler error, it will often invoke recall with `category: "Issues"` to see if a similar problem was solved and recorded via `@remember` in a previous session.
