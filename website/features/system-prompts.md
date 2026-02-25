@@ -8,21 +8,33 @@ The core system prompts are managed in `crates/agent/src/templates.rs` and injec
 
 Our custom `system_prompt.hbs` is broken down into several distinct sections to ensure the LLM strictly adheres to its persona and properly leverages its environment.
 
-### 1. The Persona Block
-We instruct the LLM on exactly *who* it is and *how* it should act.
-> "You are an expert, proactive Software Engineer serving as an autonomous 10x pair programming partner. You prioritize correct, secure, and highly optimized code..."
+### 1. The Persona & Tool Block
+We instruct the LLM on exactly *who* it is and *how* it should act, followed by dynamically listing every custom tool the agent has available (e.g., `remember`, `recall`, `search`, `edit_file`). 
 
-### 2. Global Context & Tool Injection
-The template engine dynamically lists every custom tool the agent has available (e.g., `remember`, `recall`, `search`, `edit_file`). 
+### 2. Epistemic State (Project Health)
+The prompt injects real-time sensory context from Zed's LSP, instantly feeding the agent the active file path, compiler error counts, and warning metrics.
 
-If you are using the Long-Term Memory feature, the engine will query the SQLite database and inject *Project Memories* directly into the system prompt before the first turn even begins!
+### 3. Modifiers (Python & C++ Best Practices)
+Depending on the active files in your project, the engine injects explicit coding standards (e.g., forcing Pydantic for Python, or smart pointers for Modern C++).
 
-### 3. Rule Injection
-As mentioned in our [Rules Documentation](/features/rules), this is the section where the engine appends contents from `.rules`, `.cpp_rules`, and `.python_rules` directly into the agent's subconscious constraints.
+### 4. The Active SQLite Memory Block
+This is critical. Right before the user's constraints, the engine queries the SQLite memory database and injects all relevant project memories. It dynamically iterates over the 5 categories (`Architecture`, `Patterns`, `Issues`, `Procedures`, `Notes`) and formats them as headers directly in the prompt.
 
-### 4. Behavioral Constraints
-We explicitly guide the agent on how to use tools to avoid infinite loops and hallucinations.
-> "CRITICAL INSTRUCTION: Before making tool calls, think and explicitly list out any related tools for the task. You must ALWAYS use `grep_search` instead of running `grep` in bash."
+**Template Injection (`system_prompt.hbs:260`):**
+```hbs
+\{{#if (gt (len memories) 0)}}
+## Project Memory
+The following information has been remembered from previous sessions:
+
+\{{#each memories}}
+### \{{category}}
+\{{content}}
+\{{/each}}
+\{{/if}}
+```
+
+### 5. Rule Injection (`.rules` files)
+At the very bottom of the system prompt (maximizing the LLM's "recency" attention), the engine injects the contents of any `.rules` files found in your workspace root.
 
 ## Modifying the Persona
 
