@@ -16,13 +16,24 @@ export default defineConfig({
 
         sidebar: [
             {
-                text: 'Custom Engine Features',
+                text: 'Core Features',
                 items: [
                     { text: 'Long-Term Memory', link: '/features/memory' },
                     { text: 'Headless Web Search', link: '/features/search' },
-                    { text: 'Azure Anthropic Support', link: '/features/azure-anthropic' },
-                    { text: 'Automated Releases', link: '/features/releases' },
-                    { text: 'LSP Symbol Search', link: '/features/lsp' }
+                    { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
+                    { text: 'LSP Symbol Search', link: '/features/lsp' },
+                    { text: 'Custom Rules (.rules)', link: '/features/rules' },
+                    { text: 'System Prompts & Persona', link: '/features/system-prompts' }
+                ]
+            },
+            {
+                text: 'Agent Tools',
+                items: [
+                    { text: 'Memory: remember', link: '/features/tools/remember' },
+                    { text: 'Memory: recall', link: '/features/tools/recall' },
+                    { text: 'Web: search', link: '/features/tools/search' },
+                    { text: 'Web: fetch', link: '/features/tools/fetch' },
+                    { text: 'LSP: context', link: '/features/tools/context' }
                 ]
             }
         ],
