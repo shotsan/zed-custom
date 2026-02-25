@@ -19,8 +19,10 @@ features:
     details: The AI agent natively stores patterns, architecture, and bugs in a local SQLite database across restarts using "@remember" and "@recall".
   - title: 🌐 Headless Chromium Search
     details: Type "/search" directly in the chat panel to instantly browse documentation and extract JavaScript-heavy website context without ever leaving the IDE.
-  - title: ☁️ Azure Anthropic Native
+  - title: ☁️ Azure Anthropic & Token Caching
     details: Natively handles Azure deployment string endpoints and exposes token caching visualizations by default to drastically reduce massive prompt latency.
   - title: ⚡️ LSP Powered Context
     details: Replaces CPU-heavy background regex indexing with completely silent, instant, type-aware language server protocol (LSP) integrations.
+  - title: 📝 Custom System Prompts & Rules
+    details: Project-scoped `.rules` files allow you to perfectly tailor the AI agent's persona and coding standards to your exact codebase requirements.
 ---
