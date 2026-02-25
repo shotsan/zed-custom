@@ -1,12 +1,18 @@
 # ☁️ Azure Anthropic & Token Caching
 
-## 1. Zero-Friction Azure Support
+This fork provides native integration for Azure OpenAI/Foundry Anthropic deployments and real-time visualization of Anthropic's **Prompt Caching** (Beta).
 
-This build provides native support for Azure's Anthropic API deployments, including real-time visualization of Anthropic's **Prompt Caching** (Beta).
+## Native Azure Support
 
-## Cache Visualization
+Standard Anthropic providers in Zed often fail with `404 DeploymentNotFound` because they passdated version strings (e.g., `claude-3-5-sonnet-20241022`) that Azure strictly rejects.
 
-When you send a message, the chat UI displays exactly how many tokens were cached and saved, drastically reducing both latency and cost for large context windows.
+We modified `crates/anthropic/src/anthropic.rs` to intercept model resolution. When a custom `api_url` is detected, Zed automatically forwards the exact `serde_name` string you provided in settings, ensuring your Azure deployment name is matched perfectly.
+
+## Prompt Caching UI
+
+For massive context windows (200k+ tokens), sending the entire codebase on every turn is slow and expensive. Anthropic's **Prompt Caching** stores prefixes on their servers for roughly 5 minutes.
+
+In this build, the `show_turn_stats` visualization is **enabled by default**.
 
 <ZedChat>
   <template #assistant>
@@ -17,11 +23,7 @@ When you send a message, the chat UI displays exactly how many tokens were cache
   </template>
 </ZedChat>
 
-## Configuration
-
-Unlike standard Anthropic providers, Azure requires a specific endpoint format. We handle this transformation internally so you only need to provide your Base URL and Management Key.
-
-### Key Benefits
-- **Persistent Cache**: Keeps your project context "warm" across turns.
-- **Cost Reduction**: Up to 90% cheaper for repeated massive prompts.
-- **Low Latency**: Responses begin instantly even with 200k+ tokens of context.
+### Benefits
+- **Persistent ROI**: Instantly see exactly how many tokens were pulled from the server cache.
+- **Low Latency**: Responses start in milliseconds instead of multi-second wait times.
+- **Enterprise Ready**: Seamlessly works with Azure AD and managed identity headers.

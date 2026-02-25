@@ -1,44 +1,63 @@
-# 🧠 Long-Term Memory (SQLite)
+# 🧠 Long-Term Project Memory (SQLite)
 
-This build features a persistent SQLite database that stores project context across editor restarts, avoiding "context amnesia."
+The Long-Term Memory system solves the "context amnesia" problem common in AI IDEs by persisting architectural decisions, recurring bugs, and project-specific patterns across editor restarts.
 
-## Core Workflow
+## Architectural Overview
 
-### Step 1: Fact Ingestion (`@remember`)
-When the agent learns something new (e.g., an architectural rule), it records it in the local DB.
+Unlike simple `.md` rule files that are always present in the prompt (leading to token bloat), this system uses a **Retrival-Augmented Generation (RAG)** approach backed by a local SQLite database.
+
+Knowledge is structured into five distinct categories to help the agent maintain a clean conceptual map of your project:
+1.  **Architecture**: Core structural decisions.
+2.  **Patterns**: Recurring code styles or library usage.
+3.  **Issues**: Tricky bugs and their historical fixes.
+4.  **Procedures**: Setup steps, build commands, and deployment flows.
+5.  **Notes**: General project trivia.
+
+## Implementation Details
+
+The core logic resides in `crates/agent/src/tools/memory_tools.rs`. The database is stored locally on your filesystem at `~/.local/share/zed/project_memory.db` (scoped by project path).
+
+- **Fact Ingestion**: The agent uses the `@remember` tool to write new rows using `INSERT OR REPLACE`.
+- **Fact Retrieval**: The agent uses the `@recall` tool to execute `SELECT` queries, often triggered by a semantic search query or a category filter.
+
+## Visual Walkthrough
+
+### Step 1: Learning a New Constraint
 
 <ZedChat>
   <template #user>
-    Always use the "Service Layer" for DB queries.
+    We must use the "Service Layer" pattern for all database interactions in this crate. Never call Postgres queries directly from the UI.
   </template>
   <template #assistant>
-    Stored as an architectural rule.
+    Understood. Storing this architectural rule in the project memory.
   </template>
   <template #output>
-    @remember({ category: "Architecture", content: "Use Service Layer for DB queries." })
+    @remember({
+      category: "Architecture",
+      content: "Strictly use Service Layer pattern for DB interactions. UI must not call Postgres directly."
+    })
   </template>
 </ZedChat>
 
-### Step 2: Context Retrieval (`@recall`)
-In future sessions, the agent queries the DB to maintain consistency.
+### Step 2: Recalling Context in a New Session
 
 <ZedChat>
   <template #user>
-    How should I write this new query?
+    I'm ready to add the User Profile page. How should I handle the database part?
   </template>
   <template #assistant>
-    Recalling database patterns...
+    Checking project memory for database patterns...
   </template>
   <template #output>
     @recall({ query: "database pattern" })
-    >> Found: "Use Service Layer for DB queries."
+    >> Found in [Architecture]: "Strictly use Service Layer pattern for DB interactions..."
   </template>
 </ZedChat>
 
-## Key Advantages
+## Comparison: SQLite vs .md Files
 
-| Feature | standard `.md` Rules | Zed SQLite Memory |
+| Feature | Standard IDEs (.md) | Zed Custom (SQLite) |
 | :--- | :--- | :--- |
-| **Storage** | Single file | Structured SQL DB |
-| **Retrieval** | Global (Bloat) | Selective (@recall) |
-| **Evolution** | Manual | Organic (@remember) |
+| **Token Usage** | Constant / Exponential | Minimal (Selective Retrieval) |
+| **Searchability** | Linear Text Scan | Structured SQL/Semantic Search |
+| **Scaling** | Fails at large rule-sets | Handles thousands of project facts |
