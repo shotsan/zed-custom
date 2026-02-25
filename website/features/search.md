@@ -12,7 +12,40 @@ Once the page is rendered, Zed extracts the Markdown payload and synthesizes a p
 
 ![Search Tool Demo](/demo-search.gif)
 
-### Key Advantages
-- **No API Keys Needed**: Unlike third-party search APIs, this uses a local Chromium instance to scrape open web results for free.
-- **JavaScript Rendering**: Traditional scrapers fail on modern documentation sites. Headless Chrome ensures even the heaviest React apps are fully rendered before extraction.
-- **Deep Dives via `@fetch`**: You can explicitly command the agent to read specific pages by typing `@fetch https://example.com/docs`, embedding entire remote pages into your prompt window instantly.
+## Visual Walkthrough
+
+### Example 1: Resolving Library Knowledge Cutoffs
+<ZedChat>
+  <template #user>
+    Write a simple server using the latest `axum` version. I'm not sure if the API changed in 0.7.
+  </template>
+  <template #assistant>
+    Searching for `axum 0.7 release notes` to verify API changes...
+  </template>
+  <template #output>
+    @search({ query: "axum 0.7 breaking changes" })
+    >> Results: docs.rs/axum/latest/..., entries found.
+    @fetch({ url: "https://docs.rs/axum/latest/axum/index.html" })
+    >> Extracting Axum 0.7 routing syntax...
+  </template>
+</ZedChat>
+
+### Example 2: Comparative Documentation Research
+<ZedChat>
+  <template #user>
+    Should I use `tokio::sync::mpsc` or `crossbeam_channel` for a high-throughput UI event loop?
+  </template>
+  <template #assistant>
+    Comparing performance benchmarks and async compatibility...
+  </template>
+  <template #output>
+    @search({ query: "tokio mpsc vs crossbeam performance benchmarks" })
+    >> Found benchmark analysis on Reddit and GitHub Discussions.
+  </template>
+</ZedChat>
+
+## Workflow Impact
+- **End-to-End Solutions**: The agent no longer says "I don't know the latest API." It finds it, reads it, and implements it.
+- **Fact Verification**: Instantly cross-reference agent suggestions against official documentation without leaving the editor.
+- **Context Expansion**: Pull in external examples, RFCs, and GitHub issues to solve obscure architectural problems.
+- **Accurate Dependencies**: The agent can verify the exact latest version strings for your `Cargo.toml`.

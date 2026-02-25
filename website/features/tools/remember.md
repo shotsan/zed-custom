@@ -13,11 +13,12 @@ The implementation in `crates/agent/src/tools/memory_tools.rs` enforces categori
 4.  **Procedures**: build/deploy steps.
 5.  **Notes**: general facts.
 
-## Usage Example
+## Usage Examples
 
+### Example 1: Preserving Architectural Decisions
 <ZedChat>
   <template #user>
-    Note that this project uses Rust 1.76 specifically for this workspace.
+    Note that this project uses Rust 1.76 specifically for this workspace. Never use 1.78+ features.
   </template>
   <template #assistant>
     Persisting tool-chain constraint to memory...
@@ -25,10 +26,29 @@ The implementation in `crates/agent/src/tools/memory_tools.rs` enforces categori
   <template #output>
     @remember({
       category: "Procedures",
-      content: "Workspace strictly uses Rust 1.76."
+      content: "Workspace strictly uses Rust 1.76. Do not use 1.78+ features."
     })
   </template>
 </ZedChat>
 
-> [!IMPORTANT]
-> Because it uses `INSERT OR REPLACE`, the agent can update existing memories by targeting the same category and refining the content, allowing the project's knowledge base to evolve naturally.
+### Example 2: Documenting Legacy Debt
+<ZedChat>
+  <template #user>
+    The `legacy_token` module in `crates/auth` is deprecated. Always use `SessionManager` instead.
+  </template>
+  <template #assistant>
+    Recording deprecation policy...
+  </template>
+  <template #output>
+    @remember({
+      category: "Architecture",
+      content: "`legacy_token` is deprecated. Use `SessionManager` for all new auth code."
+    })
+  </template>
+</ZedChat>
+
+## Workflow Impact
+- **Institutional Memory**: The agent remembers *why* you chose a specific pattern, even months after the conversation.
+- **Rule Enforcement**: Injects these memories directly into the agent's subconscious prompt for every future turn.
+- **Onboarding Speed**: Quickly catches the agent up on obscure project constraints that aren't in the global LLM training data.
+- **Scalable Context**: Unlike `.rules` files, memories are retrieved contextually, saving tokens while maintaining precision.

@@ -14,16 +14,31 @@ For massive context windows (200k+ tokens), sending the entire codebase on every
 
 In this build, the `show_turn_stats` visualization is **enabled by default**.
 
+## Visual Walkthrough: Caching ROI
+
 <ZedChat>
+  <template #user>
+    (First Turn: Sends 50 files)
+    Summarize the overall architecture.
+  </template>
   <template #assistant>
-    (Turn Stats displayed above response)
-    >> 250,000 tokens cached
-    >> 1,200 tokens input
-    >> 450 tokens output
+    >> 0 tokens cached
+    >> 45,000 tokens input
+    Generating summary...
+  </template>
+  <template #user>
+    (Second Turn: Asks follow-up)
+    Now find the specific logic for the auth handler.
+  </template>
+  <template #assistant>
+    >> 45,200 tokens cached (ROI! ⚡️)
+    >> 150 tokens input
+    Locating auth handler...
   </template>
 </ZedChat>
 
-### Benefits
-- **Persistent ROI**: Instantly see exactly how many tokens were pulled from the server cache.
-- **Low Latency**: Responses start in milliseconds instead of multi-second wait times.
-- **Enterprise Ready**: Seamlessly works with Azure AD and managed identity headers.
+## Workflow Impact
+- **Enterprise Compliance**: Securely use LLMs within Azure's managed infrastructure and VPCs.
+- **Zero-Wait Context**: Massive projects that usually take 10s to process now respond in <1s due to prefix caching.
+- **Dramatic Cost Savings**: Pay up to 90% less for the "static" project context that doesn't change between turns.
+- **Perfect Routing**: Eliminates the "404 Model Not Found" errors by matching exact Azure deployment names.

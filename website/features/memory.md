@@ -61,3 +61,9 @@ The core logic resides in `crates/agent/src/tools/memory_tools.rs`. The database
 | **Token Usage** | Constant / Exponential | Minimal (Selective Retrieval) |
 | **Searchability** | Linear Text Scan | Structured SQL/Semantic Search |
 | **Scaling** | Fails at large rule-sets | Handles thousands of project facts |
+
+## Workflow Impact
+- **Eliminate Regressions**: The agent proactively warns you if you attempt to re-implement a pattern that was previously archived as "problematic."
+- **Institutional Knowledge**: New developers joining the project gain an instant "AI mentor" that remembers every architectural pivots and obscure bug fix.
+- **Context Management**: Drastically reduces the "Recap Phase" at the start of every session. The agent starts with a warm cache of project-specific facts.
+- **Precision Grounding**: Unlike generic LLM training, these memories ensure the agent follows *your* repository's unique conventions.
