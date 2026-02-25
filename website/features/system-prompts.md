@@ -39,3 +39,9 @@ The following information has been remembered from previous sessions:
 Because the prompt is embedded in the binary, fundamental changes to the agent's base persona require editing the `.hbs` template and re-running `cargo build --release`. 
 
 For transient project-specific behaviors, we recommend using [Custom Rules](/features/rules) instead of binary modifications.
+
+## Workflow Impact
+- **Absolute Control**: You own the prompt. If the agent is being too chatty or making formatting errors, you can fix its "brain" directly without waiting for an upstream Zed release.
+- **Model Optimization**: Fine-tune the context injection strategy based on whether you're using Claude 3.5 Sonnet, GPT-4o, or local Llama models.
+- **Security & Privacy**: Audit exactly what system-level metadata is being leaked to the model and strip out what you don't want.
+- **Rapid Prototyping**: Experiment with new agent capabilities (like "Refactor Mode") by simply creating a new Handlebars template.

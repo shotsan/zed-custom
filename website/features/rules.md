@@ -41,7 +41,11 @@ The agent will automatically align its output without you needing to mention the
 
 ## Strategy: Rules vs Memory
 
-| Strategy | Usage | Persistance |
-| :--- | :--- | :--- |
 | **`.rules` Files** | Permanent team standards (Static) | Committed to Git |
 | **SQLite Memory** | Evolving codebase facts (Dynamic) | Local Project DB |
+
+## Workflow Impact
+- **Team Standardization**: Commit a `.rules` file to your project root to ensure every developer's AI assistant follows the same linting, naming, and architectural standards.
+- **Zero Hallucination**: Proactively tell the agent about obscure project "gotchas" before it suggests a fix that breaks your specific environment.
+- **Automated Persona**: Define the agent's tone and expertise level on a per-directory basis (e.g., "Be a grumpy Senior C++ dev in `crates/engine`").
+- **Language Specificity**: Add `.rules` to specific subdirectories to inject language-specific constraints only where they are needed.

@@ -52,3 +52,9 @@ The agent utilizes two tools under the hood:
 - **Containerization**: Rendering happens entirely within a local chromium process.
 - **Privacy**: No tracking tokens are sent; we mimic standard Chrome headers to bypass basic anti-bot triggers.
 - **Code Path**: Implemented in `crates/agent/src/tools/web_search_tool.rs`.
+
+## Workflow Impact
+- **Infinite Knowledge**: Bypasses the LLM training cutoff by pulling live data from the web.
+- **Multi-Source Synthesis**: The agent can read multiple search results to form a consensus on the best approach.
+- **Free & Local**: No need for paid Search API keys (Serper, Tavily). Uses your local machine's Chromium instance.
+- **Developer-Focused**: Prioritizes documentation sites (docs.rs, GitHub, MDN) over generic SEO content.

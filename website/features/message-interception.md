@@ -2,6 +2,20 @@
 
 One of the core design goals of this Zed fork is **Total Transparency**. Unlike closed-source IDEs that maintain hidden behavioral modifiers, we allow you to audit the exact raw payload sent to the LLM on every turn.
 
+## The Local Audit Trail
+
+When you start a session, a hidden directory is automatically created at your project root: **`.zed/agent_logs/`**.
+
+Every outgoing system prompt, user message, and tool result is appended to **`traffic.md`** within that directory. This provides a raw, un-truncated history of all LLM traffic, allowing for:
+- **Security Audits**: Verify no sensitive tokens or private files were accidentally leaked.
+- **Prompt Debugging**: See exactly how the agent is interpreting your repository's context.
+- **Workflow Archiving**: Keep a permanent, searchable Markdown record of your pair-programming sessions.
+
+## Impact on Workflow
+- **Trust**: Eliminates the "black box" nature of AI features.
+- **Transparency**: Provides concrete proof of what the agent "sees" before it acts.
+- **Offline Review**: No need to rely on the Zed UI to recall what was communicated to the model.
+
 ## The Raw Intercepted Payload
 
 Below is the full, un-truncated system prompt intercepted from a live session. This demonstrates how Zed resolves templates, ephemeral state, and persistent memories into a single context block.
