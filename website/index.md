@@ -26,5 +26,10 @@ features:
   - title: 📝 Custom System Prompts & Rules
     details: Project-scoped `.rules` files drop directly into the agent's subconscious prompt, perfectly aligning its persona and coding standards to your exact repository requirements.
   - title: 🕵️ Full Message Privacy
-    details: Don't guess what the AI knows. Our open source engine allows for full message interception, meaning you can audit the exact JSON payload and telemetry sent over the wire.
+    details: Audit every outgoing request to the LLM. No hidden telemetry. Total transparency on what data leaves your machine.
+
+---
+
+> [!IMPORTANT]
+> **Disclaimer**: This is a custom, unofficial fork and is not associated with, endorsed by, or affiliated with [Zed Industries](https://zed.dev).
 ---
