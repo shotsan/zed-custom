@@ -1,28 +1,33 @@
 ---
-# https://vitepress.dev/reference/default-theme-home-page
+# https://vitepress.dev/reference/default-theme-home-page---
 layout: home
 
 hero:
-  name: "Zed Custom"
-  text: "The Ultimate AI Editor."
-  tagline: A blisteringly fast code editor, now featuring persistent Long-Term AI Memory, headless React web search, and Azure Anthropic Caching built natively into the engine.
+  name: "The Zed AI Fork"
+  text: "10x Developer Velocity."
+  tagline: Limitless Headless Browsing. Deep SQLite Memory. Pure Speed.
+  image:
+    src: /logo.png
+    alt: Zed Custom Fork Logo
   actions:
     - theme: brand
       text: Explore Features
       link: /features/memory
     - theme: alt
-      text: View on GitHub
+      text: View Source
       link: https://github.com/shotsan/zed-custom
 
 features:
-  - title: 🧠 Persistent Memory
-    details: The AI agent natively stores patterns, architecture, and bugs in a local SQLite database across restarts using "@remember" and "@recall".
+  - title: 🧠 Persistent Local DB
+    details: Standard IDEs lose context on restart. We automatically persist architectural decisions, patterns, and bugs in a lightweight SQLite database using `@remember` and `@recall`.
   - title: 🌐 Headless Chromium Search
-    details: Type "/search" directly in the chat panel to instantly browse documentation and extract JavaScript-heavy website context without ever leaving the IDE.
-  - title: ☁️ Azure Anthropic & Token Caching
-    details: Natively handles Azure deployment string endpoints and exposes token caching visualizations by default to drastically reduce massive prompt latency.
+    details: Hit an obscure compiler bug? Type `/search` in the chat panel to instantly bypass bot protection and extract JavaScript-rendered documentation without ever leaving the IDE.
+  - title: ☁️ Azure Anthropic Caching
+    details: Stop waiting for 200k context requests. Natively handles Azure deployment string endpoints and exposes token caching (`X saved`, `X cached`) visualizations directly above the chat box.
   - title: ⚡️ LSP Powered Context
-    details: Replaces CPU-heavy background regex indexing with completely silent, instant, type-aware language server protocol (LSP) integrations.
+    details: We disabled the CPU-destroying background Regex indexers. Our AI agent queries your language server (`rust-analyzer`, `pyright`) natively for perfectly typed, hallucination-free context.
   - title: 📝 Custom System Prompts & Rules
-    details: Project-scoped `.rules` files allow you to perfectly tailor the AI agent's persona and coding standards to your exact codebase requirements.
+    details: Project-scoped `.rules` files drop directly into the agent's subconscious prompt, perfectly aligning its persona and coding standards to your exact repository requirements.
+  - title: 🕵️ Full Message Privacy
+    details: Don't guess what the AI knows. Our open source engine allows for full message interception, meaning you can audit the exact JSON payload and telemetry sent over the wire.
 ---
