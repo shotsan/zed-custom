@@ -26,6 +26,9 @@ In this build, the `show_turn_stats` visualization is **enabled by default**.
     >> 45,000 tokens input
     Generating summary...
   </template>
+</ZedChat>
+
+<ZedChat>
   <template #user>
     (Second Turn: Asks follow-up)
     Now find the specific logic for the auth handler.
