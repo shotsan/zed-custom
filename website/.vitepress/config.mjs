@@ -21,6 +21,7 @@ export default defineConfig({
                     { text: 'Long-Term Memory', link: '/features/memory' },
                     { text: 'Headless Web Search', link: '/features/search' },
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
+                    { text: 'Prompt Caching Logic', link: '/features/prompt-caching' },
                     { text: 'LSP Symbol Search', link: '/features/lsp' },
                     { text: 'Custom Rules (.rules)', link: '/features/rules' },
                     { text: 'System Prompts & Persona', link: '/features/system-prompts' },
