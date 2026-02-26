@@ -424,6 +424,9 @@ jobs:
       FILE_DIGEST: SHA256
       TIMESTAMP_DIGEST: SHA256
       TIMESTAMP_SERVER: http://timestamp.acs.microsoft.com
+      ZED_WORKSPACE: ${{ github.workspace }}
+      RELEASE_VERSION: ${{ github.ref_name }}
+      ZED_RELEASE_CHANNEL: stable
     steps:
     - name: steps::checkout_repo
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -439,7 +442,10 @@ jobs:
       with:
         token: ${{ secrets.SENTRY_AUTH_TOKEN }}
     - name: run_bundling::bundle_windows::bundle_windows
-      run: script/bundle-windows.ps1 -Architecture aarch64
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        $env:RELEASE_VERSION = $version
+        script/bundle-windows.ps1 -Architecture aarch64
       shell: pwsh
       working-directory: ${{ env.ZED_WORKSPACE }}
     - name: '@actions/upload-artifact Zed-aarch64.exe'
@@ -474,6 +480,9 @@ jobs:
       FILE_DIGEST: SHA256
       TIMESTAMP_DIGEST: SHA256
       TIMESTAMP_SERVER: http://timestamp.acs.microsoft.com
+      ZED_WORKSPACE: ${{ github.workspace }}
+      RELEASE_VERSION: ${{ github.ref_name }}
+      ZED_RELEASE_CHANNEL: stable
     steps:
     - name: steps::checkout_repo
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -489,7 +498,10 @@ jobs:
       with:
         token: ${{ secrets.SENTRY_AUTH_TOKEN }}
     - name: run_bundling::bundle_windows::bundle_windows
-      run: script/bundle-windows.ps1 -Architecture x86_64
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        $env:RELEASE_VERSION = $version
+        script/bundle-windows.ps1 -Architecture x86_64
       shell: pwsh
       working-directory: ${{ env.ZED_WORKSPACE }}
     - name: '@actions/upload-artifact Zed-x86_64.exe'
