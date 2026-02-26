@@ -66,18 +66,31 @@ function CheckEnvironmentVariables {
         return
     }
 
-    $requiredVars = @(
-        'ZED_WORKSPACE', 'RELEASE_VERSION', 'ZED_RELEASE_CHANNEL',
+    $buildVars = @('ZED_WORKSPACE', 'RELEASE_VERSION', 'ZED_RELEASE_CHANNEL')
+    foreach ($var in $buildVars) {
+        if (-not (Test-Path "env:$var")) {
+            Write-Error "$var is not set"
+            exit 1
+        }
+    }
+
+    $signingVars = @(
         'AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET',
         'ACCOUNT_NAME', 'CERT_PROFILE_NAME', 'ENDPOINT',
         'FILE_DIGEST', 'TIMESTAMP_DIGEST', 'TIMESTAMP_SERVER'
     )
 
-    foreach ($var in $requiredVars) {
+    $allSigningVarsSet = $true
+    foreach ($var in $signingVars) {
         if (-not (Test-Path "env:$var")) {
-            Write-Error "$var is not set"
-            exit 1
+            $allSigningVarsSet = $false
+            break
         }
+    }
+
+    $env:ZED_SIGNING_READY = if ($allSigningVarsSet) { "true" } else { "false" }
+    if ($allSigningVarsSet -eq $false) {
+        Write-Warning "Signing secrets are missing. The build will proceed but binaries will be unsigned."
     }
 }
 
@@ -131,7 +144,7 @@ function BuildRemoteServer {
     # Create zipped remote server binary
     $remoteServerSrc = (Resolve-Path ".\$CargoOutDir\remote_server.exe").Path
 
-    if ($env:CI) {
+    if ($env:CI -and $env:ZED_SIGNING_READY -eq "true") {
         Write-Output "Code signing remote_server.exe"
         & "$innoDir\sign.ps1" $remoteServerSrc
     }
@@ -203,7 +216,7 @@ function MakeAppx {
 }
 
 function SignZedAndItsFriends {
-    if (-not $env:CI) {
+    if (-not $env:CI -or $env:ZED_SIGNING_READY -ne "true") {
         return
     }
 
@@ -343,7 +356,7 @@ function BuildInstaller {
     }
 
     $innoArgs = @($issFilePath) + $defs
-    if($env:CI) {
+    if($env:CI -and $env:ZED_SIGNING_READY -eq "true") {
         $signTool = "powershell.exe -ExecutionPolicy Bypass -File $innoDir\sign.ps1 `$f"
         $innoArgs += "/sDefaultsign=`"$signTool`""
     }
