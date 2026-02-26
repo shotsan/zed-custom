@@ -520,6 +520,11 @@ fn forward_event_to_acp_thread(
                 .log_err();
         }
         ThreadEvent::Stop(_) => {}
+        ThreadEvent::TokenUsageUpdated(usage) => {
+            acp_thread
+                .update(cx, |thread, cx| thread.update_token_usage(usage, cx))
+                .log_err();
+        }
     }
 }
 

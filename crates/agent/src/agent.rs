@@ -1133,6 +1133,11 @@ impl NativeAgentConnection {
                                 log::debug!("Assistant message complete: {:?}", stop_reason);
                                 return Ok(acp::PromptResponse::new(stop_reason));
                             }
+                            ThreadEvent::TokenUsageUpdated(usage) => {
+                                acp_thread.update(cx, |thread, cx| {
+                                    thread.update_token_usage(usage, cx)
+                                })?;
+                            }
                         }
                     }
                     Err(e) => {
