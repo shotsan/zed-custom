@@ -31,5 +31,7 @@ features:
 ---
 
 > [!IMPORTANT]
-> **Disclaimer**: This is a custom, unofficial fork and is not associated with, endorsed by, or affiliated with [Zed Industries](https://zed.dev).
+> **Unofficial Fork**: This is a custom, unofficial fork of [Zed](https://github.com/zed-industries/zed) and is **not** associated with, endorsed by, or affiliated with [Zed Industries](https://zed.dev).
+>
+> **Licensing**: The enhancements in this fork are provided under the [MIT License](https://github.com/shotsan/zed-custom/blob/main/LICENSE-MIT). The original Zed source code follows its respective GPL/AGPL/Apache licenses.
 ---

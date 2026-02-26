@@ -44,8 +44,8 @@ export default defineConfig({
         ],
 
         footer: {
-            message: 'Forked with love from Zed Industries.',
-            copyright: 'Copyright © 2026'
+            message: 'Unofficial Zed Fork. Not affiliated with Zed Industries.',
+            copyright: 'Copyright © 2026 shotsan. Modifications under MIT License.'
         },
 
         search: {
