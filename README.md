@@ -81,9 +81,20 @@ Enhanced support for Azure Anthropic deployments and natively enabled token cach
 
 **Features:**
 - ☁️ **Azure Ready**: Passes exact `serde_name` string models to Azure APIs to resolve `404 DeploymentNotFound` errors natively.
-- 💾 **Token Caching UI**: Enabled `show_turn_stats` by default so users automatically see the `+X saved` and `X cached` badges without tweaking `settings.json`.
+- 💾 **Token Caching (Smart Strategy)**: Natively flags the system prompt and the **second-to-last message** in every turn. This ensures the entire conversation history remains "hot" in Anthropic's cache, resulting in <1s response times for massive projects.
+- 📊 **Caching UI**: Enabled by default; automatically shows green `cached` and blue `saved` labels in the metadata row once the **1024-token threshold** is crossed.
 
 ![Azure Anthropic Token Caching Demo](assets/images/azure-anthropic-demo.gif)
+
+### **The "Smart Caching" Mechanism**
+To maximize the 5-minute cache window provided by Anthropic, we use a tiered strategy:
+1. **System Prompt**: Always cached (Fixed).
+2. **Conversation Prefix**: We dynamically flag the **second-to-last message**. This caches the bulk of your history while allowing the latest prompt to remain fresh.
+3. **Interval Pokes**: Large threads are re-clamped every 15 messages to ensure long-term cache persistence.
+
+**References:**
+- Logic: [`crates/agent/src/thread.rs`](crates/agent/src/thread.rs)
+- UI: [`crates/agent_ui/src/acp/thread_view.rs`](crates/agent_ui/src/acp/thread_view.rs)
 
 **Implementation:**
 - [`crates/anthropic/src/anthropic.rs`](crates/anthropic/src/anthropic.rs) - Added `serde_name()` context to Model enums

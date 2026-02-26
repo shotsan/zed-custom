@@ -40,8 +40,25 @@ In this build, the `show_turn_stats` visualization is **enabled by default**.
   </template>
 </ZedChat>
 
+## Smart Caching Strategy
+
+The caching mechanism is fully automated and optimized to maximize the 5-minute cache window provided by Anthropic. We implement a multi-layered approach to ensure your context remains "hot":
+
+1.  **System Prompt Caching**: The base system prompt and injected tool definitions are permanently flagged for caching. This ensures that even in new threads, the foundational instructions are pre-cached.
+2.  **The "Prefix Window" Strategy**: We strategically flag the **second-to-last message** in every turn. By doing this, we ensure that as the conversation grows, the entire history leading up to your latest prompt is stored as a reusable prefix on Anthropic's servers.
+3.  **Interval Stabilization**: Caching is re-enforced every 15 messages and at the midpoint of long threads to prevent cache eviction during intense, long-running debugging sessions.
+
+### Technical Thresholds
+- **Activation**: Anthropic typically activates caching for prompts exceeding **1024 or 2048 tokens**. Small conversations will not show caching tokens until this threshold is crossed.
+- **Persistence**: Cache entries live for approximately **5 minutes** on the server. Frequent turn-arounds in code-heavy threads will result in near 100% cache hit rates.
+
 ## Workflow Impact
 - **Enterprise Compliance**: Securely use LLMs within Azure's managed infrastructure and VPCs.
 - **Zero-Wait Context**: Massive projects that usually take 10s to process now respond in <1s due to prefix caching.
 - **Dramatic Cost Savings**: Pay up to 90% less for the "static" project context that doesn't change between turns.
 - **Perfect Routing**: Eliminates the "404 Model Not Found" errors by matching exact Azure deployment names.
+
+### References & Source Code
+- [`crates/agent/src/thread.rs`](file:///Users/sillydon/Desktop/zed/crates/agent/src/thread.rs) — Implements the message flagging and prefix logic.
+- [`crates/language_models/src/provider/anthropic.rs`](file:///Users/sillydon/Desktop/zed/crates/language_models/src/provider/anthropic.rs) — Handles the `cache_control` headers.
+- [`crates/agent_ui/src/acp/thread_view.rs`](file:///Users/sillydon/Desktop/zed/crates/agent_ui/src/acp/thread_view.rs) — Manages the green/blue token visualization.

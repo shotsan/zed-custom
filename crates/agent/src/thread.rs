@@ -8,7 +8,7 @@ use crate::{
     Templates, TerminalTool, ThreadsDatabase, ThinkingTool, ToolPermissionDecision, WebSearchTool,
     decide_permission_from_settings,
 };
-use acp_thread::{MentionUri, UserMessageId};
+use acp_thread::{self, MentionUri, UserMessageId};
 use action_log::ActionLog;
 use feature_flags::{FeatureFlagAppExt as _, SubagentsFeatureFlag};
 
@@ -609,6 +609,7 @@ pub enum ThreadEvent {
     ToolCallAuthorization(ToolCallAuthorization),
     Retry(acp_thread::RetryStatus),
     Stop(acp::StopReason),
+    TokenUsageUpdated(Option<acp_thread::TokenUsage>),
 }
 
 #[derive(Debug)]
@@ -1520,6 +1521,13 @@ impl Thread {
 
         self.request_token_usage
             .insert(last_user_message.id.clone(), update);
+
+        if let Some(running_turn) = &self.running_turn {
+            running_turn
+                .event_stream
+                .send_token_usage(self.latest_token_usage());
+        }
+
         cx.emit(TokenUsageUpdated(self.latest_token_usage()));
         cx.notify();
     }
@@ -3147,6 +3155,12 @@ impl ThreadEventStream {
 
     fn send_stop(&self, reason: acp::StopReason) {
         self.0.unbounded_send(Ok(ThreadEvent::Stop(reason))).ok();
+    }
+
+    fn send_token_usage(&self, usage: Option<acp_thread::TokenUsage>) {
+        self.0
+            .unbounded_send(Ok(ThreadEvent::TokenUsageUpdated(usage)))
+            .ok();
     }
 
     fn send_canceled(&self) {
