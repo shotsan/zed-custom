@@ -40,13 +40,20 @@ In this build, the `show_turn_stats` visualization is **enabled by default**.
   </template>
 </ZedChat>
 
+### Understanding the Labels (The "Grocery Receipt" Analogy)
+
+- 🟢 **[X]k cached (Green)**: Think of this as your "loyalty discount." These are tokens Claude already "remembered" from previous messages. You pay a fraction of the cost for these.
+- 🔵 **+[X]k saved (Blue)**: This is your "investment." These are new tokens Claude just read and locked into its high-speed memory so you can get the discount on them in the *next* turn.
+
+---
+
 ## Smart Caching Strategy
 
-The caching mechanism is fully automated and optimized to maximize the 5-minute cache window provided by Anthropic. We implement a multi-layered approach to ensure your context remains "hot":
+For a deep dive into the technical implementation (Intervals, Midpoints, and Prefix Windows), see our detailed **[Prompt Caching Logic](./prompt-caching)** guide.
 
-1.  **System Prompt Caching**: The base system prompt and injected tool definitions are permanently flagged for caching. This ensures that even in new threads, the foundational instructions are pre-cached.
-2.  **The "Prefix Window" Strategy**: We strategically flag the **second-to-last message** in every turn. By doing this, we ensure that as the conversation grows, the entire history leading up to your latest prompt is stored as a reusable prefix on Anthropic's servers.
-3.  **Interval Stabilization**: Caching is re-enforced every 15 messages and at the midpoint of long threads to prevent cache eviction during intense, long-running debugging sessions.
+1.  **System Prompt Caching**: The base system prompt and injected tool definitions are permanently flagged for caching.
+2.  **The "Prefix Window" Strategy**: We strategically flag the **second-to-last message** in every turn to ensure the "immediate past" remains hot.
+3.  **Interval Stabilization**: Caching is re-enforced every 15 messages and at the midpoint of long threads.
 
 ### Technical Thresholds
 - **Activation**: Anthropic typically activates caching for prompts exceeding **1024 or 2048 tokens**. Small conversations will not show caching tokens until this threshold is crossed.
