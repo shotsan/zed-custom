@@ -39,9 +39,21 @@ function Get-VSArch {
     }
 }
 
-Push-Location
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch (Get-VSArch -Arch $Architecture) -HostArch (Get-VSArch -Arch $OSArchitecture)
-Pop-Location
+$vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+if (-not $vsPath) {
+    # Fallback to a common default if vswhere is not found or fails
+    $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Community"
+}
+$vsDevShell = Join-Path $vsPath "Common7\Tools\Launch-VsDevShell.ps1"
+
+if (Test-Path $vsDevShell) {
+    Write-Host "🚀 Launching VS Developer Shell from $vsDevShell"
+    Push-Location
+    & $vsDevShell -Arch (Get-VSArch -Arch $Architecture) -HostArch (Get-VSArch -Arch $OSArchitecture) -SkipAutomaticLocation
+    Pop-Location
+} else {
+    Write-Warning "Could not find Launch-VsDevShell.ps1 at $vsDevShell. Build may fail if environment is not set."
+}
 
 $target = "$Architecture-pc-windows-msvc"
 
@@ -209,10 +221,19 @@ function MakeAppx {
         }
     }
     Copy-Item -Path "$manifestFile" -Destination "$innoDir\make_appx\AppxManifest.xml"
-    # Add makeAppx.exe to Path
-    $sdk = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64"
-    $env:Path += ';' + $sdk
-    makeAppx.exe pack /d "$innoDir\make_appx" /p "$innoDir\zed_explorer_command_injector.appx" /nv
+    # Find makeAppx.exe in Windows Kits
+    $windowsKitsPath = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+    $makeAppx = Get-ChildItem -Path $windowsKitsPath -Filter "makeAppx.exe" -Recurse | Where-Object { $_.FullName -like "*\x64\*" } | Select-Object -First 1
+    
+    if ($makeAppx) {
+        $sdkBinDir = Split-Path -Path $makeAppx.FullName
+        Write-Host "🚀 Found Windows SDK tools at $sdkBinDir"
+        $env:Path += ';' + $sdkBinDir
+        & $makeAppx.FullName pack /d "$innoDir\make_appx" /p "$innoDir\zed_explorer_command_injector.appx" /nv
+    } else {
+        Write-Error "Could not find makeAppx.exe in $windowsKitsPath"
+        exit 1
+    }
 }
 
 function SignZedAndItsFriends {
