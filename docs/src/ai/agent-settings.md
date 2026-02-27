@@ -264,3 +264,24 @@ The default value is `true`.
   }
 }
 ```
+
+### Prompt Caching {#prompt-caching}
+
+Enable or disable prompt caching for providers that support it (e.g., Anthropic). Prompt caching can significantly reduce latency and costs for long conversations by reusing previously processed context.
+The default value is `true`.
+
+```json [settings]
+{
+  "agent": {
+    "enable_prompt_caching": true
+  }
+}
+```
+
+Zed uses a **Smart Caching** strategy to maximize cache hits while staying within the theoretical limits of providers (like Anthropic's strict 4-breakpoint limit). The strategy prioritizes caching:
+1. The **System Prompt**.
+2. The available **Tools**.
+3. The **most recent history entry** (to stabilize the prompt prefix and efficiently handle multi-turn conversations).
+4. The **current message** being processed.
+
+You can also toggle this setting quickly in the Agent Panel using the **Sparkles** icon in the thread controls.
