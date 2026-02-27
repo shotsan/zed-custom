@@ -220,15 +220,15 @@ impl ActiveThreadState {
 
     pub fn update_turn_tokens(&mut self, cx: &App) {
         if let Some(usage) = self.thread.read(cx).token_usage() {
-            if let Some(tokens) = &mut self.turn_fields.turn_tokens {
-                *tokens = usage.used_tokens;
-            }
-            if let Some(tokens) = &mut self.turn_fields.turn_cache_creation_input_tokens {
-                *tokens = usage.cache_creation_input_tokens;
-            }
-            if let Some(tokens) = &mut self.turn_fields.turn_cache_read_input_tokens {
-                *tokens = usage.cache_read_input_tokens;
-            }
+            self.turn_fields.turn_tokens = Some(usage.used_tokens);
+            self.turn_fields.turn_cache_creation_input_tokens = Some(usage.cache_creation_input_tokens);
+            self.turn_fields.turn_cache_read_input_tokens = Some(usage.cache_read_input_tokens);
+
+            self.turn_fields.last_turn_tokens = Some(usage.used_tokens);
+            self.turn_fields.last_turn_cache_creation_input_tokens =
+                Some(usage.cache_creation_input_tokens);
+            self.turn_fields.last_turn_cache_read_input_tokens =
+                Some(usage.cache_read_input_tokens);
         }
     }
 

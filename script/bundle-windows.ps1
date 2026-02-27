@@ -371,16 +371,18 @@ function BuildInstaller {
         "AppxFullName"   = $appAppxFullName
     }
 
-    $defs = @()
+    $innoArgs = @()
     foreach ($key in $definitions.Keys) {
-        $defs += "/d$key=`"$($definitions[$key])`""
+        $innoArgs += "/d$key=`"$($definitions[$key])`""
     }
 
-    $innoArgs = @($issFilePath) + $defs
     if($env:CI -and $env:ZED_SIGNING_READY -eq "true") {
-        $signTool = "powershell.exe -ExecutionPolicy Bypass -File $innoDir\sign.ps1 `$f"
-        $innoArgs += "/sDefaultsign=`"$signTool`""
+        $innoSignScript = "$innoDir\sign.ps1"
+        $innoArgs += "/sDefaultsign=`"powershell.exe -ExecutionPolicy Bypass -File `"`"$innoSignScript`"`" `"`$f`"`"`""
+        $innoArgs += "/dSigningReady=true"
     }
+
+    $innoArgs += $issFilePath
 
     # Execute Inno Setup
     Write-Host "🚀 Running Inno Setup: $innoSetupPath $innoArgs"

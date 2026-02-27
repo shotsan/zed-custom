@@ -31,7 +31,7 @@ WizardStyle=modern
 
 CloseApplications=force
 
-#if GetEnv("CI") != ""
+#if Defined(SigningReady)
 SignTool=Defaultsign
 #endif
 
