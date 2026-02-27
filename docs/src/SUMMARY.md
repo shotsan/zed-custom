@@ -188,6 +188,7 @@
 # Developing Zed
 
 - [Developing Zed](./development.md)
+  - [Architecture](./architecture.md)
   - [macOS](./development/macos.md)
   - [Linux](./development/linux.md)
   - [Windows](./development/windows.md)
