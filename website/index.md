@@ -6,6 +6,9 @@ hero:
   name: "Zed Custom"
   text: "The High-Performance AI Agent Fork"
   tagline: "Custom features for Zed including Long-Term Memory, LSP-based Context, and Headless Searching."
+  image:
+    src: /logo-animated.svg
+    alt: Zed Custom AI Logo
   actions:
     - theme: brand
       text: Features
