@@ -15,3 +15,9 @@
   padding-bottom: 1rem;
   margin-bottom: 2rem;
 }
+
+/* Enlarge the logo in the top navbar */
+.VPNavBarTitle .logo {
+  height: 36px !important;
+  margin-right: 12px;
+}

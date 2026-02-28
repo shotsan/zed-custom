@@ -7,7 +7,7 @@ export default defineConfig({
     base: '/zed-custom/',
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
-        logo: 'https://zed.dev/zed-logo.svg', // Placeholder, using Zed logo for now
+        logo: '/logo-animated.svg',
 
         nav: [
             { text: 'Home', link: '/' },
