@@ -1,10 +1,73 @@
-<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_1957_1318)">
-<path fill-rule="evenodd" clip-rule="evenodd" d="M9 6C7.34315 6 6 7.34315 6 9V75H0V9C0 4.02944 4.02944 0 9 0H89.3787C93.3878 0 95.3955 4.84715 92.5607 7.68198L43.0551 57.1875H57V51H63V58.6875C63 61.1728 60.9853 63.1875 58.5 63.1875H37.0551L26.7426 73.5H73.5V36H79.5V73.5C79.5 76.8137 76.8137 79.5 73.5 79.5H20.7426L10.2426 90H87C88.6569 90 90 88.6569 90 87V21H96V87C96 91.9706 91.9706 96 87 96H6.62132C2.61224 96 0.604504 91.1529 3.43934 88.318L52.7574 39H39V45H33V37.5C33 35.0147 35.0147 33 37.5 33H58.7574L69.2574 22.5H22.5V60H16.5V22.5C16.5 19.1863 19.1863 16.5 22.5 16.5H75.2574L85.7574 6H9Z" fill="black"/>
-</g>
-<defs>
-<clipPath id="clip0_1957_1318">
-<rect width="96" height="96" fill="white"/>
-</clipPath>
-</defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <!-- Sleek metallic/gray gradient for the code structure -->
+    <linearGradient id="codeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#94A3B8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+    
+    <!-- Vibrant blue/indigo gradient for the AI core -->
+    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+    
+    <!-- Sophisticated glow filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <style>
+    .orb {
+      transform-origin: 50px 50px;
+      animation: pulse 4s ease-in-out infinite;
+    }
+    .bracket-l {
+      animation: slideL 4s ease-in-out infinite;
+    }
+    .bracket-r {
+      animation: slideR 4s ease-in-out infinite;
+    }
+
+    /* The orb breathes smoothly with a soft blue drop shadow */
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.8; filter: drop-shadow(0 0 2px #818CF8); }
+      50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 10px #818CF8); }
+      100% { transform: scale(0.9); opacity: 0.8; filter: drop-shadow(0 0 2px #818CF8); }
+    }
+    
+    /* Code brackets expand outward to make room for the AI's impact */
+    @keyframes slideL {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(-5px); }
+    }
+    
+    @keyframes slideR {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(5px); }
+    }
+  </style>
+
+  <!-- Left Bracket (Code Context) -->
+  <path d="M 38 30 L 18 50 L 38 70" 
+        fill="none" 
+        stroke="url(#codeGrad)" 
+        stroke-width="8" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        class="bracket-l" />
+
+  <!-- Right Bracket (Code Context) -->
+  <path d="M 62 30 L 82 50 L 62 70" 
+        fill="none" 
+        stroke="url(#codeGrad)" 
+        stroke-width="8" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        class="bracket-r" />
+
+  <!-- Center AI Core (A perfectly smooth orb representing intelligence/positivity) -->
+  <circle cx="50" cy="50" r="14" fill="url(#aiGrad)" class="orb" filter="url(#glow)" />
 </svg>
