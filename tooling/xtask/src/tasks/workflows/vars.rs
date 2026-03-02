@@ -341,19 +341,32 @@ pub mod assets {
     pub const REMOTE_SERVER_WINDOWS_X86_64: &str = "zed-remote-server-windows-x86_64.zip";
 
     pub fn all() -> Vec<&'static str> {
+        let mut all = mac();
+        all.extend(linux());
+        all.extend(vec![
+            WINDOWS_X86_64,
+            WINDOWS_AARCH64,
+            REMOTE_SERVER_WINDOWS_AARCH64,
+            REMOTE_SERVER_WINDOWS_X86_64,
+        ]);
+        all
+    }
+
+    pub fn mac() -> Vec<&'static str> {
         vec![
             MAC_AARCH64,
             MAC_X86_64,
-            LINUX_AARCH64,
-            LINUX_X86_64,
-            WINDOWS_X86_64,
-            WINDOWS_AARCH64,
             REMOTE_SERVER_MAC_AARCH64,
             REMOTE_SERVER_MAC_X86_64,
+        ]
+    }
+
+    pub fn linux() -> Vec<&'static str> {
+        vec![
+            LINUX_AARCH64,
+            LINUX_X86_64,
             REMOTE_SERVER_LINUX_AARCH64,
             REMOTE_SERVER_LINUX_X86_64,
-            REMOTE_SERVER_WINDOWS_AARCH64,
-            REMOTE_SERVER_WINDOWS_X86_64,
         ]
     }
 }

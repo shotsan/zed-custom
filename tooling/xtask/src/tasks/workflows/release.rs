@@ -12,92 +12,106 @@ use crate::tasks::workflows::{
 const CURRENT_ACTION_RUN_URL: &str =
     "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}";
 
-pub(crate) fn release() -> Workflow {
+pub(crate) fn release_mac() -> Workflow {
     let macos_tests = run_tests::run_platform_tests(Platform::Mac);
-    let linux_tests = run_tests::run_platform_tests(Platform::Linux);
-    let windows_tests = run_tests::run_platform_tests(Platform::Windows);
     let macos_clippy = run_tests::clippy(Platform::Mac);
-    let linux_clippy = run_tests::clippy(Platform::Linux);
-    let windows_clippy = run_tests::clippy(Platform::Windows);
     let check_scripts = run_tests::check_scripts();
 
     let create_draft_release = create_draft_release();
 
-    let bundle = ReleaseBundleJobs {
-        linux_aarch64: bundle_linux(
-            Arch::AARCH64,
-            None,
-            &[&linux_tests, &linux_clippy, &check_scripts],
-        ),
-        linux_x86_64: bundle_linux(
-            Arch::X86_64,
-            None,
-            &[&linux_tests, &linux_clippy, &check_scripts],
-        ),
-        mac_aarch64: bundle_mac(
-            Arch::AARCH64,
-            None,
-            &[&macos_tests, &macos_clippy, &check_scripts],
-        ),
-        mac_x86_64: bundle_mac(
-            Arch::X86_64,
-            None,
-            &[&macos_tests, &macos_clippy, &check_scripts],
-        ),
-        windows_aarch64: bundle_windows(
-            Arch::AARCH64,
-            None,
-            &[&windows_tests, &windows_clippy, &check_scripts],
-        ),
-        windows_x86_64: bundle_windows(
-            Arch::X86_64,
-            None,
-            &[&windows_tests, &windows_clippy, &check_scripts],
-        ),
-    };
+    let bundle = vec![
+        bundle_mac(Arch::AARCH64, None, &[&macos_tests, &macos_clippy, &check_scripts]),
+        bundle_mac(Arch::X86_64, None, &[&macos_tests, &macos_clippy, &check_scripts]),
+    ];
 
-    let upload_release_assets = upload_release_assets(&[&create_draft_release], &bundle);
-    let validate_release_assets = validate_release_assets(&[&upload_release_assets]);
+    let upload_release_assets = upload_release_assets_split(&[&create_draft_release], &bundle, assets::mac());
+    let validate_release_assets = validate_release_assets_split(&[&upload_release_assets], assets::mac());
 
     let auto_release_preview = auto_release_preview(&[&validate_release_assets]);
 
     let test_jobs = [
         &macos_tests,
-        &linux_tests,
-        &windows_tests,
         &macos_clippy,
-        &linux_clippy,
-        &windows_clippy,
         &check_scripts,
     ];
-    let push_slack_notification = push_release_update_notification(
+    let push_slack_notification = push_release_update_notification_split(
         &create_draft_release,
         &upload_release_assets,
         &validate_release_assets,
         &auto_release_preview,
         &test_jobs,
         &bundle,
+        "Mac",
     );
 
-    named::workflow()
+    let mut workflow = named::workflow().name("release_mac")
         .on(Event::default().push(Push::default().tags(vec!["v*".to_string()])))
         .concurrency(vars::one_workflow_per_non_main_branch())
         .add_env(("CARGO_TERM_COLOR", "always"))
         .add_env(("RUST_BACKTRACE", "1"))
         .add_job(macos_tests.name, macos_tests.job)
-        .add_job(linux_tests.name, linux_tests.job)
-        .add_job(windows_tests.name, windows_tests.job)
         .add_job(macos_clippy.name, macos_clippy.job)
-        .add_job(linux_clippy.name, linux_clippy.job)
-        .add_job(windows_clippy.name, windows_clippy.job)
         .add_job(check_scripts.name, check_scripts.job)
-        .add_job(create_draft_release.name, create_draft_release.job)
-        .map(|mut workflow| {
-            for job in bundle.into_jobs() {
-                workflow = workflow.add_job(job.name, job.job);
-            }
-            workflow
-        })
+        .add_job(create_draft_release.name, create_draft_release.job);
+        
+    for job in &bundle {
+        workflow = workflow.add_job(job.name.clone(), job.job.clone());
+    }
+    
+    workflow
+        .add_job(upload_release_assets.name, upload_release_assets.job)
+        .add_job(validate_release_assets.name, validate_release_assets.job)
+        .add_job(auto_release_preview.name, auto_release_preview.job)
+        .add_job(push_slack_notification.name, push_slack_notification.job)
+}
+
+pub(crate) fn release_linux() -> Workflow {
+    let linux_tests = run_tests::run_platform_tests(Platform::Linux);
+    let linux_clippy = run_tests::clippy(Platform::Linux);
+    let check_scripts = run_tests::check_scripts();
+
+    let create_draft_release = create_draft_release();
+
+    let bundle = vec![
+        bundle_linux(Arch::AARCH64, None, &[&linux_tests, &linux_clippy, &check_scripts]),
+        bundle_linux(Arch::X86_64, None, &[&linux_tests, &linux_clippy, &check_scripts]),
+    ];
+
+    let upload_release_assets = upload_release_assets_split(&[&create_draft_release], &bundle, assets::linux());
+    let validate_release_assets = validate_release_assets_split(&[&upload_release_assets], assets::linux());
+
+    let auto_release_preview = auto_release_preview(&[&validate_release_assets]);
+
+    let test_jobs = [
+        &linux_tests,
+        &linux_clippy,
+        &check_scripts,
+    ];
+    let push_slack_notification = push_release_update_notification_split(
+        &create_draft_release,
+        &upload_release_assets,
+        &validate_release_assets,
+        &auto_release_preview,
+        &test_jobs,
+        &bundle,
+        "Linux",
+    );
+
+    let mut workflow = named::workflow().name("release_linux")
+        .on(Event::default().push(Push::default().tags(vec!["v*".to_string()])))
+        .concurrency(vars::one_workflow_per_non_main_branch())
+        .add_env(("CARGO_TERM_COLOR", "always"))
+        .add_env(("RUST_BACKTRACE", "1"))
+        .add_job(linux_tests.name, linux_tests.job)
+        .add_job(linux_clippy.name, linux_clippy.job)
+        .add_job(check_scripts.name, check_scripts.job)
+        .add_job(create_draft_release.name, create_draft_release.job);
+        
+    for job in &bundle {
+        workflow = workflow.add_job(job.name.clone(), job.job.clone());
+    }
+    
+    workflow
         .add_job(upload_release_assets.name, upload_release_assets.job)
         .add_job(validate_release_assets.name, validate_release_assets.job)
         .add_job(auto_release_preview.name, auto_release_preview.job)
@@ -149,8 +163,12 @@ pub(crate) fn create_sentry_release() -> Step<Use> {
     .add_with(("environment", "production"))
 }
 
-fn validate_release_assets(deps: &[&NamedJob]) -> NamedJob {
-    let expected_assets: Vec<String> = assets::all().iter().map(|a| format!("\"{a}\"")).collect();
+pub(crate) fn validate_release_assets(deps: &[&NamedJob]) -> NamedJob {
+    validate_release_assets_split(deps, assets::all())
+}
+
+fn validate_release_assets_split(deps: &[&NamedJob], assert_assets: Vec<&'static str>) -> NamedJob {
+    let expected_assets: Vec<String> = assert_assets.iter().map(|a| format!("\"{a}\"")).collect();
     let expected_assets_json = format!("[{}]", expected_assets.join(", "));
 
     let validation_script = formatdoc! {r#"
@@ -207,8 +225,12 @@ pub(crate) fn download_workflow_artifacts() -> Step<Use> {
 }
 
 pub(crate) fn prep_release_artifacts() -> Step<Run> {
+    prep_release_artifacts_split(assets::all())
+}
+
+pub(crate) fn prep_release_artifacts_split(target_assets: Vec<&'static str>) -> Step<Run> {
     let mut script_lines = vec!["mkdir -p release-artifacts/\n".to_string()];
-    for asset in assets::all() {
+    for asset in target_assets {
         let mv_command = format!("mv ./artifacts/{asset}/{asset} release-artifacts/{asset}");
         script_lines.push(mv_command)
     }
@@ -216,12 +238,29 @@ pub(crate) fn prep_release_artifacts() -> Step<Run> {
     named::bash(&script_lines.join("\n"))
 }
 
-fn upload_release_assets(deps: &[&NamedJob], bundle: &ReleaseBundleJobs) -> NamedJob {
-    let mut deps = deps.to_vec();
-    deps.extend(bundle.jobs());
+pub(crate) fn upload_release_assets_split(deps: &[&NamedJob], bundle: &[NamedJob], target_assets: Vec<&'static str>) -> NamedJob {
+    let mut all_deps = deps.to_vec();
+    all_deps.extend(bundle.iter());
 
     named::job(
-        dependant_job(&deps)
+        dependant_job(&all_deps)
+            .runs_on(runners::LINUX_MEDIUM)
+            .add_step(download_workflow_artifacts())
+            .add_step(steps::script("ls -lR ./artifacts"))
+            .add_step(prep_release_artifacts_split(target_assets))
+            .add_step(
+                steps::script("gh release upload \"$GITHUB_REF_NAME\" --repo=zed-industries/zed release-artifacts/*")
+                    .add_env(("GITHUB_TOKEN", vars::GITHUB_TOKEN)),
+            ),
+    )
+}
+
+pub(crate) fn upload_release_assets(deps: &[&NamedJob], bundle: &ReleaseBundleJobs) -> NamedJob {
+    let mut all_deps = deps.to_vec();
+    all_deps.extend(bundle.jobs());
+
+    named::job(
+        dependant_job(&all_deps)
             .runs_on(runners::LINUX_MEDIUM)
             .add_step(download_workflow_artifacts())
             .add_step(steps::script("ls -lR ./artifacts"))
@@ -233,7 +272,7 @@ fn upload_release_assets(deps: &[&NamedJob], bundle: &ReleaseBundleJobs) -> Name
     )
 }
 
-fn create_draft_release() -> NamedJob {
+pub(crate) fn create_draft_release() -> NamedJob {
     fn generate_release_notes() -> Step<Run> {
         named::bash(
             r#"node --redirect-warnings=/dev/null ./script/draft-release-notes "$RELEASE_VERSION" "$RELEASE_CHANNEL" > target/release-notes.md"#,
@@ -263,6 +302,97 @@ fn create_draft_release() -> NamedJob {
             .add_step(generate_release_notes())
             .add_step(create_release()),
     )
+}
+
+pub(crate) fn push_release_update_notification_split(
+    create_draft_release_job: &NamedJob,
+    upload_assets_job: &NamedJob,
+    validate_assets_job: &NamedJob,
+    auto_release_preview: &NamedJob,
+    test_jobs: &[&NamedJob],
+    bundle_jobs: &[NamedJob],
+    platform_name: &str,
+) -> NamedJob {
+    let all_job_names = test_jobs
+        .into_iter()
+        .map(|j| j.name.as_ref())
+        .chain(bundle_jobs.iter().map(|j| j.name.as_ref()));
+
+    let notification_script = formatdoc! {r#"
+        DRAFT_RESULT="${{{{ needs.{draft_job}.result }}}}"
+        UPLOAD_RESULT="${{{{ needs.{upload_job}.result }}}}"
+        VALIDATE_RESULT="${{{{ needs.{validate_job}.result }}}}"
+        AUTO_RELEASE_RESULT="${{{{ needs.{auto_release_job}.result }}}}"
+        TAG="$GITHUB_REF_NAME"
+        RUN_URL="{run_url}"
+
+        if [ "$DRAFT_RESULT" == "failure" ]; then
+            echo "❌ Draft release creation failed for $TAG: $RUN_URL"
+        else
+            RELEASE_URL=$(gh release view "$TAG" --repo=zed-industries/zed --json url -q '.url')
+            if [ "$UPLOAD_RESULT" == "failure" ]; then
+                echo "❌ {platform_name} Release asset upload failed for $TAG: $RELEASE_URL"
+            elif [ "$UPLOAD_RESULT" == "cancelled" ] || [ "$UPLOAD_RESULT" == "skipped" ]; then
+                FAILED_JOBS=""
+                {failure_checks}
+                FAILED_JOBS=$(echo "$FAILED_JOBS" | xargs)
+                if [ "$UPLOAD_RESULT" == "cancelled" ]; then
+                    if [ -n "$FAILED_JOBS" ]; then
+                        echo "❌ {platform_name} Release job for $TAG was cancelled, most likely because tests \`$FAILED_JOBS\` failed: $RUN_URL"
+                    else
+                        echo "❌ {platform_name} Release job for $TAG was cancelled: $RUN_URL"
+                    fi
+                else
+                    if [ -n "$FAILED_JOBS" ]; then
+                        echo "❌ {platform_name} Tests \`$FAILED_JOBS\` for $TAG failed: $RUN_URL"
+                    else
+                        echo "❌ {platform_name} Tests for $TAG failed: $RUN_URL"
+                    fi
+                fi
+            elif [ "$VALIDATE_RESULT" == "failure" ]; then
+                echo "❌ {platform_name} Release asset validation failed for $TAG (missing assets): $RUN_URL"
+            elif [ "$AUTO_RELEASE_RESULT" == "success" ]; then
+                echo "✅ {platform_name} Release $TAG was auto-released successfully: $RELEASE_URL"
+            elif [ "$AUTO_RELEASE_RESULT" == "failure" ]; then
+                echo "❌ {platform_name} Auto release failed for $TAG: $RUN_URL"
+            else
+                echo "👀 {platform_name} Release $TAG sitting freshly baked in the oven and waiting to be published: $RELEASE_URL"
+            fi
+        fi
+        "#,
+        draft_job = create_draft_release_job.name,
+        upload_job = upload_assets_job.name,
+        validate_job = validate_assets_job.name,
+        auto_release_job = auto_release_preview.name,
+        run_url = CURRENT_ACTION_RUN_URL,
+        platform_name = platform_name,
+        failure_checks = all_job_names
+            .into_iter()
+            .map(|name: &str| format!(
+                "if [ \"${{{{ needs.{name}.result }}}}\" == \"failure\" ];\
+                then FAILED_JOBS=\"$FAILED_JOBS {name}\"; fi"
+            ))
+            .collect::<Vec<_>>()
+            .join("\n        "),
+    };
+
+    let mut all_deps: Vec<&NamedJob> = vec![
+        create_draft_release_job,
+        upload_assets_job,
+        validate_assets_job,
+        auto_release_preview,
+    ];
+    all_deps.extend(test_jobs.iter().copied());
+    all_deps.extend(bundle_jobs.iter());
+
+    let mut job = dependant_job(&all_deps)
+        .runs_on(runners::LINUX_SMALL)
+        .cond(Expression::new("always()"));
+
+    for step in notify_slack(MessageType::Evaluated(notification_script)) {
+        job = job.add_step(step);
+    }
+    named::job(job)
 }
 
 pub(crate) fn push_release_update_notification(
