@@ -453,20 +453,20 @@ jobs:
         path: ./artifacts/
     - name: ls -lR ./artifacts
       run: ls -lR ./artifacts
-    - name: release::prep_release_artifacts
+    - name: release::prep_release_artifacts_split
       run: |-
         mkdir -p release-artifacts/
 
         mv ./artifacts/Zed-aarch64.dmg/Zed-aarch64.dmg release-artifacts/Zed-aarch64.dmg
         mv ./artifacts/Zed-x86_64.dmg/Zed-x86_64.dmg release-artifacts/Zed-x86_64.dmg
-        mv ./artifacts/zed-linux-aarch64.tar.gz/zed-linux-aarch64.tar.gz release-artifacts/zed-linux-aarch64.tar.gz
-        mv ./artifacts/zed-linux-x86_64.tar.gz/zed-linux-x86_64.tar.gz release-artifacts/zed-linux-x86_64.tar.gz
-        mv ./artifacts/Zed-x86_64.exe/Zed-x86_64.exe release-artifacts/Zed-x86_64.exe
-        mv ./artifacts/Zed-aarch64.exe/Zed-aarch64.exe release-artifacts/Zed-aarch64.exe
         mv ./artifacts/zed-remote-server-macos-aarch64.gz/zed-remote-server-macos-aarch64.gz release-artifacts/zed-remote-server-macos-aarch64.gz
         mv ./artifacts/zed-remote-server-macos-x86_64.gz/zed-remote-server-macos-x86_64.gz release-artifacts/zed-remote-server-macos-x86_64.gz
+        mv ./artifacts/zed-linux-aarch64.tar.gz/zed-linux-aarch64.tar.gz release-artifacts/zed-linux-aarch64.tar.gz
+        mv ./artifacts/zed-linux-x86_64.tar.gz/zed-linux-x86_64.tar.gz release-artifacts/zed-linux-x86_64.tar.gz
         mv ./artifacts/zed-remote-server-linux-aarch64.gz/zed-remote-server-linux-aarch64.gz release-artifacts/zed-remote-server-linux-aarch64.gz
         mv ./artifacts/zed-remote-server-linux-x86_64.gz/zed-remote-server-linux-x86_64.gz release-artifacts/zed-remote-server-linux-x86_64.gz
+        mv ./artifacts/Zed-x86_64.exe/Zed-x86_64.exe release-artifacts/Zed-x86_64.exe
+        mv ./artifacts/Zed-aarch64.exe/Zed-aarch64.exe release-artifacts/Zed-aarch64.exe
         mv ./artifacts/zed-remote-server-windows-aarch64.zip/zed-remote-server-windows-aarch64.zip release-artifacts/zed-remote-server-windows-aarch64.zip
         mv ./artifacts/zed-remote-server-windows-x86_64.zip/zed-remote-server-windows-x86_64.zip release-artifacts/zed-remote-server-windows-x86_64.zip
     - name: ./script/upload-nightly
