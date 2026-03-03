@@ -55,11 +55,11 @@ impl AgentServer for NativeAgentServer {
         cx.spawn(async move |cx| {
             log::debug!("Creating templates for native agent");
             let templates = Templates::new();
-            let prompt_store = prompt_store.await?;
+            let prompt_store = prompt_store.await.ok();
 
             log::debug!("Creating native agent entity");
             let agent =
-                NativeAgent::new(project, thread_store, templates, Some(prompt_store), fs, cx)
+                NativeAgent::new(project, thread_store, templates, prompt_store, fs, cx)
                     .await?;
 
             // Create the connection wrapper

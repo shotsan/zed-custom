@@ -50,6 +50,7 @@ pub struct AgentSettings {
     pub use_modifier_to_send: bool,
     pub message_editor_min_lines: usize,
     pub show_turn_stats: bool,
+    pub enable_prompt_caching: bool,
     pub tool_permissions: ToolPermissions,
 }
 
@@ -261,6 +262,7 @@ impl Settings for AgentSettings {
             use_modifier_to_send: agent.use_modifier_to_send.unwrap(),
             message_editor_min_lines: agent.message_editor_min_lines.unwrap(),
             show_turn_stats: agent.show_turn_stats.unwrap(),
+            enable_prompt_caching: agent.enable_prompt_caching.unwrap_or(true),
             tool_permissions: compile_tool_permissions(agent.tool_permissions),
         }
     }

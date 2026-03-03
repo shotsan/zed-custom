@@ -143,6 +143,8 @@ actions!(
         OpenPermissionDropdown,
         /// Toggles thinking mode for models that support extended thinking.
         ToggleThinkingMode,
+        /// Toggles prompt caching for the current conversation.
+        TogglePromptCaching,
         /// Opens a modal to teach a new project rule.
         TeachRule,
     ]

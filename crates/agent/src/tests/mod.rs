@@ -511,7 +511,8 @@ async fn test_prompt_caching(cx: &mut TestAppContext) {
     fake_model.end_last_completion_stream();
     cx.run_until_parked();
 
-    // Send another user message and verify only the latest is cached
+    // Send another user message and verify that both the previous turn and the latest are cached
+    // In our new "Smart Caching" strategy, we cache the last 2 turns if they exist.
     thread
         .update(cx, |thread, cx| {
             thread.send(UserMessageId::new(), ["Message 2"], cx)

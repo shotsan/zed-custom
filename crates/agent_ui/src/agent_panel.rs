@@ -894,10 +894,10 @@ impl AgentPanel {
     fn deploy_rules_library(
         &mut self,
         action: &OpenRulesLibrary,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        open_rules_library(
+        let task = open_rules_library(
             self.language_registry.clone(),
             Box::new(PromptLibraryInlineAssist::new(self.workspace.clone())),
             Rc::new(|| {
@@ -911,8 +911,23 @@ impl AgentPanel {
                 .prompt_to_select
                 .map(|uuid| UserPromptId(uuid).into()),
             cx,
-        )
-        .detach_and_log_err(cx);
+        );
+
+        cx.background_executor()
+            .spawn(async move {
+                if let Err(err) = task.await {
+                    let msg = "Failed to open the Rules Library.";
+                    let detail = format!(
+                        "{} This can happen if you lack write permissions to `~/.config/zed` \
+                        or if it's placed on an unsupported network drive.\n\n\
+                        Error: {}",
+                        msg,
+                        err
+                    );
+                    log::error!("{}", detail);
+                }
+            })
+            .detach();
     }
 
     fn expand_message_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {

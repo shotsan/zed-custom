@@ -126,6 +126,10 @@ pub struct AgentSettingsContent {
     ///
     /// Default: false
     pub show_turn_stats: Option<bool>,
+    /// Whether to enable prompt caching for providers that support it (e.g. Anthropic).
+    /// 
+    /// Default: true
+    pub enable_prompt_caching: Option<bool>,
     /// Per-tool permission rules for granular control over which tool actions require confirmation.
     ///
     /// This setting only applies to the native Zed agent. External agent servers (Claude Code, Gemini CLI, etc.)
