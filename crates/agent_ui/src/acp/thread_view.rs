@@ -43,7 +43,7 @@ use markdown::{Markdown, MarkdownElement, MarkdownFont, MarkdownStyle};
 use project::{AgentServerStore, ExternalAgentServerName, Project, ProjectEntryId};
 use prompt_store::{PromptId, PromptStore};
 use rope::Point;
-use settings::{NotifyWhenAgentWaiting, Settings as _, SettingsStore};
+use settings::{NotifyWhenAgentWaiting, Settings as _, SettingsStore, update_settings_file};
 use std::cell::RefCell;
 use std::path::Path;
 use std::sync::Arc;
@@ -84,7 +84,7 @@ use crate::{
     CycleFavoriteModels, CycleModeSelector, EditFirstQueuedMessage, ExpandMessageEditor,
     ExternalAgentInitialContent, Follow, KeepAll, NewThread, OpenAddContextMenu, OpenAgentDiff,
     OpenHistory, RejectAll, RejectOnce, RemoveFirstQueuedMessage, SelectPermissionGranularity,
-    SendImmediately, SendNextQueuedMessage, TeachRule, ToggleProfileSelector, ToggleThinkingMode,
+    SendImmediately, SendNextQueuedMessage, TeachRule, ToggleProfileSelector, TogglePromptCaching, ToggleThinkingMode,
 };
 use super::teach_rule_modal::TeachRuleModal;
 
@@ -7859,6 +7859,16 @@ impl AcpThreadView {
                 this.scroll_to_top(cx);
             }));
 
+        let enable_caching = AgentSettings::get_global(cx).enable_prompt_caching;
+        let caching_toggle = IconButton::new("toggle_caching", IconName::Sparkle)
+            .shape(ui::IconButtonShape::Square)
+            .icon_size(IconSize::Small)
+            .icon_color(if enable_caching { Color::Accent } else { Color::Disabled })
+            .tooltip(Tooltip::text(if enable_caching { "Disable Caching" } else { "Enable Caching" }))
+            .on_click(cx.listener(move |_, _, window, cx| {
+                window.dispatch_action(TogglePromptCaching.boxed_clone(), cx);
+            }));
+
         let Some(active) = self.as_active_thread() else {
             return div().into_any_element();
         };
@@ -7939,6 +7949,7 @@ impl AcpThreadView {
                         h_flex()
                             .gap_1()
                             .px_1()
+                            .child(caching_toggle)
                             .when_some(last_turn_tokens_label, |this, label| this.child(label))
                             .when_some(last_turn_cache_read_label, |this, label| this.child(label))
                             .when_some(last_turn_cache_created_label, |this, label| this.child(label))
@@ -8756,6 +8767,13 @@ impl Render for AcpThreadView {
                         thread.set_thinking_enabled(!thread.thinking_enabled(), cx);
                     });
                 }
+            }))
+            .on_action(cx.listener(|this, _: &TogglePromptCaching, _window, cx| {
+                let enable_prompt_caching = !AgentSettings::get_global(cx).enable_prompt_caching;
+                let fs = this.project.read(cx).fs().clone();
+                update_settings_file(fs, cx, move |settings, _| {
+                    settings.agent.get_or_insert_default().enable_prompt_caching = Some(enable_prompt_caching);
+                });
             }))
             .on_action(cx.listener(|this, _: &SendNextQueuedMessage, window, cx| {
                 this.send_queued_message_at_index(0, true, window, cx);

@@ -5,6 +5,11 @@ export default defineConfig({
     title: "Zed Custom",
     description: "An enhanced fork of the Zed code editor with native AI memory and headless search.",
     base: '/zed-custom/',
+
+    head: [
+        ['link', { rel: 'icon', type: 'image/png', href: '/zed-custom/favicon.png' }]
+    ],
+
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
         logo: '/logo-animated.svg',

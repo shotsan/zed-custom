@@ -107,12 +107,18 @@ Zed surfaces how many tokens you are consuming for your currently active thread 
 Once you approach the model's context window, a banner appears above the message editor suggesting to start a new thread with the current one summarized and added as context.
 You can also do this at any time with an ongoing thread via the "Agent Options" menu on the top right, where you'll see a "New from Summary" button, as well as simply @-mentioning a past thread in a new one..
 
-## Changing Models {#changing-models}
+### Changing Models {#changing-models}
 
 After you've configured your LLM providers—either via [a custom API key](./llm-providers.md) or through [Zed's hosted models](./models.md)—you can switch between their models by clicking on the model selector on the message editor or by using the {#kb agent::ToggleModelSelector} keybinding.
 
 > The same model can be offered via multiple providers - for example, Claude Sonnet 4 is available via Zed Pro, OpenRouter, Anthropic directly, and more.
 > Make sure you've selected the correct model **_provider_** for the model you'd like to use, delineated by the logo to the left of the model in the model selector.
+
+### Prompt Caching {#prompt-caching}
+
+For model providers that support it (like Anthropic), you can toggle prompt caching on and off using the **Zap** icon button in the thread controls area (at the bottom of the panel).
+
+Prompt caching helps reduce latency and costs for long-running conversations by reusing previously processed context. Zed's **Smart Caching** strategy ensures that the system prompt, available tools, and the most recent history entries are cached efficiently within the provider's limits.
 
 ### Favoriting Models
 
