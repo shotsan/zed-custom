@@ -52,6 +52,13 @@ pub struct AgentSettings {
     pub show_turn_stats: bool,
     pub enable_prompt_caching: bool,
     pub tool_permissions: ToolPermissions,
+    pub elastic_search: Option<ElasticSearchSettings>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ElasticSearchSettings {
+    pub endpoint_url: String,
+    pub api_key: Option<String>,
 }
 
 impl AgentSettings {
@@ -264,6 +271,10 @@ impl Settings for AgentSettings {
             show_turn_stats: agent.show_turn_stats.unwrap(),
             enable_prompt_caching: agent.enable_prompt_caching.unwrap_or(true),
             tool_permissions: compile_tool_permissions(agent.tool_permissions),
+            elastic_search: agent.elastic_search.map(|v| ElasticSearchSettings {
+                endpoint_url: v.endpoint_url.unwrap_or_default(),
+                api_key: v.api_key,
+            }),
         }
     }
 }

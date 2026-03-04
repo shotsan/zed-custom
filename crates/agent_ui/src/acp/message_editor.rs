@@ -13,6 +13,7 @@ use crate::{
 };
 use assistant_slash_commands::SearchSlashCommand;
 use acp_thread::{AgentSessionInfo, MentionUri};
+use agent_settings::AgentSettings;
 use agent::ThreadStore;
 use agent_client_protocol as acp;
 use anyhow::{Result, anyhow};
@@ -526,8 +527,9 @@ impl MessageEditor {
         let editor = self.editor.clone();
         let supports_embedded_context = self.prompt_capabilities.borrow().embedded_context;
         let http_client = self.workspace.upgrade().map(|w| w.read(cx).client().http_client());
+        let agent_settings = AgentSettings::get_global(cx).clone();
 
-        cx.spawn(async move |_, cx| {
+        cx.spawn(async move |_, mut cx| {
             let (mut user_commands, mut user_command_errors) = match user_slash_commands {
                 UserSlashCommands::Cached { commands, errors } => (commands, errors),
                 UserSlashCommands::FromFs { fs, worktree_roots } => {
@@ -569,17 +571,10 @@ impl MessageEditor {
             // Errors for commands that don't match the user's input are silently ignored here,
             // since the user will see them via the error callout in the thread view.
 
-            // Check if this is a user-defined slash command and expand it
-            match user_slash_command::try_expand_from_commands(&text, &user_commands) {
-                Ok(Some(expanded)) => return Ok((vec![expanded.into()], Vec::new())),
-                Err(err) => return Err(err),
-                Ok(None) => {} // Not a user command, continue with normal processing
-            }
-
-            // Intercept built-in /search command
+            // Intercept built-in /search and /elastic commands
             if let Some(parsed) = user_slash_command::try_parse_user_command(&text) {
                 if parsed.name == "search" && !parsed.raw_arguments.is_empty() {
-                    if let Some(http_client) = http_client {
+                    if let Some(http_client) = http_client.clone() {
                         let results = SearchSlashCommand::search(http_client, parsed.raw_arguments).await?;
                         if !results.is_empty() {
                             let mut text = String::new();
@@ -602,6 +597,34 @@ impl MessageEditor {
                         }
                     }
                 }
+
+                if parsed.name == "elastic" && !parsed.raw_arguments.is_empty() {
+                    let settings = agent_settings.clone();
+                    if let Some(elastic_config) = &settings.elastic_search {
+                        if !elastic_config.endpoint_url.is_empty() {
+                            if let Some(http_client) = http_client.clone() {
+                                let text = assistant_slash_commands::ElasticSearchSlashCommand::elastic_search(
+                                    http_client,
+                                    parsed.raw_arguments,
+                                    &elastic_config.endpoint_url,
+                                    elastic_config.api_key.as_deref(),
+                                )
+                                .await?;
+                                return Ok((
+                                    vec![acp::ContentBlock::Text(acp::TextContent::new(text))],
+                                    Vec::new(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check if this is a user-defined slash command and expand it
+            match user_slash_command::try_expand_from_commands(&text, &user_commands) {
+                Ok(Some(expanded)) => return Ok((vec![expanded.into()], Vec::new())),
+                Err(err) => return Err(err),
+                Ok(None) => {} // Not a user command, continue with normal processing
             }
 
             if let Err(err) = Self::validate_slash_commands(&text, &available_commands, &agent_name)

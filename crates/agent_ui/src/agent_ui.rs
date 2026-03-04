@@ -495,6 +495,7 @@ fn register_slash_commands(cx: &mut App) {
         .register_command(assistant_slash_commands::DiagnosticsSlashCommand, true);
     slash_command_registry.register_command(assistant_slash_commands::FetchSlashCommand, true);
     slash_command_registry.register_command(assistant_slash_commands::SearchSlashCommand, true);
+    slash_command_registry.register_command(assistant_slash_commands::ElasticSearchSlashCommand, true);
 
     cx.observe_flag::<assistant_slash_commands::StreamingExampleSlashCommandFeatureFlag, _>({
         move |is_enabled, _cx| {

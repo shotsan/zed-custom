@@ -13,6 +13,7 @@ path = "src/assistant_slash_commands.rs"
 
 [dependencies]
 anyhow.workspace = true
+agent_settings.workspace = true
 assistant_slash_command.workspace = true
 chrono.workspace = true
 collections.workspace = true
@@ -32,6 +33,7 @@ rope.workspace = true
 scraper.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+settings.workspace = true
 smol.workspace = true
 text.workspace = true
 ui.workspace = true
