@@ -71,6 +71,7 @@ Begin by typing a `/` at the beginning of the line to see a list of available co
 
 - `/default`: Inserts the default rule
 - `/diagnostics`: Injects errors reported by the project's language server
+- `/elastic`: Queries an Elasticsearch cluster and inserts the resulting JSON hits
 - `/fetch`: Fetches the content of a webpage and inserts it
 - `/file`: Inserts a single file or a directory of files
 - `/now`: Inserts the current date and time
@@ -97,6 +98,25 @@ Usage: `/diagnostics [--include-warnings] [path]`
 
 - `--include-warnings`: Optional flag to include warnings in addition to errors.
 - `path`: Optional path to limit diagnostics to a specific file or directory.
+
+### `/elastic`
+
+The `/elastic` command queries a configured Elasticsearch cluster and injects the resulting JSON search hits directly into the context. This is useful for quickly referencing logs or external data without leaving Zed.
+
+Usage: `/elastic <query>`
+
+To use this command, you must configure the endpoint in your `settings.json` file inside the `agent` block:
+
+```json
+"agent": {
+    "elastic_search": {
+        "endpoint_url": "http://localhost:9200",
+        "api_key": "YOUR_API_KEY_HERE"
+    }
+}
+```
+Note: `api_key` is optional.
+
 
 ### `/file`
 

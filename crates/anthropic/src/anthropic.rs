@@ -560,8 +560,14 @@ async fn send_request(
         .method(Method::POST)
         .uri(uri)
         .header("Anthropic-Version", "2023-06-01")
-        .header("X-Api-Key", api_key.trim())
         .header("Content-Type", "application/json");
+
+    if api_url.contains("azure.com") || api_url.contains("azure-api.net") {
+        request_builder = request_builder.header("api-key", api_key.trim());
+        request_builder = request_builder.header("Authorization", format!("Bearer {}", api_key.trim()));
+    } else {
+        request_builder = request_builder.header("X-Api-Key", api_key.trim());
+    }
 
     if let Some(beta_headers) = beta_headers {
         request_builder = request_builder.header("Anthropic-Beta", beta_headers);
@@ -1114,12 +1120,18 @@ pub async fn count_tokens(
 ) -> Result<CountTokensResponse, AnthropicError> {
     let uri = format!("{api_url}/v1/messages/count_tokens");
 
-    let request_builder = HttpRequest::builder()
+    let mut request_builder = HttpRequest::builder()
         .method(Method::POST)
         .uri(uri)
         .header("Anthropic-Version", "2023-06-01")
-        .header("X-Api-Key", api_key.trim())
         .header("Content-Type", "application/json");
+
+    if api_url.contains("azure.com") || api_url.contains("azure-api.net") {
+        request_builder = request_builder.header("api-key", api_key.trim());
+        request_builder = request_builder.header("Authorization", format!("Bearer {}", api_key.trim()));
+    } else {
+        request_builder = request_builder.header("X-Api-Key", api_key.trim());
+    }
 
     let serialized_request =
         serde_json::to_string(&request).map_err(AnthropicError::SerializeRequest)?;

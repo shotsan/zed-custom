@@ -863,6 +863,7 @@ dependencies = [
 name = "assistant_slash_commands"
 version = "0.1.0"
 dependencies = [
+ "agent_settings",
  "anyhow",
  "assistant_slash_command",
  "chrono",
