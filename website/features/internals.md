@@ -92,7 +92,12 @@ Common language servers this repo works with:
 
 ### How the protocol works
 
-When the agent needs to look up a symbol, it sends a request using Zed's existing LSP client infrastructure (`crates/project`). Zed already maintains persistent connections to all active language servers for the open project — the agent simply reuses those connections.
+Language servers are **started automatically when you open a file** of the corresponding language — not when you open the project folder. The trigger is `register_buffer_with_language_servers()` inside `crates/project/src/lsp_store.rs`, which runs every time a buffer is created. It checks what language the file is, walks the LSP tree to determine which servers should handle it, and calls `start_language_server()` for any server not yet running.
+
+A newly started server goes through a `Starting` state while it initializes (downloading index, reading `Cargo.lock`, etc.), then transitions to `Running`. Zed already maintains these persistent connections for the open project — the agent tools simply reuse them.
+
+> [!IMPORTANT]
+> `project.symbols()` only queries servers in the `Running` state. A server that is still initializing is **silently skipped**. If you call `query_context` immediately after opening a file in a large Rust project, `rust-analyzer` may still be indexing and return no results — even though it will work correctly once initialization completes.
 
 The LSP requests this fork uses for agent tools are:
 
@@ -186,9 +191,9 @@ This is the index the agent actually uses via `project.symbols()`. It is never b
 |---|---|---|
 | Syntax highlight this token | Tree-sitter | ✅ Always |
 | Outline of a large open file | Tree-sitter outline | ✅ When open file > 16 KB |
-| Search symbols across project | LSP `workspace/symbol` | ✅ Requires active language server |
-| Jump to definition at a position | LSP `textDocument/definition` | ✅ Requires active language server |
-| Find all uses of a symbol | LSP `textDocument/references` | ✅ Requires active language server |
-| Find trait/interface implementations | LSP `textDocument/implementation` | ✅ Requires active language server |
+| Search symbols across project | LSP `workspace/symbol` | ✅ After a file of that language is opened and server is `Running` |
+| Jump to definition at a position | LSP `textDocument/definition` | ✅ After a file of that language is opened and server is `Running` |
+| Find all uses of a symbol | LSP `textDocument/references` | ✅ After a file of that language is opened and server is `Running` |
+| Find trait/interface implementations | LSP `textDocument/implementation` | ✅ After a file of that language is opened and server is `Running` |
 | Project-wide regex symbol search | `SemanticIndex` | ⚫ Disabled (always empty) |
 | **Any project-wide search with no LSP** | — | ❌ Not possible, no fallback |
