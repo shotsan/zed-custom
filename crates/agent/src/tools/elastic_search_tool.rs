@@ -96,7 +96,14 @@ impl AgentTool for ElasticSearchTool {
             return Task::ready(Err(anyhow!("Elasticsearch endpoint_url is empty in settings.")));
         }
 
-        let endpoint_url = elastic_config.endpoint_url;
+        let search_url = {
+            let base = elastic_config.endpoint_url;
+            if base.ends_with("/_search") {
+                base
+            } else {
+                format!("{}/_search", base.trim_end_matches('/'))
+            }
+        };
         let api_key = elastic_config.api_key;
         let http_client = self.http_client.clone();
 
@@ -115,7 +122,7 @@ impl AgentTool for ElasticSearchTool {
 
             let mut request = http_client::Request::builder()
                 .method(http_client::Method::POST)
-                .uri(endpoint_url)
+                .uri(search_url)
                 .header("Content-Type", "application/json");
 
             if let Some(key) = api_key {

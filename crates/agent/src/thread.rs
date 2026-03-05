@@ -1,10 +1,10 @@
 use crate::{
     BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
-    DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, FetchTool, FindPathTool, GrepTool,
+    DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, ElasticSearchTool, FetchTool, FindPathTool, GrepTool,
     ListDirectoryTool, LspFindReferencesTool, LspGetDefinitionTool, LspGetImplementationsTool,
     MemoryStore, MemoryDatabase, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
     ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SaveReflectionTool,
-    SemanticIndex, StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template,
+    SemanticIndex, SearchTool, StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template,
     Templates, TerminalTool, ThreadsDatabase, ThinkingTool, ToolPermissionDecision, WebSearchTool,
     decide_permission_from_settings,
 };
@@ -1403,6 +1403,8 @@ impl Thread {
             Templates::new(),
         ));
         self.add_tool(FetchTool::new(self.project.read(cx).client().http_client()));
+        self.add_tool(ElasticSearchTool::new(self.project.read(cx).client().http_client()));
+        self.add_tool(SearchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(BrowserTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(FindPathTool::new(self.project.clone()));
         self.add_tool(GrepTool::new(self.project.clone()));
