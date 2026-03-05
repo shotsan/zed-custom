@@ -28,6 +28,9 @@ features:
     details: Native support for Azure deployments and real-time Token Caching (Prompt Caching) visualization.
   - title: 📝 Custom System Prompts & Rules
     details: Project-scoped `.rules` files drop directly into the agent's subconscious prompt, perfectly aligning its persona and coding standards to your exact repository requirements.
+  - title: 🔍 Elasticsearch Integration
+    details: Query your Elasticsearch indices directly from the agent or via the <code>/elastic</code> slash command. The AI can autonomously search logs, documents, and records as part of any task.
+    link: /features/tools/elastic-search
   - title: 🕵️ Full Message Privacy
     details: Audit every outgoing request to the LLM. No hidden telemetry. Total transparency on what data leaves your machine.
 

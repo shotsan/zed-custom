@@ -40,7 +40,8 @@ export default defineConfig({
                     { text: 'Memory: recall', link: '/features/tools/recall' },
                     { text: 'Web: search', link: '/features/tools/search' },
                     { text: 'Web: fetch', link: '/features/tools/fetch' },
-                    { text: 'LSP: context', link: '/features/tools/context' }
+                    { text: 'LSP: context', link: '/features/tools/context' },
+                    { text: 'Elasticsearch: elastic_search + /elastic', link: '/features/tools/elastic-search' }
                 ]
             }
         ],
