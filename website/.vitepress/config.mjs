@@ -43,6 +43,12 @@ export default defineConfig({
                     { text: 'LSP: context', link: '/features/tools/context' },
                     { text: 'Elasticsearch: elastic_search + /elastic', link: '/features/tools/elastic-search' }
                 ]
+            },
+            {
+                text: 'Internals & Concepts',
+                items: [
+                    { text: 'Tree-sitter, AST, LSP & Indexing', link: '/features/internals' }
+                ]
             }
         ],
 
