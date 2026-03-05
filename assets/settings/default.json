@@ -1155,6 +1155,8 @@
           "lsp_find_references": true,
           "lsp_get_implementations": true,
           "lsp_save_reflection": true,
+          "search": true,
+          "elastic_search": true,
         },
       },
       "ask": {
@@ -1179,6 +1181,8 @@
           "lsp_find_references": true,
           "lsp_get_implementations": true,
           "lsp_save_reflection": true,
+          "search": true,
+          "elastic_search": true,
         },
       },
       "minimal": {

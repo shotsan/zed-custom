@@ -285,3 +285,23 @@ Zed uses a **Smart Caching** strategy to maximize cache hits while staying withi
 4. The **current message** being processed.
 
 You can also toggle this setting quickly in the Agent Panel using the **Sparkles** icon in the thread controls.
+
+## Elasticsearch {#elasticsearch}
+
+Zed includes built-in Elasticsearch support with **two separate features** — an agent tool the model calls autonomously, and a `/elastic` slash command you invoke manually. See [Elasticsearch Integration](../tools/elastic-search.md) for the full guide.
+
+To enable both features, add the following to your `settings.json`:
+
+```json [settings]
+{
+  "agent": {
+    "elastic_search": {
+      "endpoint_url": "https://your-elasticsearch-host:9200/your-index",
+      "api_key": "your_api_key_here"
+    }
+  }
+}
+```
+
+> The `api_key` is optional. Both features share this same configuration.
+
