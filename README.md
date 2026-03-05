@@ -3,6 +3,8 @@
 > [!IMPORTANT]
 > **UNOFFICIAL FORK**: This project is a custom, unofficial fork of [Zed](https://github.com/zed-industries/zed) and is **not** associated with, endorsed by, or affiliated with [Zed Industries](https://zed.dev).
 
+📖 **[Full Documentation](https://shotsan.github.io/zed-custom)**
+
 This is a custom fork of Zed with enhanced AI agent capabilities focused on improving code understanding and long-term memory.
 
 ## 🚀 Custom Features
