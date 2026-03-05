@@ -131,6 +131,9 @@ All three are cancellable — if you click "Stop" in the agent panel mid-tool, t
 
 This repo contains two separate symbol indexing mechanisms. Understanding which one is actually active matters.
 
+> [!IMPORTANT]
+> **There is no active project-wide indexer inside Zed itself.** The only project-wide index that exists lives inside the language server process (e.g., `rust-analyzer`, `gopls`). If no language server is running for your language, the agent has no way to search symbols across the project.
+
 ### 1. The `SemanticIndex` (regex-based, currently dormant)
 
 `crates/agent/src/semantic_search.rs` defines a `SemanticIndex` struct that stores a `HashMap<String, Vec<SymbolLocation>>`. Its `build()` method walks the project's worktrees, finds supported source files (`.rs`, `.py`, `.js`, `.ts`, `.go`, `.java`, `.cs`, `.cpp`, etc.), reads each one from disk, and extracts symbol names using **regex patterns** — not tree-sitter, not LSP.
@@ -155,6 +158,16 @@ The `SemanticIndex` struct is instantiated (and its `symbol_count()` is exposed 
 
 This was a deliberate trade-off: the regex indexer was expensive to maintain (CPU, disk I/O on large projects) and less accurate than LSP. It is kept in the codebase but disabled in favour of the LSP path.
 
+### What happens when no language server is running?
+
+Because the `SemanticIndex` is disabled and tree-sitter only covers open files, **there is no fallback project-wide symbol search** if no language server is active for your language. Concretely:
+
+- `query_context` calls `project.symbols(&query, cx)` — this forwards the request to all active language servers. With no servers, the result is an empty `Vec<Symbol>`, and the tool returns `"No symbols found matching '...'"`.
+- `lsp_get_definition`, `lsp_find_references`, and `lsp_get_implementations` all require an open buffer at a specific position and an active language server connection. With no server, they will fail or return no results.
+- Tree-sitter outlines (via `read_file`) still work for any open file over 16 KB regardless of LSP status, since they only depend on a grammar being loaded.
+
+The practical consequence: for languages with good LSP support (Rust, Go, Python, TypeScript, C/C++), the agent has full project-wide awareness. For languages without a configured language server, the agent is limited to reading individual files the model explicitly asks to open.
+
 ### 2. Tree-sitter File Outlines (active, per-file)
 
 As described in the Tree-sitter section, every open buffer maintains its own tree-sitter parse tree. This is **not** a project-wide index — it only covers files that are currently open as buffers. Its output is used exclusively by the `read_file` tool flow in `outline.rs` to avoid flooding the model's context with a full large file.
@@ -172,9 +185,10 @@ This is the index the agent actually uses via `project.symbols()`. It is never b
 | Question | Technology | Active? |
 |---|---|---|
 | Syntax highlight this token | Tree-sitter | ✅ Always |
-| What symbols are in this large file? | Tree-sitter outline | ✅ When file > 16 KB |
-| Where is `MyStruct` defined? | LSP `workspace/symbol` | ✅ When a server is running |
-| Where is the definition at line 42, col 8? | LSP `textDocument/definition` | ✅ When a server is running |
-| Who calls this function? | LSP `textDocument/references` | ✅ When a server is running |
-| What types implement this trait? | LSP `textDocument/implementation` | ✅ When a server is running |
-| In-process regex symbol search | `SemanticIndex` | ⚫ Disabled (always empty) |
+| Outline of a large open file | Tree-sitter outline | ✅ When open file > 16 KB |
+| Search symbols across project | LSP `workspace/symbol` | ✅ Requires active language server |
+| Jump to definition at a position | LSP `textDocument/definition` | ✅ Requires active language server |
+| Find all uses of a symbol | LSP `textDocument/references` | ✅ Requires active language server |
+| Find trait/interface implementations | LSP `textDocument/implementation` | ✅ Requires active language server |
+| Project-wide regex symbol search | `SemanticIndex` | ⚫ Disabled (always empty) |
+| **Any project-wide search with no LSP** | — | ❌ Not possible, no fallback |
