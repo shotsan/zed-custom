@@ -45,6 +45,7 @@ pub struct SystemPromptTemplate<'a> {
     pub has_python_files: bool,
     #[serde(default)]
     pub memories: Vec<MemoryContext>,
+    pub custom_instructions: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -96,6 +97,7 @@ mod tests {
             has_cpp_files: false,
             has_python_files: false,
             memories: Vec::new(),
+            custom_instructions: None,
         };
         let templates = Templates::new();
         let rendered = template.render(&templates).unwrap();

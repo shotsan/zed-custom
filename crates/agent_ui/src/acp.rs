@@ -8,6 +8,7 @@ mod thread_history;
 mod thread_view;
 mod teach_rule_modal;
 mod memory_manager_modal;
+mod custom_prompt_modal;
 
 pub use mode_selector::ModeSelector;
 pub use model_selector::AcpModelSelector;
@@ -16,3 +17,4 @@ pub use thread_history::*;
 pub use thread_view::AcpThreadView;
 pub use teach_rule_modal::TeachRuleModal;
 pub use memory_manager_modal::MemoryManagerModal;
+pub use custom_prompt_modal::CustomPromptModal;
