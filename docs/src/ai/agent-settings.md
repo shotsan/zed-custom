@@ -284,7 +284,7 @@ Zed uses a **Smart Caching** strategy to maximize cache hits while staying withi
 3. The **most recent history entry** (to stabilize the prompt prefix and efficiently handle multi-turn conversations).
 4. The **current message** being processed.
 
-You can also toggle this setting quickly in the Agent Panel using the **Sparkles** icon in the thread controls.
+You can also toggle this setting quickly in the Agent Panel using the **Zap** icon in the thread controls.
 
 ## Elasticsearch {#elasticsearch}
 

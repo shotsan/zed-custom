@@ -84,9 +84,11 @@ use crate::{
     CycleFavoriteModels, CycleModeSelector, EditFirstQueuedMessage, ExpandMessageEditor,
     ExternalAgentInitialContent, Follow, KeepAll, NewThread, OpenAddContextMenu, OpenAgentDiff,
     OpenHistory, RejectAll, RejectOnce, RemoveFirstQueuedMessage, SelectPermissionGranularity,
-    SendImmediately, SendNextQueuedMessage, TeachRule, ToggleProfileSelector, TogglePromptCaching, ToggleThinkingMode,
+    SendImmediately, SendNextQueuedMessage, TeachRule, ToggleProfileSelector, TogglePromptCaching,
+    ToggleThinkingMode, EditSystemPrompt,
 };
 use super::teach_rule_modal::TeachRuleModal;
+use super::custom_prompt_modal::CustomPromptModal;
 
 const STOPWATCH_THRESHOLD: Duration = Duration::from_secs(30);
 const TOKEN_THRESHOLD: u64 = 250;
@@ -6297,6 +6299,7 @@ impl AcpThreadView {
                             .child(self.render_add_context_button(cx))
                             .child(self.render_teach_rule_button(cx))
                             .child(self.render_memories_button(cx))
+                            .child(self.render_system_prompt_button(cx))
                             .child(self.render_native_agent_status(cx))
                             .child(self.render_follow_toggle(cx))
                             .children(self.render_thinking_toggle(cx)),
@@ -7137,6 +7140,50 @@ impl AcpThreadView {
         }
     }
 
+    fn render_system_prompt_button(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let has_custom = self
+            .as_native_thread(cx)
+            .map(|thread| thread.read(cx).custom_instructions().is_some())
+            .unwrap_or(false);
+
+        div()
+            .relative()
+            .child(
+                IconButton::new("custom-system-prompt", IconName::Sparkle)
+                    .icon_size(IconSize::Medium)
+                    .icon_color(if has_custom { Color::Accent } else { Color::Muted })
+                    .tooltip(Tooltip::text("Edit Custom System Instructions"))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.show_custom_prompt_dialog(window, cx);
+                    })),
+            )
+            .when(has_custom, |this| {
+                this.child(
+                    div()
+                        .absolute()
+                        .top_px()
+                        .right_px()
+                        .bg(cx.theme().colors().text_accent)
+                        .rounded_full()
+                        .size_2()
+                        .border_1()
+                        .border_color(cx.theme().colors().editor_background),
+                )
+            })
+    }
+
+    fn show_custom_prompt_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(thread) = self.as_native_thread(cx) {
+            self.workspace
+                .update(cx, |workspace, cx| {
+                    workspace.toggle_modal(window, cx, move |window, cx| {
+                        CustomPromptModal::new(thread, window, cx)
+                    });
+                })
+                .ok();
+        }
+    }
+
     fn build_add_context_menu(
         &self,
         window: &mut Window,
@@ -7863,7 +7910,7 @@ impl AcpThreadView {
             }));
 
         let enable_caching = AgentSettings::get_global(cx).enable_prompt_caching;
-        let caching_toggle = IconButton::new("toggle_caching", IconName::Sparkle)
+        let caching_toggle = IconButton::new("toggle_caching", IconName::BoltFilled)
             .shape(ui::IconButtonShape::Square)
             .icon_size(IconSize::Small)
             .icon_color(if enable_caching { Color::Accent } else { Color::Disabled })
@@ -8763,6 +8810,9 @@ impl Render for AcpThreadView {
             .on_action(cx.listener(Self::open_add_context_menu))
             .on_action(cx.listener(|this, _: &TeachRule, window, cx| {
                 this.show_teach_rule_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditSystemPrompt, window, cx| {
+                this.show_custom_prompt_dialog(window, cx);
             }))
             .on_action(cx.listener(|this, _: &ToggleThinkingMode, _window, cx| {
                 if let Some(thread) = this.as_native_thread(cx) {

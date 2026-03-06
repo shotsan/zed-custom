@@ -2,7 +2,7 @@ use crate::{
     BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
     DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, ElasticSearchTool, FetchTool, FindPathTool, GrepTool,
     ListDirectoryTool, LspFindReferencesTool, LspGetDefinitionTool, LspGetImplementationsTool,
-    MemoryStore, MemoryDatabase, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
+    MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
     ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SaveReflectionTool,
     SemanticIndex, SearchTool, StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template,
     Templates, TerminalTool, ThreadsDatabase, ThinkingTool, ToolPermissionDecision, WebSearchTool,
@@ -814,6 +814,8 @@ pub struct Thread {
     subagent_context: Option<SubagentContext>,
     /// Weak references to running subagent threads for cancellation propagation
     running_subagents: Vec<WeakEntity<Thread>>,
+    /// Optional free-text instructions injected into the system prompt for this session.
+    custom_instructions: Option<String>,
 }
 
 impl Thread {
@@ -826,6 +828,15 @@ impl Thread {
 
     pub fn tools(&self) -> &BTreeMap<SharedString, Arc<dyn AnyAgentTool>> {
         &self.tools
+    }
+
+    pub fn custom_instructions(&self) -> Option<&str> {
+        self.custom_instructions.as_deref()
+    }
+
+    pub fn set_custom_instructions(&mut self, instructions: Option<String>, cx: &mut Context<Self>) {
+        self.custom_instructions = instructions;
+        cx.notify();
     }
 
     pub fn new(
@@ -881,6 +892,7 @@ impl Thread {
             imported: false,
             subagent_context: None,
             running_subagents: Vec::new(),
+            custom_instructions: None,
         }
     }
 
@@ -947,6 +959,7 @@ impl Thread {
             imported: false,
             subagent_context: Some(subagent_context),
             running_subagents: Vec::new(),
+            custom_instructions: None,
         }
     }
 
@@ -1239,6 +1252,7 @@ impl Thread {
             imported: db_thread.imported,
             subagent_context: None,
             running_subagents: Vec::new(),
+            custom_instructions: None,
         }
     }
 
@@ -2709,6 +2723,7 @@ impl Thread {
                     content: m.content,
                 })
                 .collect(),
+            custom_instructions: self.custom_instructions.clone(),
         }
         .render(&self.templates)
         .context("failed to build system prompt")

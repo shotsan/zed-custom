@@ -18,3 +18,4 @@ rustflags = [
 
 [env]
 MACOSX_DEPLOYMENT_TARGET = "10.15.7"
+ZED_STATELESS = "1"

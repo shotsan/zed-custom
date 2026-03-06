@@ -57,8 +57,8 @@ read the file.
 The following information reflects the real-time state of the project, sensed automatically from the environment:
 
 <epistemic_state>
-- **Active File**: {{#if biological_feedback.active_file}}`{{biological_feedback.active_file}}`{{else}}None{{/if}}
-- **Project Health**: {{biological_feedback.error_count}} error(s), {{biological_feedback.warning_count}} warning(s)
+    - **Active File**: {{#if biological_feedback.active_file}}`{{biological_feedback.active_file}}`{{else}}None{{/if}}
+    - **Project Health**: {{biological_feedback.error_count}} error(s), {{biological_feedback.warning_count}} warning(s)
 </epistemic_state>
 
 If there are errors, you should prioritize fixing them before proceeding with new features.
@@ -269,6 +269,15 @@ The following information has been remembered from previous sessions:
 {{/each}}
 {{/if}}
 
+{{#if custom_instructions}}
+## Additional Instructions
+
+The following additional instructions were provided by the user for this session and must be followed with high
+priority:
+
+{{{custom_instructions}}}
+
+{{/if}}
 {{#if (or has_rules has_user_rules)}}
 ## User's Custom Instructions
 

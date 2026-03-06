@@ -147,6 +147,8 @@ actions!(
         TogglePromptCaching,
         /// Opens a modal to teach a new project rule.
         TeachRule,
+        /// Opens a modal to edit custom system prompt instructions for this session.
+        EditSystemPrompt,
     ]
 );
 

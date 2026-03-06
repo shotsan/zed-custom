@@ -100,6 +100,17 @@ To paste content without this automatic formatting, use {#kb agent::PasteRaw} to
 
 Additionally, you can also select text in a buffer and add it as context by using the {#kb agent::AddSelectionToThread} keybinding, running the {#action agent::AddSelectionToThread} action, or choosing the "Selection" item in the `@` menu.
 
+## Custom System Instructions {#custom-system-instructions}
+
+You can inject thread-specific instructions into the AI's system prompt to set a particular persona or enforce temporary constraints for the current session.
+
+To set these instructions:
+1. Click the ✨ (sparkle) icon in the message editor toolbar.
+2. Enter your instructions in the modal (e.g., "Always use TypeScript", "Explain code like I'm five").
+3. Click "Apply Instructions".
+
+The ✨ icon will turn accent-colored to indicate that custom instructions are active. These instructions are personal to the current thread and will not affect other threads or your project-wide `.rules` files.
+
 ## Token Usage {#token-usage}
 
 Zed surfaces how many tokens you are consuming for your currently active thread near the profile selector in the panel's message editor.

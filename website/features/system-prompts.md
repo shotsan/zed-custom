@@ -16,7 +16,14 @@ The prompt is structured into five distinct sections, prioritized by their dista
 2.  **Epistemic State**: Dynamic sensors providing real-time data on active files and LSP error counts.
 3.  **Language Modifiers**: Targeted best practices injected based on the file extension (e.g., C++17 pointers).
 4.  **Project Memory**: Contextually relevant facts retrieved from the [SQLite database](/features/memory).
-5.  **Custom Rules**: Your project-scoped `.rules` files, placed last to maximize the model's attention.
+5.  **Custom Session Instructions**: Thread-specific overrides set via the ✨ GUI, injected after memory.
+6.  **Custom Rules**: Your project-scoped `.rules` files, placed last to maximize the model's attention.
+
+## Dynamic Session Overrides
+
+Unlike binary-embedded templates or project-wide `.rules` files, **Custom Session Instructions** allow you to pivot the agent's behavior for just the current thread. 
+
+Click the ✨ icon in the message editor toolbar to open a modal where you can paste specific constraints like "Write all tests in Jest" or "Respond as if you are a code reviewer." These are injected into every system prompt refresh for that session.
 
 ## Technical Detail: Memory Injection
 
