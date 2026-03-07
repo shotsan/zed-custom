@@ -171,19 +171,27 @@ Zed will store this profile in your settings using the same profile name as the 
 
 All custom profiles can be edited via the UI or by hand under the `agent.profiles` key in your `settings.json` file.
 
-#### Profile Instructions and Overrides {#profile-instructions}
+#### Profile Instructions and Overrides (The Hybrid Approach) {#profile-instructions}
 
-Custom profiles (and overrides of built-in ones) can have specific instructions or a completely different system prompt.
+Zed uses a **Hybrid Prompting Approach** that balances powerful default agentic capabilities with user-defined specialization. When you configure a profile, you have two distinct ways to influence the model's behavior:
+
+1.  **Custom Instructions (Hybrid/Augment)**:
+    -   **What it is**: Your text is injected into Zed's default system prompt.
+    -   **Why this choice**: It allows you to add constraints (e.g., "Always use functional patterns") or personas while keeping all of Zed's core intelligence intact. The model still knows how to use tools, read your files, and interpret "Sensors" (like build errors) because the framework remains unchanged.
+    -   **Context**: These instructions appear at the end of the prompt to ensure high priority in the model's attention.
+
+2.  **System Prompt Override (The "Nuclear" Option)**:
+    -   **What it is**: You replace the *entire* system prompt with your own Handlebars template.
+    -   **Why this choice**: For advanced users who want to build entirely new agent experiences. You can discard Zed's instructions entirely.
+    -   **Note on Capability**: If you override the full prompt, the agent might "lose" its ability to use tools or read context unless you explicitly instruct it how to do so in your custom text. However, we still pass the same data context (Project state, memories, etc.) to your template, so you can still use variables like `{{project.name}}` or `{{#each worktrees}}`.
 
 To configure these:
 1. Open the **Manage Profiles** modal ({#kb agent::ManageProfiles}).
 2. Select the profile you wish to edit.
 3. Click on **Configure Instructions**.
-4. You can set:
-    - **Custom Instructions**: These are appended to the default system prompt.
-    - **System Prompt Override**: This replaces the entire system prompt. **Caution**: Overriding the full prompt may disable automatic context gathering or tool functionality if the model isn't instructed on how to use them.
+4. Use the top editor for **Custom Instructions** and the bottom editor for a **Full Override**.
 
-These settings allow you to create specialized profiles, like a "Documentation Expert" or a "Refactoring Bot", with specific behaviors and styling.
+**Design Philosophy**: We chose this two-tier system to avoid a "black box" experience. Most users only need the **Hybrid** approach to nudge the agent, while the **Override** ensures Zed remains an open platform for researchers and power users.
 
 ### Tool Approval
 
