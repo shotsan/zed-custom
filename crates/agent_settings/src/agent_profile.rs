@@ -70,6 +70,12 @@ impl AgentProfile {
         let default_model = base_profile
             .as_ref()
             .and_then(|profile| profile.default_model.clone());
+        let instructions = base_profile
+            .as_ref()
+            .and_then(|profile| profile.instructions.clone());
+        let system_prompt = base_profile
+            .as_ref()
+            .and_then(|profile| profile.system_prompt.clone());
 
         let profile_settings = AgentProfileSettings {
             name: name.into(),
@@ -77,6 +83,8 @@ impl AgentProfile {
             enable_all_context_servers,
             context_servers,
             default_model,
+            instructions,
+            system_prompt,
         };
 
         update_settings_file(fs, cx, {
@@ -109,6 +117,8 @@ pub struct AgentProfileSettings {
     pub context_servers: IndexMap<Arc<str>, ContextServerPreset>,
     /// Default language model to apply when this profile becomes active.
     pub default_model: Option<LanguageModelSelection>,
+    pub instructions: Option<SharedString>,
+    pub system_prompt: Option<SharedString>,
 }
 
 impl AgentProfileSettings {
@@ -158,6 +168,8 @@ impl AgentProfileSettings {
                     })
                     .collect(),
                 default_model: self.default_model.clone(),
+                instructions: self.instructions.clone().map(|s| s.into()),
+                system_prompt: self.system_prompt.clone().map(|s| s.into()),
             },
         );
 
@@ -173,6 +185,8 @@ impl From<AgentProfileContent> for AgentProfileSettings {
             enable_all_context_servers,
             context_servers,
             default_model,
+            instructions,
+            system_prompt,
         } = content;
 
         Self {
@@ -184,6 +198,8 @@ impl From<AgentProfileContent> for AgentProfileSettings {
                 .map(|(server_id, preset)| (server_id, preset.into()))
                 .collect(),
             default_model,
+            instructions: instructions.map(|s| s.into()),
+            system_prompt: system_prompt.map(|s| s.into()),
         }
     }
 }

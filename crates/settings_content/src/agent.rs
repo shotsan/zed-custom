@@ -118,6 +118,10 @@ pub struct AgentSettingsContent {
     ///
     /// Default: false
     pub use_modifier_to_send: Option<bool>,
+    /// Custom instructions for all profiles.
+    pub instructions: Option<Arc<str>>,
+    /// A custom system prompt that overrides the entire default prompt. Use with caution as this may break sensors.
+    pub system_prompt: Option<Arc<str>>,
     /// Minimum number of lines of height the agent message editor should have.
     ///
     /// Default: 4
@@ -267,6 +271,10 @@ pub struct AgentProfileContent {
     pub context_servers: IndexMap<Arc<str>, ContextServerPresetContent>,
     /// The default language model selected when using this profile.
     pub default_model: Option<LanguageModelSelection>,
+    /// Custom instructions for this profile.
+    pub instructions: Option<Arc<str>>,
+    /// A custom system prompt for this profile that overrides the entire default prompt.
+    pub system_prompt: Option<Arc<str>>,
 }
 
 #[with_fallible_options]

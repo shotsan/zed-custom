@@ -894,7 +894,7 @@ impl AgentPanel {
     fn deploy_rules_library(
         &mut self,
         action: &OpenRulesLibrary,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let task = open_rules_library(

@@ -61,7 +61,7 @@ impl crate::tools::AgentTool for ContextTool {
         cx: &mut App,
     ) -> Task<Result<Self::Output, anyhow::Error>> {
         let project = self.project.clone();
-        let query = input.query.clone();
+        let query = input.query;
 
         cx.spawn(|cx: &mut AsyncApp| {
             let cx = cx.clone();

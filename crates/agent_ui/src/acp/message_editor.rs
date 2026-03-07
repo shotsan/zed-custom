@@ -529,7 +529,7 @@ impl MessageEditor {
         let http_client = self.workspace.upgrade().map(|w| w.read(cx).client().http_client());
         let agent_settings = AgentSettings::get_global(cx).clone();
 
-        cx.spawn(async move |_, mut cx| {
+        cx.spawn(async move |_, cx| {
             let (mut user_commands, mut user_command_errors) = match user_slash_commands {
                 UserSlashCommands::Cached { commands, errors } => (commands, errors),
                 UserSlashCommands::FromFs { fs, worktree_roots } => {

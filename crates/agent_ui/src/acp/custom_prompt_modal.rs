@@ -14,18 +14,13 @@ impl CustomPromptModal {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let existing = thread.read(cx).custom_instructions().map(|s| s.to_string()).unwrap_or_default();
+        let existing = thread.read(cx).custom_system_prompt_template().map(|s| s.to_string());
+        
+        let initial_text = existing.unwrap_or_else(|| agent::Templates::system_prompt_source());
 
         let input = cx.new(|cx| {
             let mut editor = editor::Editor::multi_line(window, cx);
-            editor.set_placeholder_text(
-                "Enter additional instructions for the AI (e.g., 'Always use TypeScript', 'Respond in Spanish')...",
-                window,
-                cx,
-            );
-            if !existing.is_empty() {
-                editor.set_text(existing, window, cx);
-            }
+            editor.set_text(initial_text, window, cx);
             editor
         });
 
@@ -38,17 +33,16 @@ impl CustomPromptModal {
 
     fn save(&mut self, _: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
         let text = self.input.read(cx).text(cx);
-        let text = text.trim().to_string();
-        let instructions = if text.is_empty() { None } else { Some(text) };
+        let template = Some(text);
         self.thread.update(cx, |thread, cx| {
-            thread.set_custom_instructions(instructions, cx);
+            thread.set_custom_system_prompt_template(template, cx);
         });
         cx.emit(DismissEvent);
     }
 
     fn clear_and_save(&mut self, _: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
         self.thread.update(cx, |thread, cx| {
-            thread.set_custom_instructions(None, cx);
+            thread.set_custom_system_prompt_template(None, cx);
         });
         cx.emit(DismissEvent);
     }
@@ -70,10 +64,10 @@ impl ModalView for CustomPromptModal {}
 
 impl Render for CustomPromptModal {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let has_existing = self.thread.read(cx).custom_instructions().is_some();
+        let has_override = self.thread.read(cx).custom_system_prompt_template().is_some();
 
         v_flex()
-            .w(rems(48.))
+            .w(rems(64.))
             .p_4()
             .gap_3()
             .elevation_3(cx)
@@ -81,10 +75,8 @@ impl Render for CustomPromptModal {
             .on_action(cx.listener(|_this, _: &menu::Cancel, _, cx| cx.emit(DismissEvent)))
             .on_action(cx.listener(|this, _: &menu::Confirm, _window, cx| {
                 let text = this.input.read(cx).text(cx);
-                let text = text.trim().to_string();
-                let instructions = if text.is_empty() { None } else { Some(text) };
                 this.thread.update(cx, |thread, cx| {
-                    thread.set_custom_instructions(instructions, cx);
+                    thread.set_custom_system_prompt_template(Some(text), cx);
                 });
                 cx.emit(DismissEvent);
             }))
@@ -99,13 +91,13 @@ impl Render for CustomPromptModal {
                                     .size(IconSize::Medium)
                                     .color(Color::Accent),
                             )
-                            .child(Headline::new("Custom System Instructions").size(HeadlineSize::Small)),
+                            .child(Headline::new("System Prompt Template Editor").size(HeadlineSize::Small)),
                     ),
             )
             .child(
                 Label::new(
-                    "These instructions are injected into every system prompt for this session. \
-                     Use them to set the AI's personality, constraints, or project-specific rules.",
+                    "Edit the complete system prompt for this thread. \
+                     Keep the {{...}} tags if you want the agent's sensors (active files, errors, memories) to remain dynamic.",
                 )
                 .size(LabelSize::Small)
                 .color(Color::Muted),
@@ -115,7 +107,7 @@ impl Render for CustomPromptModal {
                     .gap_1()
                     .child(
                         div()
-                            .h(rems(10.))
+                            .h(rems(30.))
                             .w_full()
                             .rounded_md()
                             .border_1()
@@ -130,9 +122,9 @@ impl Render for CustomPromptModal {
                     .justify_between()
                     .gap_2()
                     .child(
-                        h_flex().when(has_existing, |this| {
+                        h_flex().when(has_override, |this| {
                             this.child(
-                                Button::new("clear", "Clear Instructions")
+                                Button::new("clear", "Reset to Default")
                                     .style(ButtonStyle::Subtle)
                                     .color(Color::Error)
                                     .on_click(cx.listener(Self::clear_and_save)),
@@ -144,7 +136,7 @@ impl Render for CustomPromptModal {
                             .gap_2()
                             .child(Button::new("cancel", "Cancel").on_click(cx.listener(Self::cancel)))
                             .child(
-                                Button::new("save", "Apply Instructions")
+                                Button::new("save", "Apply Template")
                                     .style(ButtonStyle::Filled)
                                     .on_click(cx.listener(Self::save)),
                             ),

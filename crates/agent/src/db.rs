@@ -294,7 +294,7 @@ impl Column for DataType {
     }
 }
 
-pub(crate) struct ThreadsDatabase {
+pub struct ThreadsDatabase {
     executor: BackgroundExecutor,
     connection: Arc<Mutex<Connection>>,
 }
@@ -348,7 +348,7 @@ impl ThreadsDatabase {
         
         #[cfg(any(test, feature = "test-support"))]
         {
-            connection.exec("PRAGMA foreign_keys = ON;").unwrap();
+            let _ = connection.exec("PRAGMA foreign_keys = ON;").unwrap()();
         }
 
         connection.exec(indoc! {"
@@ -551,6 +551,7 @@ impl ThreadsDatabase {
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    #[allow(dead_code)]
     pub fn connection_for_test(&self) -> Arc<Mutex<Connection>> {
         self.connection.clone()
     }

@@ -554,7 +554,7 @@ mod tests {
             default_view: DefaultAgentView::Thread,
             profiles: Default::default(),
             always_allow_tool_actions: false,
-            notify_when_agent_waiting: NotifyWhenAgentWaiting::default(),
+            notify_when_agent_waiting: NotifyWhenAgentWaiting::PrimaryScreen,
             play_sound_when_agent_done: false,
             single_file_review: false,
             model_parameters: vec![],
@@ -563,9 +563,13 @@ mod tests {
             expand_terminal_card: true,
             cancel_generation_on_terminal_stop: true,
             use_modifier_to_send: true,
+            instructions: None,
+            system_prompt: None,
             message_editor_min_lines: 1,
-            tool_permissions: Default::default(),
             show_turn_stats: true,
+            enable_prompt_caching: false,
+            tool_permissions: Default::default(),
+            elastic_search: None,
         };
 
         cx.update(|cx| {

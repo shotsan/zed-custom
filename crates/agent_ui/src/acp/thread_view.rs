@@ -7143,7 +7143,7 @@ impl AcpThreadView {
     fn render_system_prompt_button(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let has_custom = self
             .as_native_thread(cx)
-            .map(|thread| thread.read(cx).custom_instructions().is_some())
+            .map(|thread| thread.read(cx).custom_system_prompt_template().is_some())
             .unwrap_or(false);
 
         div()
@@ -7152,7 +7152,7 @@ impl AcpThreadView {
                 IconButton::new("custom-system-prompt", IconName::Sparkle)
                     .icon_size(IconSize::Medium)
                     .icon_color(if has_custom { Color::Accent } else { Color::Muted })
-                    .tooltip(Tooltip::text("Edit Custom System Instructions"))
+                    .tooltip(Tooltip::text("Edit System Prompt Template"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.show_custom_prompt_dialog(window, cx);
                     })),

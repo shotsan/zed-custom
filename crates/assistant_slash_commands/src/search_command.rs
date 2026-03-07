@@ -178,9 +178,8 @@ impl SlashCommand for SearchSlashCommand {
         let http_client = workspace.read(cx).client().http_client();
         let query_display = query.clone();
 
-        let search_task = cx.background_spawn({
-            let query = query.clone();
-            async move { Self::search(http_client, &query).await }
+        let search_task = cx.background_spawn(async move {
+            Self::search(http_client, &query).await
         });
 
         cx.foreground_executor().spawn(async move {

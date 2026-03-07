@@ -339,14 +339,10 @@ impl AgentTool for BrowserTool {
 
         let http_client = self.http_client.clone();
         let chrome_session = self.chrome_session.clone();
-        let action = input.action.clone();
-        let target = input.target.clone();
+        let action = input.action;
+        let target = input.target;
 
-        let chrome_task = Tokio::spawn_result(cx, {
-            let action = action.clone();
-            let target = target.clone();
-            let chrome_session = chrome_session.clone();
-            async move {
+        let chrome_task = Tokio::spawn_result(cx, async move {
                 if let Some(authorize) = authorize {
                     authorize.await?;
                 }
@@ -404,11 +400,10 @@ impl AgentTool for BrowserTool {
                         bail!("Unknown browser action: {other}. Use 'search' or 'navigate'.")
                     }
                 }
-            }
-        });
+            });
 
         let fetch_task = cx.background_spawn({
-            let http_client = http_client.clone();
+            let http_client = http_client;
             let event_stream = event_stream.clone();
             async move {
                 let fetched = chrome_task.await?;

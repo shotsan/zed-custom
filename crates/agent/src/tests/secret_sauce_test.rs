@@ -1,7 +1,6 @@
 use crate::{
     Thread, AnyAgentTool, ContextServerRegistry, Templates, MemoryStore, SemanticIndex,
-    MemoryDatabase, LspGetDefinitionTool, LspFindReferencesTool, LspGetImplementationsTool,
-    SaveReflectionTool, ThreadsDatabase, ThreadEnvironment, TerminalHandle,
+    MemoryDatabase, ThreadEnvironment, TerminalHandle,
 };
 use gpui::{AsyncApp, Task, TestAppContext, AppContext};
 use anyhow::Result;

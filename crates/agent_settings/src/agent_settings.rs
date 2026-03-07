@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use agent_client_protocol::ModelId;
 use collections::{HashSet, IndexMap};
-use gpui::{App, Pixels, px};
+use gpui::{px, App, Pixels, SharedString};
 use language_model::LanguageModel;
 use project::DisableAiSettings;
 use schemars::JsonSchema;
@@ -48,6 +48,8 @@ pub struct AgentSettings {
     pub expand_terminal_card: bool,
     pub cancel_generation_on_terminal_stop: bool,
     pub use_modifier_to_send: bool,
+    pub instructions: Option<SharedString>,
+    pub system_prompt: Option<SharedString>,
     pub message_editor_min_lines: usize,
     pub show_turn_stats: bool,
     pub enable_prompt_caching: bool,
@@ -267,6 +269,8 @@ impl Settings for AgentSettings {
             expand_terminal_card: agent.expand_terminal_card.unwrap(),
             cancel_generation_on_terminal_stop: agent.cancel_generation_on_terminal_stop.unwrap(),
             use_modifier_to_send: agent.use_modifier_to_send.unwrap(),
+            instructions: agent.instructions.map(|s| s.into()),
+            system_prompt: agent.system_prompt.map(|s| s.into()),
             message_editor_min_lines: agent.message_editor_min_lines.unwrap(),
             show_turn_stats: agent.show_turn_stats.unwrap(),
             enable_prompt_caching: agent.enable_prompt_caching.unwrap_or(true),

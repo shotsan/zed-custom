@@ -20,6 +20,15 @@ impl Templates {
         handlebars.register_embed_templates::<Assets>().unwrap();
         Arc::new(Self(handlebars))
     }
+
+    pub fn system_prompt_source() -> String {
+        let asset = Assets::get("system_prompt.hbs").unwrap();
+        String::from_utf8(asset.data.to_vec()).unwrap()
+    }
+
+    pub fn render_custom(&self, source: &str, data: &impl Serialize) -> Result<String> {
+        Ok(self.0.render_template(source, data)?)
+    }
 }
 
 pub trait Template: Sized {
@@ -46,6 +55,7 @@ pub struct SystemPromptTemplate<'a> {
     #[serde(default)]
     pub memories: Vec<MemoryContext>,
     pub custom_instructions: Option<String>,
+    pub custom_system_prompt: Option<String>,
 }
 
 #[derive(Serialize)]

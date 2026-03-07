@@ -2,7 +2,7 @@ use crate::{
     BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
     DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, ElasticSearchTool, FetchTool, FindPathTool, GrepTool,
     ListDirectoryTool, LspFindReferencesTool, LspGetDefinitionTool, LspGetImplementationsTool,
-    MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
+    MemoryDatabase, MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
     ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SaveReflectionTool,
     SemanticIndex, SearchTool, StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template,
     Templates, TerminalTool, ThreadsDatabase, ThinkingTool, ToolPermissionDecision, WebSearchTool,
@@ -814,8 +814,8 @@ pub struct Thread {
     subagent_context: Option<SubagentContext>,
     /// Weak references to running subagent threads for cancellation propagation
     running_subagents: Vec<WeakEntity<Thread>>,
-    /// Optional free-text instructions injected into the system prompt for this session.
-    custom_instructions: Option<String>,
+    /// Optional custom Handlebars template to use for the system prompt instead of the default.
+    custom_system_prompt_template: Option<String>,
 }
 
 impl Thread {
@@ -830,12 +830,16 @@ impl Thread {
         &self.tools
     }
 
-    pub fn custom_instructions(&self) -> Option<&str> {
-        self.custom_instructions.as_deref()
+    pub fn custom_system_prompt_template(&self) -> Option<&str> {
+        self.custom_system_prompt_template.as_deref()
     }
 
-    pub fn set_custom_instructions(&mut self, instructions: Option<String>, cx: &mut Context<Self>) {
-        self.custom_instructions = instructions;
+    pub fn set_custom_system_prompt_template(
+        &mut self,
+        template: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.custom_system_prompt_template = template;
         cx.notify();
     }
 
@@ -892,7 +896,7 @@ impl Thread {
             imported: false,
             subagent_context: None,
             running_subagents: Vec::new(),
-            custom_instructions: None,
+            custom_system_prompt_template: None,
         }
     }
 
@@ -959,7 +963,7 @@ impl Thread {
             imported: false,
             subagent_context: Some(subagent_context),
             running_subagents: Vec::new(),
-            custom_instructions: None,
+            custom_system_prompt_template: None,
         }
     }
 
@@ -1252,7 +1256,7 @@ impl Thread {
             imported: db_thread.imported,
             subagent_context: None,
             running_subagents: Vec::new(),
-            custom_instructions: None,
+            custom_system_prompt_template: None,
         }
     }
 
@@ -2710,7 +2714,20 @@ impl Thread {
         let index = self.semantic_index.read();
         let memories = self.memory_store.recall_sync("", None, 1000); // Load ALL memories for every AI response
 
-        let system_prompt = SystemPromptTemplate {
+        let agent_settings = AgentSettings::get_global(cx);
+        let profile_settings = agent_settings.profiles.get(&self.profile_id);
+
+        let custom_instructions = profile_settings
+            .and_then(|p| p.instructions.as_ref())
+            .or(agent_settings.instructions.as_ref())
+            .map(|s| s.to_string());
+
+        let custom_system_prompt = profile_settings
+            .and_then(|p| p.system_prompt.as_ref())
+            .or(agent_settings.system_prompt.as_ref())
+            .map(|s| s.to_string());
+
+        let context = SystemPromptTemplate {
             project: self.project_context.read(cx),
             available_tools,
             model_name: self.model.as_ref().map(|m| m.name().0.to_string()),
@@ -2723,11 +2740,26 @@ impl Thread {
                     content: m.content,
                 })
                 .collect(),
-            custom_instructions: self.custom_instructions.clone(),
-        }
-        .render(&self.templates)
-        .context("failed to build system prompt")
-        .expect("Invalid template");
+            custom_instructions,
+            custom_system_prompt,
+        };
+
+        let system_prompt = if let Some(custom_template) = context.custom_system_prompt.as_ref() {
+            self.templates
+                .render_custom(custom_template, &context)
+                .context("failed to render custom system prompt template")
+                .expect("Invalid custom template")
+        } else if let Some(custom_template) = self.custom_system_prompt_template.as_ref() {
+            self.templates
+                .render_custom(custom_template, &context)
+                .context("failed to render custom system prompt template")
+                .expect("Invalid custom template")
+        } else {
+            context
+                .render(&self.templates)
+                .context("failed to build system prompt")
+                .expect("Invalid template")
+        };
         let mut messages = vec![LanguageModelRequestMessage {
             role: Role::System,
             content: vec![system_prompt.into()],

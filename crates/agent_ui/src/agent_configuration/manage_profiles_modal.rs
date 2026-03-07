@@ -41,6 +41,7 @@ enum Mode {
         model_picker: Entity<LanguageModelSelector>,
         _subscription: Subscription,
     },
+    ConfigureInstructions(ConfigureInstructionsMode),
 }
 
 impl Mode {
@@ -95,8 +96,16 @@ pub struct ViewProfileMode {
     configure_default_model: NavigableEntry,
     configure_tools: NavigableEntry,
     configure_mcps: NavigableEntry,
+    configure_instructions: NavigableEntry,
     delete_profile: NavigableEntry,
     cancel_item: NavigableEntry,
+}
+
+#[derive(Clone)]
+pub struct ConfigureInstructionsMode {
+    profile_id: AgentProfileId,
+    instructions_editor: Entity<Editor>,
+    system_prompt_editor: Entity<Editor>,
 }
 
 #[derive(Clone)]
@@ -206,6 +215,7 @@ impl ManageProfilesModal {
             configure_default_model: NavigableEntry::focusable(cx),
             configure_tools: NavigableEntry::focusable(cx),
             configure_mcps: NavigableEntry::focusable(cx),
+            configure_instructions: NavigableEntry::focusable(cx),
             delete_profile: NavigableEntry::focusable(cx),
             cancel_item: NavigableEntry::focusable(cx),
         });
@@ -384,6 +394,45 @@ impl ManageProfilesModal {
         self.focus_handle(cx).focus(window, cx);
     }
 
+    fn configure_instructions(
+        &mut self,
+        profile_id: AgentProfileId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let settings = AgentSettings::get_global(cx);
+        let profile = settings.profiles.get(&profile_id);
+
+        let instructions = profile
+            .and_then(|p| p.instructions.as_ref())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        let system_prompt = profile
+            .and_then(|p| p.system_prompt.as_ref())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+
+        let instructions_editor = cx.new(|cx| {
+            let mut editor = Editor::multi_line(window, cx);
+            editor.set_text(instructions, window, cx);
+            editor.set_placeholder_text("Custom instructions (appended to prompt)...", window, cx);
+            editor
+        });
+        let system_prompt_editor = cx.new(|cx| {
+            let mut editor = Editor::multi_line(window, cx);
+            editor.set_text(system_prompt, window, cx);
+            editor.set_placeholder_text("FULL system prompt override (WARNING: disables sensors)...", window, cx);
+            editor
+        });
+
+        self.mode = Mode::ConfigureInstructions(ConfigureInstructionsMode {
+            profile_id,
+            instructions_editor,
+            system_prompt_editor,
+        });
+        self.focus_handle(cx).focus(window, cx);
+    }
+
     fn confirm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.mode {
             Mode::ChooseProfile { .. } => {}
@@ -398,6 +447,33 @@ impl ManageProfilesModal {
             Mode::ConfigureTools { .. } => {}
             Mode::ConfigureMcps { .. } => {}
             Mode::ConfigureDefaultModel { .. } => {}
+            Mode::ConfigureInstructions(mode) => {
+                let instructions = mode.instructions_editor.read(cx).text(cx);
+                let system_prompt = mode.system_prompt_editor.read(cx).text(cx);
+
+                let fs = self.fs.clone();
+                let profile_id = mode.profile_id.clone();
+
+                update_settings_file(fs, cx, move |settings, _| {
+                    let agent_settings = settings.agent.get_or_insert_default();
+                    if let Some(profiles) = agent_settings.profiles.as_mut() {
+                        if let Some(profile) = profiles.get_mut(profile_id.0.as_ref()) {
+                            profile.instructions = if instructions.is_empty() {
+                                None
+                            } else {
+                                Some(instructions.into())
+                            };
+                            profile.system_prompt = if system_prompt.is_empty() {
+                                None
+                            } else {
+                                Some(system_prompt.into())
+                            };
+                        }
+                    }
+                });
+
+                self.view_profile(mode.profile_id.clone(), window, cx);
+            }
         }
     }
 
@@ -459,6 +535,7 @@ impl ManageProfilesModal {
             Mode::ConfigureDefaultModel { profile_id, .. } => {
                 self.view_profile(profile_id.clone(), window, cx)
             }
+            Mode::ConfigureInstructions(mode) => self.view_profile(mode.profile_id.clone(), window, cx),
         }
     }
 }
@@ -474,6 +551,7 @@ impl Focusable for ManageProfilesModal {
             Mode::ConfigureTools { tool_picker, .. } => tool_picker.focus_handle(cx),
             Mode::ConfigureMcps { tool_picker, .. } => tool_picker.focus_handle(cx),
             Mode::ConfigureDefaultModel { model_picker, .. } => model_picker.focus_handle(cx),
+            Mode::ConfigureInstructions(mode) => mode.instructions_editor.focus_handle(cx),
         }
     }
 }
@@ -826,6 +904,47 @@ impl ManageProfilesModal {
                         )
                         .child(
                             div()
+                                .id("configure-instructions")
+                                .track_focus(&mode.configure_instructions.focus_handle)
+                                .on_action({
+                                    let profile_id = mode.profile_id.clone();
+                                    cx.listener(move |this, _: &menu::Confirm, window, cx| {
+                                        this.configure_instructions(
+                                            profile_id.clone(),
+                                            window,
+                                            cx,
+                                        );
+                                    })
+                                })
+                                .child(
+                                    ListItem::new("configure-instructions-item")
+                                        .toggle_state(
+                                            mode.configure_instructions
+                                                .focus_handle
+                                                .contains_focused(window, cx),
+                                        )
+                                        .inset(true)
+                                        .spacing(ListItemSpacing::Sparse)
+                                        .start_slot(
+                                            Icon::new(IconName::Sparkle)
+                                                .size(IconSize::Small)
+                                                .color(Color::Muted),
+                                        )
+                                        .child(Label::new("Configure Instructions"))
+                                        .on_click({
+                                            let profile_id = mode.profile_id.clone();
+                                            cx.listener(move |this, _, window, cx| {
+                                                this.configure_instructions(
+                                                    profile_id.clone(),
+                                                    window,
+                                                    cx,
+                                                );
+                                            })
+                                        }),
+                                ),
+                        )
+                        .child(
+                            div()
                                 .id("delete-profile")
                                 .track_focus(&mode.delete_profile.focus_handle)
                                 .on_action({
@@ -907,8 +1026,82 @@ impl ManageProfilesModal {
         .entry(mode.configure_default_model)
         .entry(mode.configure_tools)
         .entry(mode.configure_mcps)
+        .entry(mode.configure_instructions)
         .entry(mode.delete_profile)
         .entry(mode.cancel_item)
+    }
+
+    fn render_configure_instructions(
+        &mut self,
+        mode: ConfigureInstructionsMode,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let settings = AgentSettings::get_global(cx);
+        let profile_name = settings
+            .profiles
+            .get(&mode.profile_id)
+            .map(|profile| profile.name.clone())
+            .unwrap_or_else(|| "Unknown".into());
+
+        v_flex()
+            .track_focus(&self.focus_handle(cx))
+            .child(ProfileModalHeader::new(
+                format!("{profile_name} — Configure Instructions"),
+                Some(IconName::Sparkle),
+            ))
+            .child(ListSeparator)
+            .child(
+                v_flex()
+                    .p_2()
+                    .gap_2()
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(Label::new("Custom Instructions"))
+                            .child(div()
+                                .h(rems(6.))
+                                .border_1()
+                                .border_color(cx.theme().colors().border)
+                                .child(mode.instructions_editor))
+                            .child(
+                                Label::new("These will be appended to the end of the system prompt.")
+                                    .size(LabelSize::Small)
+                                    .color(Color::Muted),
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(Label::new("System Prompt Override"))
+                            .child(div()
+                                .h(rems(10.))
+                                .border_1()
+                                .border_color(cx.theme().colors().border)
+                                .child(mode.system_prompt_editor))
+                            .child(
+                                Label::new("WARNING: Overriding the full prompt may disable sensor data or context tools.")
+                                    .size(LabelSize::Small)
+                                    .color(Color::Muted),
+                            ),
+                    )
+            )
+            .child(ListSeparator)
+            .child(
+                h_flex()
+                    .p_2()
+                    .justify_end()
+                    .gap_2()
+                    .child(
+                        Button::new("cancel", "Cancel")
+                            .on_click(cx.listener(|this, _, window, cx| this.cancel(window, cx))),
+                    )
+                    .child(
+                        Button::new("save", "Save")
+                            .on_click(cx.listener(|this, _, window, cx| this.confirm(window, cx)))
+                            .style(ButtonStyle::Filled),
+                    ),
+            )
     }
 }
 
@@ -1037,6 +1230,9 @@ impl Render for ManageProfilesModal {
                         .child(go_back_item)
                         .into_any_element()
                 }
+                Mode::ConfigureInstructions(mode) => self
+                    .render_configure_instructions(mode.clone(), window, cx)
+                    .into_any_element(),
             })
     }
 }

@@ -171,6 +171,20 @@ Zed will store this profile in your settings using the same profile name as the 
 
 All custom profiles can be edited via the UI or by hand under the `agent.profiles` key in your `settings.json` file.
 
+#### Profile Instructions and Overrides {#profile-instructions}
+
+Custom profiles (and overrides of built-in ones) can have specific instructions or a completely different system prompt.
+
+To configure these:
+1. Open the **Manage Profiles** modal ({#kb agent::ManageProfiles}).
+2. Select the profile you wish to edit.
+3. Click on **Configure Instructions**.
+4. You can set:
+    - **Custom Instructions**: These are appended to the default system prompt.
+    - **System Prompt Override**: This replaces the entire system prompt. **Caution**: Overriding the full prompt may disable automatic context gathering or tool functionality if the model isn't instructed on how to use them.
+
+These settings allow you to create specialized profiles, like a "Documentation Expert" or a "Refactoring Bot", with specific behaviors and styling.
+
 ### Tool Approval
 
 Zed's Agent Panel surfaces the `agent.always_allow_tool_actions` setting that, if turned to `false`, will require you to give permission to any editing attempt as well as tool calls coming from MCP servers.

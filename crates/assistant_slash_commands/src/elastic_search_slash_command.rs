@@ -1,8 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use agent_settings::AgentSettings;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use futures::StreamExt;
 use gpui::{App, AppContext, Task, WeakEntity, Window};
 use http_client::{AsyncBody, HttpClientWithUrl};
@@ -11,7 +10,7 @@ use settings::Settings;
 use workspace::Workspace;
 
 use assistant_slash_command::{
-    ArgumentCompletion, SlashCommand, SlashCommandEvent, SlashCommandOutputSection, SlashCommandResult, SlashCommandContent,
+    ArgumentCompletion, SlashCommand, SlashCommandOutputSection, SlashCommandResult,
 };
 
 pub struct ElasticSearchSlashCommand;
