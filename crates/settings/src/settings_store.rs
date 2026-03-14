@@ -43,7 +43,7 @@ use crate::{
 
 use settings_json::{infer_json_indent_size, update_value_in_json_text};
 
-pub const LSP_SETTINGS_SCHEMA_URL_PREFIX: &str = "zed://schemas/settings/lsp/";
+pub const LSP_SETTINGS_SCHEMA_URL_PREFIX: &str = "zed-custom://schemas/settings/lsp/";
 
 pub trait SettingsKey: 'static + Send + Sync {
     /// The name of a key within the JSON file from which this setting should
@@ -2326,9 +2326,9 @@ mod tests {
 
         let schema = store.json_schema(&SettingsJsonSchemaParams {
             language_names: &["Rust".to_string(), "TypeScript".to_string()],
-            font_names: &["Zed Mono".to_string()],
+            font_names: &["zed-custom Mono".to_string()],
             theme_names: &["One Dark".into()],
-            icon_theme_names: &["Zed Icons".into()],
+            icon_theme_names: &["zed-custom Icons".into()],
             lsp_adapter_names: &[
                 "rust-analyzer".to_string(),
                 "typescript-language-server".to_string(),
@@ -2352,7 +2352,7 @@ mod tests {
             .as_str()
             .unwrap();
 
-        assert_eq!(init_options_ref, "zed://schemas/settings/lsp/rust-analyzer");
+        assert_eq!(init_options_ref, "zed-custom://schemas/settings/lsp/rust-analyzer");
     }
 
     #[gpui::test]
@@ -2361,9 +2361,9 @@ mod tests {
 
         let schema = store.project_json_schema(&SettingsJsonSchemaParams {
             language_names: &["Rust".to_string(), "TypeScript".to_string()],
-            font_names: &["Zed Mono".to_string()],
+            font_names: &["zed-custom Mono".to_string()],
             theme_names: &["One Dark".into()],
-            icon_theme_names: &["Zed Icons".into()],
+            icon_theme_names: &["zed-custom Icons".into()],
             lsp_adapter_names: &[
                 "rust-analyzer".to_string(),
                 "typescript-language-server".to_string(),
@@ -2387,7 +2387,7 @@ mod tests {
             .as_str()
             .unwrap();
 
-        assert_eq!(init_options_ref, "zed://schemas/settings/lsp/rust-analyzer");
+        assert_eq!(init_options_ref, "zed-custom://schemas/settings/lsp/rust-analyzer");
     }
 
     #[gpui::test]
@@ -2396,9 +2396,9 @@ mod tests {
 
         let params = SettingsJsonSchemaParams {
             language_names: &["Rust".to_string()],
-            font_names: &["Zed Mono".to_string()],
+            font_names: &["zed-custom Mono".to_string()],
             theme_names: &["One Dark".into()],
-            icon_theme_names: &["Zed Icons".into()],
+            icon_theme_names: &["zed-custom Icons".into()],
             lsp_adapter_names: &["rust-analyzer".to_string()],
         };
 

@@ -1,4 +1,4 @@
-use zed_extension_api::{self as zed, Result, settings::LspSettings};
+use zed_extension_api::{self as zed_custom, Result, settings::LspSettings};
 
 use crate::language_servers::{BufLsp, ProtoLs, ProtobufLanguageServer};
 
@@ -10,7 +10,7 @@ struct ProtobufExtension {
     buf_lsp: Option<BufLsp>,
 }
 
-impl zed::Extension for ProtobufExtension {
+impl zed_custom::Extension for ProtobufExtension {
     fn new() -> Self {
         Self {
             protobuf_language_server: None,
@@ -46,21 +46,21 @@ impl zed::Extension for ProtobufExtension {
 
     fn language_server_workspace_configuration(
         &mut self,
-        server_id: &zed::LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<Option<zed::serde_json::Value>> {
+        server_id: &zed_custom::LanguageServerId,
+        worktree: &zed_custom::Worktree,
+    ) -> Result<Option<zed_custom::serde_json::Value>> {
         LspSettings::for_worktree(server_id.as_ref(), worktree)
             .map(|lsp_settings| lsp_settings.settings)
     }
 
     fn language_server_initialization_options(
         &mut self,
-        server_id: &zed::LanguageServerId,
-        worktree: &zed::Worktree,
+        server_id: &zed_custom::LanguageServerId,
+        worktree: &zed_custom::Worktree,
     ) -> Result<Option<zed_extension_api::serde_json::Value>> {
         LspSettings::for_worktree(server_id.as_ref(), worktree)
             .map(|lsp_settings| lsp_settings.initialization_options)
     }
 }
 
-zed::register_extension!(ProtobufExtension);
+zed_custom::register_extension!(ProtobufExtension);

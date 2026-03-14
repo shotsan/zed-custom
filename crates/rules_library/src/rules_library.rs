@@ -1,5 +1,7 @@
 use anyhow::Result;
 use collections::{HashMap, HashSet};
+use fs::Fs;
+use fuzzy;
 use editor::{CompletionProvider, SelectionEffects};
 use editor::{CurrentLineHighlight, Editor, EditorElement, EditorEvent, EditorStyle, actions::Tab};
 use gpui::{
@@ -25,26 +27,27 @@ use ui::{Divider, ListItem, ListItemSpacing, ListSubHeader, Tooltip, prelude::*}
 use ui_input::ErasedEditor;
 use util::{ResultExt, TryFutureExt};
 use workspace::{Workspace, WorkspaceSettings, client_side_decorations};
-use zed_actions::assistant::InlineAssist;
+use zed_custom_actions::assistant::InlineAssist;
 
-use prompt_store::*;
+use prompt_store::{self, *};
+pub use prompt_store::user_slash_command::UserSlashCommandRegistry;
 
-pub fn init(cx: &mut App) {
-    prompt_store::init(cx);
+pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
+    prompt_store::init(fs, cx);
 }
 
 actions!(
-    rules_library,
+    skill_library,
     [
-        /// Creates a new rule in the rules library.
-        NewRule,
-        /// Deletes the selected rule.
-        DeleteRule,
-        /// Duplicates the selected rule.
-        DuplicateRule,
-        /// Toggles whether the selected rule is a default rule.
-        ToggleDefaultRule,
-        /// Restores a built-in rule to its default content.
+        /// Creates a new skill in the skill library.
+        NewSkill,
+        /// Deletes the selected skill.
+        DeleteSkill,
+        /// Duplicates the selected skill.
+        DuplicateSkill,
+        /// Toggles whether the selected skill is a default skill.
+        ToggleDefaultSkill,
+        /// Restores a built-in skill to its default content.
         RestoreDefaultContent
     ]
 );
@@ -55,7 +58,7 @@ pub trait InlineAssistDelegate {
         prompt_editor: &Entity<Editor>,
         initial_prompt: Option<String>,
         window: &mut Window,
-        cx: &mut Context<RulesLibrary>,
+        cx: &mut Context<SkillLibrary>,
     );
 
     /// Returns whether the Agent panel was focused.
@@ -67,40 +70,44 @@ pub trait InlineAssistDelegate {
     ) -> bool;
 }
 
-/// This function opens a new rules library window if one doesn't exist already.
+/// This function opens a new Skill library window if one doesn't exist already.
 /// If one exists, it brings it to the foreground.
 ///
 /// Note that, when opening a new window, this waits for the PromptStore to be
 /// initialized. If it was initialized successfully, it returns a window handle
-/// to a rules library.
-pub fn open_rules_library(
+/// to a Skill library.
+pub fn open_skill_library(
     language_registry: Arc<LanguageRegistry>,
     inline_assist_delegate: Box<dyn InlineAssistDelegate>,
     make_completion_provider: Rc<dyn Fn() -> Rc<dyn CompletionProvider>>,
     prompt_to_select: Option<PromptId>,
+    user_slash_commands: Option<Entity<prompt_store::user_slash_command::UserSlashCommandRegistry>>,
     cx: &mut App,
-) -> Task<Result<WindowHandle<RulesLibrary>>> {
+) -> Task<Result<WindowHandle<SkillLibrary>>> {
     let store = PromptStore::global(cx);
     cx.spawn(async move |cx| {
         // We query windows in spawn so that all windows have been returned to GPUI
-        let existing_window = cx.update(|cx| {
-            let existing_window = cx
-                .windows()
-                .into_iter()
-                .find_map(|window| window.downcast::<RulesLibrary>());
-            if let Some(existing_window) = existing_window {
-                existing_window
-                    .update(cx, |rules_library, window, cx| {
-                        if let Some(prompt_to_select) = prompt_to_select {
-                            rules_library.load_rule(prompt_to_select, true, window, cx);
-                        }
-                        window.activate_window()
-                    })
-                    .ok();
+        let existing_window = cx.update({
+            let prompt_to_select = prompt_to_select.clone();
+            |cx| {
+                let existing_window = cx
+                    .windows()
+                    .into_iter()
+                    .find_map(|window| window.downcast::<SkillLibrary>());
+                if let Some(existing_window) = existing_window {
+                    existing_window
+                        .update(cx, |skill_library, window, cx| {
+                            if let Some(prompt_to_select) = prompt_to_select {
+                                skill_library.load_skill(prompt_to_select, true, window, cx);
+                            }
+                            window.focus(&skill_library.picker.focus_handle(cx), cx);
+                        })
+                        .ok();
 
-                Some(existing_window)
-            } else {
-                None
+                    Some(existing_window)
+                } else {
+                    None
+                }
             }
         });
 
@@ -123,7 +130,7 @@ pub fn open_rules_library(
             cx.open_window(
                 WindowOptions {
                     titlebar: Some(TitlebarOptions {
-                        title: Some("Rules Library".into()),
+                        title: Some("Skill Library".into()),
                         appears_transparent: true,
                         traffic_light_position: Some(point(px(12.0), px(12.0))),
                     }),
@@ -137,12 +144,13 @@ pub fn open_rules_library(
                 },
                 |window, cx| {
                     cx.new(|cx| {
-                        RulesLibrary::new(
+                        SkillLibrary::new(
                             store,
                             language_registry,
                             inline_assist_delegate,
                             make_completion_provider,
                             prompt_to_select,
+                            user_slash_commands,
                             window,
                             cx,
                         )
@@ -153,20 +161,21 @@ pub fn open_rules_library(
     })
 }
 
-pub struct RulesLibrary {
+pub struct SkillLibrary {
     title_bar: Option<Entity<PlatformTitleBar>>,
     store: Entity<PromptStore>,
     language_registry: Arc<LanguageRegistry>,
-    rule_editors: HashMap<PromptId, RuleEditor>,
-    active_rule_id: Option<PromptId>,
-    picker: Entity<Picker<RulePickerDelegate>>,
+    skill_editors: HashMap<PromptId, SkillEditor>,
+    active_skill_id: Option<PromptId>,
+    picker: Entity<Picker<SkillPickerDelegate>>,
     pending_load: Task<()>,
+    _user_slash_commands: Option<Entity<prompt_store::user_slash_command::UserSlashCommandRegistry>>,
     inline_assist_delegate: Box<dyn InlineAssistDelegate>,
     make_completion_provider: Rc<dyn Fn() -> Rc<dyn CompletionProvider>>,
     _subscriptions: Vec<Subscription>,
 }
 
-struct RuleEditor {
+struct SkillEditor {
     title_editor: Entity<Editor>,
     body_editor: Entity<Editor>,
     token_count: Option<u64>,
@@ -176,28 +185,29 @@ struct RuleEditor {
     _subscriptions: Vec<Subscription>,
 }
 
-enum RulePickerEntry {
+enum SkillPickerEntry {
     Header(SharedString),
-    Rule(PromptMetadata),
+    Skill(PromptMetadata),
     Separator,
 }
 
-struct RulePickerDelegate {
+struct SkillPickerDelegate {
     store: Entity<PromptStore>,
+    user_slash_commands: Option<Entity<prompt_store::user_slash_command::UserSlashCommandRegistry>>,
     selected_index: usize,
-    filtered_entries: Vec<RulePickerEntry>,
+    filtered_entries: Vec<SkillPickerEntry>,
 }
 
-enum RulePickerEvent {
+enum SkillPickerEvent {
     Selected { prompt_id: PromptId },
     Confirmed { prompt_id: PromptId },
     Deleted { prompt_id: PromptId },
     ToggledDefault { prompt_id: PromptId },
 }
 
-impl EventEmitter<RulePickerEvent> for Picker<RulePickerDelegate> {}
+impl EventEmitter<SkillPickerEvent> for Picker<SkillPickerDelegate> {}
 
-impl PickerDelegate for RulePickerDelegate {
+impl PickerDelegate for SkillPickerDelegate {
     type ListItem = AnyElement;
 
     fn match_count(&self) -> usize {
@@ -205,7 +215,7 @@ impl PickerDelegate for RulePickerDelegate {
     }
 
     fn no_matches_text(&self, _window: &mut Window, _cx: &mut App) -> Option<SharedString> {
-        Some("No rules found matching your search.".into())
+        Some("No skills found matching your search.".into())
     }
 
     fn selected_index(&self) -> usize {
@@ -215,8 +225,10 @@ impl PickerDelegate for RulePickerDelegate {
     fn set_selected_index(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Picker<Self>>) {
         self.selected_index = ix.min(self.filtered_entries.len().saturating_sub(1));
 
-        if let Some(RulePickerEntry::Rule(rule)) = self.filtered_entries.get(self.selected_index) {
-            cx.emit(RulePickerEvent::Selected { prompt_id: rule.id });
+        if let Some(SkillPickerEntry::Skill(rule)) = self.filtered_entries.get(self.selected_index) {
+            cx.emit(SkillPickerEvent::Selected {
+                prompt_id: rule.id.clone(),
+            });
         }
 
         cx.notify();
@@ -224,8 +236,8 @@ impl PickerDelegate for RulePickerDelegate {
 
     fn can_select(&mut self, ix: usize, _: &mut Window, _: &mut Context<Picker<Self>>) -> bool {
         match self.filtered_entries.get(ix) {
-            Some(RulePickerEntry::Rule(_)) => true,
-            Some(RulePickerEntry::Header(_)) | Some(RulePickerEntry::Separator) | None => false,
+            Some(SkillPickerEntry::Skill(_)) => true,
+            Some(SkillPickerEntry::Header(_)) | Some(SkillPickerEntry::Separator) | None => false,
         }
     }
 
@@ -240,59 +252,132 @@ impl PickerDelegate for RulePickerDelegate {
         cx: &mut Context<Picker<Self>>,
     ) -> Task<()> {
         let cancellation_flag = Arc::new(AtomicBool::default());
-        let search = self.store.read(cx).search(query, cancellation_flag, cx);
+        let search = self.store.read(cx).search(query.clone(), cancellation_flag.clone(), cx);
+        let user_slash_commands = self.user_slash_commands.clone();
+        let query_for_capture = query.clone();
 
         let prev_prompt_id = self
             .filtered_entries
             .get(self.selected_index)
             .and_then(|entry| {
-                if let RulePickerEntry::Rule(rule) = entry {
-                    Some(rule.id)
+                if let SkillPickerEntry::Skill(rule) = entry {
+                    Some(rule.id.clone())
                 } else {
                     None
                 }
             });
 
         cx.spawn_in(window, async move |this, cx| {
+            let mut matches = search.await;
+
+            if let Some(user_slash_commands) = user_slash_commands {
+                let commands = this.update(cx, |_, cx| {
+                    user_slash_commands
+                        .read(cx)
+                        .commands()
+                        .values()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                });
+                let Ok(commands) = commands else { return };
+
+                if !commands.is_empty() {
+                    let candidates = commands
+                        .iter()
+                        .enumerate()
+                        .map(|(i, cmd)| fuzzy::StringMatchCandidate::new(i, &cmd.name))
+                        .collect::<Vec<_>>();
+                    let query = query_for_capture.clone();
+                    let executor = cx.background_executor().clone();
+
+                    let match_indices = cx
+                        .background_spawn(async move {
+                            fuzzy::match_strings(
+                                &candidates,
+                                &query,
+                                false,
+                                false,
+                                100,
+                                &std::sync::atomic::AtomicBool::new(false),
+                                executor,
+                            )
+                            .await
+                        })
+                        .await;
+
+                    for mat in match_indices {
+                        matches.push(PromptMetadata::from_user_slash_command(
+                            &commands[mat.candidate_id],
+                        ));
+                    }
+                }
+            }
+
             let (filtered_entries, selected_index) = cx
                 .background_spawn(async move {
-                    let matches = search.await;
+                    // Remove duplicates if any (e.g. if we somehow indexed the same thing twice)
+                    let mut seen = HashSet::default();
+                    matches.retain(|m| seen.insert(m.id.clone()));
 
-                    let (built_in_rules, user_rules): (Vec<_>, Vec<_>) =
-                        matches.into_iter().partition(|rule| rule.id.is_built_in());
-                    let (default_rules, other_rules): (Vec<_>, Vec<_>) =
-                        user_rules.into_iter().partition(|rule| rule.default);
+                    let (file_skills, db_skills): (Vec<_>, Vec<_>) = matches
+                        .into_iter()
+                        .partition(|rule| matches!(rule.id, PromptId::File { .. }));
+
+                    let (project_skills, user_file_skills): (Vec<_>, Vec<_>) =
+                        file_skills.into_iter().partition(|rule| {
+                            if let PromptId::File { scope, .. } = rule.id {
+                                scope == prompt_store::user_slash_command::CommandScope::Project
+                            } else {
+                                false
+                            }
+                        });
+
+                    let (built_in_skills, db_user_skills): (Vec<_>, Vec<_>) =
+                        db_skills.into_iter().partition(|rule| rule.id.is_built_in());
+
+                    let mut user_skills = db_user_skills;
+                    user_skills.extend(user_file_skills);
+
+                    let (default_user_skills, other_user_skills): (Vec<_>, Vec<_>) =
+                        user_skills.into_iter().partition(|rule| rule.default);
 
                     let mut filtered_entries = Vec::new();
 
-                    if !built_in_rules.is_empty() {
-                        filtered_entries.push(RulePickerEntry::Header("Built-in Rules".into()));
-
-                        for rule in built_in_rules {
-                            filtered_entries.push(RulePickerEntry::Rule(rule));
+                    if !project_skills.is_empty() {
+                        filtered_entries.push(SkillPickerEntry::Header("Project Skills".into()));
+                        for rule in project_skills {
+                            filtered_entries.push(SkillPickerEntry::Skill(rule));
                         }
-
-                        filtered_entries.push(RulePickerEntry::Separator);
+                        filtered_entries.push(SkillPickerEntry::Separator);
                     }
 
-                    if !default_rules.is_empty() {
-                        filtered_entries.push(RulePickerEntry::Header("Default Rules".into()));
-
-                        for rule in default_rules {
-                            filtered_entries.push(RulePickerEntry::Rule(rule));
+                    if !default_user_skills.is_empty() {
+                        filtered_entries.push(SkillPickerEntry::Header("Default Skills".into()));
+                        for rule in default_user_skills {
+                            filtered_entries.push(SkillPickerEntry::Skill(rule));
                         }
-
-                        filtered_entries.push(RulePickerEntry::Separator);
+                        filtered_entries.push(SkillPickerEntry::Separator);
                     }
 
-                    for rule in other_rules {
-                        filtered_entries.push(RulePickerEntry::Rule(rule));
+                    if !other_user_skills.is_empty() {
+                        filtered_entries.push(SkillPickerEntry::Header("My Skills".into()));
+                        for rule in other_user_skills {
+                            filtered_entries.push(SkillPickerEntry::Skill(rule));
+                        }
+                        filtered_entries.push(SkillPickerEntry::Separator);
+                    }
+
+                    if !built_in_skills.is_empty() {
+                        filtered_entries.push(SkillPickerEntry::Header("Built-in Skills".into()));
+                        for rule in built_in_skills {
+                            filtered_entries.push(SkillPickerEntry::Skill(rule));
+                        }
                     }
 
                     let selected_index = prev_prompt_id
                         .and_then(|prev_prompt_id| {
                             filtered_entries.iter().position(|entry| {
-                                if let RulePickerEntry::Rule(rule) = entry {
+                                if let SkillPickerEntry::Skill(rule) = entry {
                                     rule.id == prev_prompt_id
                                 } else {
                                     false
@@ -302,7 +387,7 @@ impl PickerDelegate for RulePickerDelegate {
                         .unwrap_or_else(|| {
                             filtered_entries
                                 .iter()
-                                .position(|entry| matches!(entry, RulePickerEntry::Rule(_)))
+                                .position(|entry| matches!(entry, SkillPickerEntry::Skill(_)))
                                 .unwrap_or(0)
                         });
 
@@ -326,8 +411,10 @@ impl PickerDelegate for RulePickerDelegate {
     }
 
     fn confirm(&mut self, _secondary: bool, _: &mut Window, cx: &mut Context<Picker<Self>>) {
-        if let Some(RulePickerEntry::Rule(rule)) = self.filtered_entries.get(self.selected_index) {
-            cx.emit(RulePickerEvent::Confirmed { prompt_id: rule.id });
+        if let Some(SkillPickerEntry::Skill(rule)) = self.filtered_entries.get(self.selected_index) {
+            cx.emit(SkillPickerEvent::Confirmed {
+                prompt_id: rule.id.clone(),
+            });
         }
     }
 
@@ -341,11 +428,12 @@ impl PickerDelegate for RulePickerDelegate {
         cx: &mut Context<Picker<Self>>,
     ) -> Option<Self::ListItem> {
         match self.filtered_entries.get(ix)? {
-            RulePickerEntry::Header(title) => {
-                let tooltip_text = if title.as_ref() == "Built-in Rules" {
-                    "Built-in rules are those included out of the box with Zed."
-                } else {
-                    "Default Rules are attached by default with every new thread."
+            SkillPickerEntry::Header(title) => {
+                let tooltip_text = match title.as_ref() {
+                    "Built-in Skills" => "Built-in skills are those included out of the box with zed-custom.",
+                    "Default Skills" => "Default skills are attached by default to every new thread.",
+                    "Project Skills" => "Project skills are defined in your workspace and stay with the project.",
+                    _ => "These are your personal skills stored globally across all projects.",
                 };
 
                 Some(
@@ -362,15 +450,15 @@ impl PickerDelegate for RulePickerDelegate {
                         .into_any_element(),
                 )
             }
-            RulePickerEntry::Separator => Some(
+            SkillPickerEntry::Separator => Some(
                 h_flex()
                     .py_1()
                     .child(Divider::horizontal())
                     .into_any_element(),
             ),
-            RulePickerEntry::Rule(rule) => {
+            SkillPickerEntry::Skill(rule) => {
                 let default = rule.default;
-                let prompt_id = rule.id;
+                let prompt_id = rule.id.clone();
 
                 Some(
                     ListItem::new(ix)
@@ -383,29 +471,39 @@ impl PickerDelegate for RulePickerDelegate {
                                 .mr_10(),
                         )
                         .end_slot::<IconButton>((default && !prompt_id.is_built_in()).then(|| {
-                            IconButton::new("toggle-default-rule", IconName::Paperclip)
+                            IconButton::new("toggle-default-skill", IconName::Paperclip)
                                 .toggle_state(true)
                                 .icon_color(Color::Accent)
                                 .icon_size(IconSize::Small)
-                                .tooltip(Tooltip::text("Remove from Default Rules"))
-                                .on_click(cx.listener(move |_, _, _, cx| {
-                                    cx.emit(RulePickerEvent::ToggledDefault { prompt_id })
+                                .tooltip(Tooltip::text("Remove from Default Skills"))
+                                .on_click(cx.listener({
+                                    let prompt_id = prompt_id.clone();
+                                    move |_, _, _, cx| {
+                                        cx.emit(SkillPickerEvent::ToggledDefault {
+                                            prompt_id: prompt_id.clone(),
+                                        })
+                                    }
                                 }))
                         }))
                         .when(!prompt_id.is_built_in(), |this| {
                             this.end_hover_slot(
                                 h_flex()
                                     .child(
-                                        IconButton::new("delete-rule", IconName::Trash)
+                                        IconButton::new("delete-skill", IconName::Trash)
                                             .icon_color(Color::Muted)
                                             .icon_size(IconSize::Small)
-                                            .tooltip(Tooltip::text("Delete Rule"))
-                                            .on_click(cx.listener(move |_, _, _, cx| {
-                                                cx.emit(RulePickerEvent::Deleted { prompt_id })
+                                            .tooltip(Tooltip::text("Delete Skill"))
+                                            .on_click(cx.listener({
+                                                let prompt_id = prompt_id.clone();
+                                                move |_, _, _, cx| {
+                                                    cx.emit(SkillPickerEvent::Deleted {
+                                                        prompt_id: prompt_id.clone(),
+                                                    })
+                                                }
                                             })),
                                     )
                                     .child(
-                                        IconButton::new("toggle-default-rule", IconName::Plus)
+                                        IconButton::new("toggle-default-skill", IconName::Plus)
                                             .selected_icon(IconName::Dash)
                                             .toggle_state(default)
                                             .icon_size(IconSize::Small)
@@ -417,12 +515,12 @@ impl PickerDelegate for RulePickerDelegate {
                                             .map(|this| {
                                                 if default {
                                                     this.tooltip(Tooltip::text(
-                                                        "Remove from Default Rules",
+                                                        "Remove from Default Skills",
                                                     ))
                                                 } else {
                                                     this.tooltip(move |_window, cx| {
                                                         Tooltip::with_meta(
-                                                            "Add to Default Rules",
+                                                            "Add to Default Skills",
                                                             None,
                                                             "Always included in every thread.",
                                                             cx,
@@ -430,10 +528,13 @@ impl PickerDelegate for RulePickerDelegate {
                                                     })
                                                 }
                                             })
-                                            .on_click(cx.listener(move |_, _, _, cx| {
-                                                cx.emit(RulePickerEvent::ToggledDefault {
-                                                    prompt_id,
-                                                })
+                                            .on_click(cx.listener({
+                                                let prompt_id = prompt_id.clone();
+                                                move |_, _, _, cx| {
+                                                    cx.emit(SkillPickerEvent::ToggledDefault {
+                                                        prompt_id: prompt_id.clone(),
+                                                    })
+                                                }
                                             })),
                                     ),
                             )
@@ -466,30 +567,32 @@ impl PickerDelegate for RulePickerDelegate {
     }
 }
 
-impl RulesLibrary {
+impl SkillLibrary {
     fn new(
         store: Entity<PromptStore>,
         language_registry: Arc<LanguageRegistry>,
         inline_assist_delegate: Box<dyn InlineAssistDelegate>,
         make_completion_provider: Rc<dyn Fn() -> Rc<dyn CompletionProvider>>,
-        rule_to_select: Option<PromptId>,
+        skill_to_select: Option<PromptId>,
+        user_slash_commands: Option<Entity<prompt_store::user_slash_command::UserSlashCommandRegistry>>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let (_selected_index, _matches) = if let Some(rule_to_select) = rule_to_select {
+        let (_selected_index, _matches) = if let Some(skill_to_select) = skill_to_select {
             let matches = store.read(cx).all_prompt_metadata();
             let selected_index = matches
                 .iter()
                 .enumerate()
-                .find(|(_, metadata)| metadata.id == rule_to_select)
+                .find(|(_, metadata)| metadata.id == skill_to_select)
                 .map_or(0, |(ix, _)| ix);
             (selected_index, matches)
         } else {
             (0, vec![])
         };
 
-        let picker_delegate = RulePickerDelegate {
+        let picker_delegate = SkillPickerDelegate {
             store: store.clone(),
+            user_slash_commands: user_slash_commands.clone(),
             selected_index: 0,
             filtered_entries: Vec::new(),
         };
@@ -504,17 +607,18 @@ impl RulesLibrary {
 
         Self {
             title_bar: if !cfg!(target_os = "macos") {
-                Some(cx.new(|cx| PlatformTitleBar::new("rules-library-title-bar", cx)))
+                Some(cx.new(|cx| PlatformTitleBar::new("Skill library-title-bar", cx)))
             } else {
                 None
             },
             store,
             language_registry,
-            rule_editors: HashMap::default(),
-            active_rule_id: None,
+            skill_editors: HashMap::default(),
+            active_skill_id: None,
             pending_load: Task::ready(()),
             inline_assist_delegate,
             make_completion_provider,
+            _user_slash_commands: user_slash_commands,
             _subscriptions: vec![cx.subscribe_in(&picker, window, Self::handle_picker_event)],
             picker,
         }
@@ -522,63 +626,63 @@ impl RulesLibrary {
 
     fn handle_picker_event(
         &mut self,
-        _: &Entity<Picker<RulePickerDelegate>>,
-        event: &RulePickerEvent,
+        _: &Entity<Picker<SkillPickerDelegate>>,
+        event: &SkillPickerEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         match event {
-            RulePickerEvent::Selected { prompt_id } => {
-                self.load_rule(*prompt_id, false, window, cx);
+            SkillPickerEvent::Selected { prompt_id } => {
+                self.load_skill(prompt_id.clone(), false, window, cx);
             }
-            RulePickerEvent::Confirmed { prompt_id } => {
-                self.load_rule(*prompt_id, true, window, cx);
+            SkillPickerEvent::Confirmed { prompt_id } => {
+                self.load_skill(prompt_id.clone(), true, window, cx);
             }
-            RulePickerEvent::ToggledDefault { prompt_id } => {
-                self.toggle_default_for_rule(*prompt_id, window, cx);
+            SkillPickerEvent::ToggledDefault { prompt_id } => {
+                self.toggle_default_for_skill(prompt_id.clone(), window, cx);
             }
-            RulePickerEvent::Deleted { prompt_id } => {
-                self.delete_rule(*prompt_id, window, cx);
+            SkillPickerEvent::Deleted { prompt_id } => {
+                self.delete_skill(prompt_id.clone(), window, cx);
             }
         }
     }
 
-    pub fn new_rule(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn new_skill(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // If we already have an untitled rule, use that instead
         // of creating a new one.
         if let Some(metadata) = self.store.read(cx).first()
             && metadata.title.is_none()
         {
-            self.load_rule(metadata.id, true, window, cx);
+            self.load_skill(metadata.id.clone(), true, window, cx);
             return;
         }
 
         let prompt_id = PromptId::new();
         let save = self.store.update(cx, |store, cx| {
-            store.save(prompt_id, None, false, "".into(), cx)
+            store.save(prompt_id.clone(), None, false, "".into(), cx)
         });
         self.picker
             .update(cx, |picker, cx| picker.refresh(window, cx));
         cx.spawn_in(window, async move |this, cx| {
             save.await?;
             this.update_in(cx, |this, window, cx| {
-                this.load_rule(prompt_id, true, window, cx)
+                this.load_skill(prompt_id, true, window, cx)
             })
         })
         .detach_and_log_err(cx);
     }
 
-    pub fn save_rule(&mut self, prompt_id: PromptId, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn save_skill(&mut self, prompt_id: PromptId, window: &mut Window, cx: &mut Context<Self>) {
         const SAVE_THROTTLE: Duration = Duration::from_millis(500);
 
         if !prompt_id.can_edit() {
             return;
         }
 
-        let rule_metadata = self.store.read(cx).metadata(prompt_id).unwrap();
-        let rule_editor = self.rule_editors.get_mut(&prompt_id).unwrap();
-        let title = rule_editor.title_editor.read(cx).text(cx);
-        let body = rule_editor.body_editor.update(cx, |editor, cx| {
+        let skill_metadata = self.store.read(cx).metadata(prompt_id.clone()).unwrap();
+        let skill_editor = self.skill_editors.get_mut(&prompt_id).unwrap();
+        let title = skill_editor.title_editor.read(cx).text(cx);
+        let body = skill_editor.body_editor.update(cx, |editor, cx| {
             editor
                 .buffer()
                 .read(cx)
@@ -592,13 +696,15 @@ impl RulesLibrary {
         let store = self.store.clone();
         let executor = cx.background_executor().clone();
 
-        rule_editor.next_title_and_body_to_save = Some((title, body));
-        if rule_editor.pending_save.is_none() {
-            rule_editor.pending_save = Some(cx.spawn_in(window, async move |this, cx| {
+        skill_editor.next_title_and_body_to_save = Some((title, body));
+        if skill_editor.pending_save.is_none() {
+            let prompt_id = prompt_id.clone();
+            skill_editor.pending_save = Some(cx.spawn_in(window, async move |this, cx| {
                 async move {
                     loop {
+                        let prompt_id = prompt_id.clone();
                         let title_and_body = this.update(cx, |this, _| {
-                            this.rule_editors
+                            this.skill_editors
                                 .get_mut(&prompt_id)?
                                 .next_title_and_body_to_save
                                 .take()
@@ -610,9 +716,10 @@ impl RulesLibrary {
                             } else {
                                 Some(SharedString::from(title))
                             };
+                            let prompt_id = prompt_id.clone();
                             cx.update(|_window, cx| {
                                 store.update(cx, |store, cx| {
-                                    store.save(prompt_id, title, rule_metadata.default, body, cx)
+                                    store.save(prompt_id, title, skill_metadata.default, body, cx)
                                 })
                             })?
                             .await
@@ -630,8 +737,8 @@ impl RulesLibrary {
                     }
 
                     this.update(cx, |this, _cx| {
-                        if let Some(rule_editor) = this.rule_editors.get_mut(&prompt_id) {
-                            rule_editor.pending_save = None;
+                        if let Some(skill_editor) = this.skill_editors.get_mut(&prompt_id) {
+                            skill_editor.pending_save = None;
                         }
                     })
                 }
@@ -641,31 +748,31 @@ impl RulesLibrary {
         }
     }
 
-    pub fn delete_active_rule(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(active_rule_id) = self.active_rule_id {
-            self.delete_rule(active_rule_id, window, cx);
+    pub fn delete_active_skill(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(active_skill_id) = self.active_skill_id.clone() {
+            self.delete_skill(active_skill_id, window, cx);
         }
     }
 
-    pub fn duplicate_active_rule(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(active_rule_id) = self.active_rule_id {
-            self.duplicate_rule(active_rule_id, window, cx);
+    pub fn duplicate_active_skill(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(active_skill_id) = self.active_skill_id.clone() {
+            self.duplicate_skill(active_skill_id, window, cx);
         }
     }
 
-    pub fn toggle_default_for_active_rule(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(active_rule_id) = self.active_rule_id {
-            self.toggle_default_for_rule(active_rule_id, window, cx);
+    pub fn toggle_default_for_active_skill(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(active_skill_id) = self.active_skill_id.clone() {
+            self.toggle_default_for_skill(active_skill_id, window, cx);
         }
     }
 
-    pub fn restore_default_content_for_active_rule(
+    pub fn restore_default_content_for_active_skill(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(active_rule_id) = self.active_rule_id {
-            self.restore_default_content(active_rule_id, window, cx);
+        if let Some(active_skill_id) = self.active_skill_id.clone() {
+            self.restore_default_content(active_skill_id, window, cx);
         }
     }
 
@@ -679,23 +786,23 @@ impl RulesLibrary {
             return;
         };
 
-        if let Some(rule_editor) = self.rule_editors.get(&prompt_id) {
-            rule_editor.body_editor.update(cx, |editor, cx| {
+        if let Some(skill_editor) = self.skill_editors.get(&prompt_id) {
+            skill_editor.body_editor.update(cx, |editor, cx| {
                 editor.set_text(built_in.default_content(), window, cx);
             });
         }
     }
 
-    pub fn toggle_default_for_rule(
+    pub fn toggle_default_for_skill(
         &mut self,
         prompt_id: PromptId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.store.update(cx, move |store, cx| {
-            if let Some(rule_metadata) = store.metadata(prompt_id) {
+            if let Some(skill_metadata) = store.metadata(prompt_id.clone()) {
                 store
-                    .save_metadata(prompt_id, rule_metadata.title, !rule_metadata.default, cx)
+                    .save_metadata(prompt_id, skill_metadata.title, !skill_metadata.default, cx)
                     .detach_and_log_err(cx);
             }
         });
@@ -704,23 +811,23 @@ impl RulesLibrary {
         cx.notify();
     }
 
-    pub fn load_rule(
+    pub fn load_skill(
         &mut self,
         prompt_id: PromptId,
         focus: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(rule_editor) = self.rule_editors.get(&prompt_id) {
+        if let Some(skill_editor) = self.skill_editors.get(&prompt_id) {
             if focus {
-                rule_editor
+                skill_editor
                     .body_editor
                     .update(cx, |editor, cx| window.focus(&editor.focus_handle(cx), cx));
             }
-            self.set_active_rule(Some(prompt_id), window, cx);
-        } else if let Some(rule_metadata) = self.store.read(cx).metadata(prompt_id) {
+            self.set_active_skill(Some(prompt_id), window, cx);
+        } else if let Some(skill_metadata) = self.store.read(cx).metadata(prompt_id.clone()) {
             let language_registry = self.language_registry.clone();
-            let rule = self.store.read(cx).load(prompt_id, cx);
+            let rule = self.store.read(cx).load(prompt_id.clone(), cx);
             let make_completion_provider = self.make_completion_provider.clone();
             self.pending_load = cx.spawn_in(window, async move |this, cx| {
                 let rule = rule.await;
@@ -730,7 +837,7 @@ impl RulesLibrary {
                         let title_editor = cx.new(|cx| {
                             let mut editor = Editor::single_line(window, cx);
                             editor.set_placeholder_text("Untitled", window, cx);
-                            editor.set_text(rule_metadata.title.unwrap_or_default(), window, cx);
+                            editor.set_text(skill_metadata.title.unwrap_or_default(), window, cx);
                             if prompt_id.is_built_in() {
                                 editor.set_read_only(true);
                                 editor.set_show_edit_predictions(Some(false), window, cx);
@@ -762,39 +869,53 @@ impl RulesLibrary {
                             }
                             editor
                         });
-                        let _subscriptions = vec![
+                        let _subscriptions = [
                             cx.subscribe_in(
                                 &title_editor,
                                 window,
-                                move |this, editor, event, window, cx| {
-                                    this.handle_rule_title_editor_event(
-                                        prompt_id, editor, event, window, cx,
-                                    )
+                                {
+                                    let prompt_id = prompt_id.clone();
+                                    move |this, editor, event, window, cx| {
+                                        this.handle_rule_title_editor_event(
+                                            prompt_id.clone(),
+                                            editor,
+                                            event,
+                                            window,
+                                            cx,
+                                        )
+                                    }
                                 },
                             ),
                             cx.subscribe_in(
                                 &body_editor,
                                 window,
-                                move |this, editor, event, window, cx| {
-                                    this.handle_rule_body_editor_event(
-                                        prompt_id, editor, event, window, cx,
-                                    )
+                                {
+                                    let prompt_id = prompt_id.clone();
+                                    move |this, editor, event, window, cx| {
+                                        this.handle_rule_body_editor_event(
+                                            prompt_id.clone(),
+                                            editor,
+                                            event,
+                                            window,
+                                            cx,
+                                        )
+                                    }
                                 },
                             ),
                         ];
-                        this.rule_editors.insert(
-                            prompt_id,
-                            RuleEditor {
+                        this.skill_editors.insert(
+                            prompt_id.clone(),
+                            SkillEditor {
                                 title_editor,
                                 body_editor,
                                 next_title_and_body_to_save: None,
                                 pending_save: None,
                                 token_count: None,
                                 pending_token_count: Task::ready(None),
-                                _subscriptions,
+                                _subscriptions: Vec::from(_subscriptions),
                             },
                         );
-                        this.set_active_rule(Some(prompt_id), window, cx);
+                        this.set_active_skill(Some(prompt_id.clone()), window, cx);
                         this.count_tokens(prompt_id, window, cx);
                     }
                     Err(error) => {
@@ -807,13 +928,13 @@ impl RulesLibrary {
         }
     }
 
-    fn set_active_rule(
+    fn set_active_skill(
         &mut self,
         prompt_id: Option<PromptId>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.active_rule_id = prompt_id;
+        self.active_skill_id = prompt_id.clone();
         self.picker.update(cx, |picker, cx| {
             if let Some(prompt_id) = prompt_id {
                 if picker
@@ -821,14 +942,14 @@ impl RulesLibrary {
                     .filtered_entries
                     .get(picker.delegate.selected_index())
                     .is_none_or(|old_selected_prompt| {
-                        if let RulePickerEntry::Rule(rule) = old_selected_prompt {
+                        if let SkillPickerEntry::Skill(rule) = old_selected_prompt {
                             rule.id != prompt_id
                         } else {
                             true
                         }
                     })
                     && let Some(ix) = picker.delegate.filtered_entries.iter().position(|mat| {
-                        if let RulePickerEntry::Rule(rule) = mat {
+                        if let SkillPickerEntry::Skill(rule) = mat {
                             rule.id == prompt_id
                         } else {
                             false
@@ -844,13 +965,13 @@ impl RulesLibrary {
         cx.notify();
     }
 
-    pub fn delete_rule(
+    pub fn delete_skill(
         &mut self,
         prompt_id: PromptId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(metadata) = self.store.read(cx).metadata(prompt_id) {
+        if let Some(metadata) = self.store.read(cx).metadata(prompt_id.clone()) {
             let confirmation = window.prompt(
                 PromptLevel::Warning,
                 &format!(
@@ -865,10 +986,10 @@ impl RulesLibrary {
             cx.spawn_in(window, async move |this, cx| {
                 if confirmation.await.ok() == Some(0) {
                     this.update_in(cx, |this, window, cx| {
-                        if this.active_rule_id == Some(prompt_id) {
-                            this.set_active_rule(None, window, cx);
+                        if this.active_skill_id.as_ref() == Some(&prompt_id) {
+                            this.set_active_skill(None, window, cx);
                         }
-                        this.rule_editors.remove(&prompt_id);
+                        this.skill_editors.remove(&prompt_id);
                         this.store
                             .update(cx, |store, cx| store.delete(prompt_id, cx))
                             .detach_and_log_err(cx);
@@ -883,20 +1004,20 @@ impl RulesLibrary {
         }
     }
 
-    pub fn duplicate_rule(
+    pub fn duplicate_skill(
         &mut self,
         prompt_id: PromptId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(rule) = self.rule_editors.get(&prompt_id) {
+        if let Some(rule) = self.skill_editors.get(&prompt_id) {
             const DUPLICATE_SUFFIX: &str = " copy";
             let title_to_duplicate = rule.title_editor.read(cx).text(cx);
             let existing_titles = self
-                .rule_editors
+                .skill_editors
                 .iter()
-                .filter(|&(&id, _)| id != prompt_id)
-                .map(|(_, rule_editor)| rule_editor.title_editor.read(cx).text(cx))
+                .filter(|&(id, _)| id != &prompt_id)
+                .map(|(_, skill_editor)| skill_editor.title_editor.read(cx).text(cx))
                 .filter(|title| title.starts_with(&title_to_duplicate))
                 .collect::<HashSet<_>>();
 
@@ -916,23 +1037,23 @@ impl RulesLibrary {
             let new_id = PromptId::new();
             let body = rule.body_editor.read(cx).text(cx);
             let save = self.store.update(cx, |store, cx| {
-                store.save(new_id, Some(title.into()), false, body.into(), cx)
+                store.save(new_id.clone(), Some(title.into()), false, body.into(), cx)
             });
             self.picker
                 .update(cx, |picker, cx| picker.refresh(window, cx));
             cx.spawn_in(window, async move |this, cx| {
                 save.await?;
-                this.update_in(cx, |rules_library, window, cx| {
-                    rules_library.load_rule(new_id, true, window, cx)
+                this.update_in(cx, |skill_library, window, cx| {
+                    skill_library.load_skill(new_id, true, window, cx)
                 })
             })
             .detach_and_log_err(cx);
         }
     }
 
-    fn focus_active_rule(&mut self, _: &Tab, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(active_rule) = self.active_rule_id {
-            self.rule_editors[&active_rule]
+    fn focus_active_skill(&mut self, _: &Tab, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(active_rule) = &self.active_skill_id {
+            self.skill_editors[&active_rule]
                 .body_editor
                 .update(cx, |editor, cx| window.focus(&editor.focus_handle(cx), cx));
             cx.stop_propagation();
@@ -950,12 +1071,12 @@ impl RulesLibrary {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(active_rule_id) = self.active_rule_id else {
+        let Some(active_skill_id) = self.active_skill_id.as_ref() else {
             cx.propagate();
             return;
         };
 
-        let rule_editor = &self.rule_editors[&active_rule_id].body_editor;
+        let skill_editor = &self.skill_editors[&active_skill_id].body_editor;
         let Some(ConfiguredModel { provider, .. }) =
             LanguageModelRegistry::read_global(cx).inline_assistant_model()
         else {
@@ -965,7 +1086,7 @@ impl RulesLibrary {
         let initial_prompt = action.prompt.clone();
         if provider.is_authenticated(cx) {
             self.inline_assist_delegate
-                .assist(rule_editor, initial_prompt, window, cx);
+                .assist(skill_editor, initial_prompt, window, cx);
         } else {
             for window in cx.windows() {
                 if let Some(workspace) = window.downcast::<Workspace>() {
@@ -986,27 +1107,27 @@ impl RulesLibrary {
 
     fn move_down_from_title(
         &mut self,
-        _: &zed_actions::editor::MoveDown,
+        _: &zed_custom_actions::editor::MoveDown,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(rule_id) = self.active_rule_id
-            && let Some(rule_editor) = self.rule_editors.get(&rule_id)
+        if let Some(rule_id) = &self.active_skill_id
+            && let Some(skill_editor) = self.skill_editors.get(&rule_id)
         {
-            window.focus(&rule_editor.body_editor.focus_handle(cx), cx);
+            window.focus(&skill_editor.body_editor.focus_handle(cx), cx);
         }
     }
 
     fn move_up_from_body(
         &mut self,
-        _: &zed_actions::editor::MoveUp,
+        _: &zed_custom_actions::editor::MoveUp,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(rule_id) = self.active_rule_id
-            && let Some(rule_editor) = self.rule_editors.get(&rule_id)
+        if let Some(rule_id) = &self.active_skill_id
+            && let Some(skill_editor) = self.skill_editors.get(&rule_id)
         {
-            window.focus(&rule_editor.title_editor.focus_handle(cx), cx);
+            window.focus(&skill_editor.title_editor.focus_handle(cx), cx);
         }
     }
 
@@ -1020,7 +1141,7 @@ impl RulesLibrary {
     ) {
         match event {
             EditorEvent::BufferEdited => {
-                self.save_rule(prompt_id, window, cx);
+                self.save_skill(prompt_id.clone(), window, cx);
                 self.count_tokens(prompt_id, window, cx);
             }
             EditorEvent::Blurred => {
@@ -1050,7 +1171,7 @@ impl RulesLibrary {
     ) {
         match event {
             EditorEvent::BufferEdited => {
-                self.save_rule(prompt_id, window, cx);
+                self.save_skill(prompt_id.clone(), window, cx);
                 self.count_tokens(prompt_id, window, cx);
             }
             EditorEvent::Blurred => {
@@ -1076,7 +1197,7 @@ impl RulesLibrary {
         else {
             return;
         };
-        if let Some(rule) = self.rule_editors.get_mut(&prompt_id) {
+        if let Some(rule) = self.skill_editors.get_mut(&prompt_id) {
             let editor = &rule.body_editor.read(cx);
             let buffer = &editor.buffer().read(cx).as_singleton().unwrap().read(cx);
             let body = buffer.as_rope().clone();
@@ -1110,8 +1231,8 @@ impl RulesLibrary {
                         .await?;
 
                     this.update(cx, |this, cx| {
-                        let rule_editor = this.rule_editors.get_mut(&prompt_id).unwrap();
-                        rule_editor.token_count = Some(token_count);
+                        let skill_editor = this.skill_editors.get_mut(&prompt_id).unwrap();
+                        skill_editor.token_count = Some(token_count);
                         cx.notify();
                     })
                 }
@@ -1121,10 +1242,10 @@ impl RulesLibrary {
         }
     }
 
-    fn render_rule_list(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_skill_list(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
-            .id("rule-list")
-            .capture_action(cx.listener(Self::focus_active_rule))
+            .id("skill-list")
+            .capture_action(cx.listener(Self::focus_active_skill))
             .px_1p5()
             .h_full()
             .w_64()
@@ -1142,17 +1263,17 @@ impl RulesLibrary {
                             .child(
                                 IconButton::new("new-rule", IconName::Plus)
                                     .tooltip(move |_window, cx| {
-                                        Tooltip::for_action("New Rule", &NewRule, cx)
+                                        Tooltip::for_action("New Skill", &NewSkill, cx)
                                     })
                                     .on_click(|_, window, cx| {
-                                        window.dispatch_action(Box::new(NewRule), cx);
+                                        window.dispatch_action(Box::new(NewSkill), cx);
                                     }),
                             ),
                     )
                 } else {
                     this.child(
                         h_flex().p_1().w_full().child(
-                            Button::new("new-rule", "New Rule")
+                            Button::new("new-rule", "New Skill")
                                 .full_width()
                                 .style(ButtonStyle::Outlined)
                                 .icon(IconName::Plus)
@@ -1160,7 +1281,7 @@ impl RulesLibrary {
                                 .icon_position(IconPosition::Start)
                                 .icon_color(Color::Muted)
                                 .on_click(|_, window, cx| {
-                                    window.dispatch_action(Box::new(NewRule), cx);
+                                    window.dispatch_action(Box::new(NewSkill), cx);
                                 }),
                         ),
                     )
@@ -1169,7 +1290,7 @@ impl RulesLibrary {
             .child(div().flex_grow().child(self.picker.clone()))
     }
 
-    fn render_active_rule_editor(
+    fn render_active_skill_editor(
         &self,
         editor: &Entity<Editor>,
         read_only: bool,
@@ -1218,18 +1339,18 @@ impl RulesLibrary {
             ))
     }
 
-    fn render_duplicate_rule_button(&self) -> impl IntoElement {
+    fn render_duplicate_skill_button(&self) -> impl IntoElement {
         IconButton::new("duplicate-rule", IconName::BookCopy)
-            .tooltip(move |_window, cx| Tooltip::for_action("Duplicate Rule", &DuplicateRule, cx))
+            .tooltip(move |_window, cx| Tooltip::for_action("Duplicate Skill", &DuplicateSkill, cx))
             .on_click(|_, window, cx| {
-                window.dispatch_action(Box::new(DuplicateRule), cx);
+                window.dispatch_action(Box::new(DuplicateSkill), cx);
             })
     }
 
     fn render_built_in_rule_controls(&self) -> impl IntoElement {
         h_flex()
             .gap_1()
-            .child(self.render_duplicate_rule_button())
+            .child(self.render_duplicate_skill_button())
             .child(
                 IconButton::new("restore-default", IconName::RotateCcw)
                     .tooltip(move |_window, cx| {
@@ -1254,11 +1375,11 @@ impl RulesLibrary {
                     .when(default, |this| this.icon_color(Color::Accent))
                     .map(|this| {
                         if default {
-                            this.tooltip(Tooltip::text("Remove from Default Rules"))
+                            this.tooltip(Tooltip::text("Remove from Default Skills"))
                         } else {
                             this.tooltip(move |_window, cx| {
                                 Tooltip::with_meta(
-                                    "Add to Default Rules",
+                                    "Add to Default Skills",
                                     None,
                                     "Always included in every thread.",
                                     cx,
@@ -1267,38 +1388,38 @@ impl RulesLibrary {
                         }
                     })
                     .on_click(|_, window, cx| {
-                        window.dispatch_action(Box::new(ToggleDefaultRule), cx);
+                        window.dispatch_action(Box::new(ToggleDefaultSkill), cx);
                     }),
             )
-            .child(self.render_duplicate_rule_button())
+            .child(self.render_duplicate_skill_button())
             .child(
                 IconButton::new("delete-rule", IconName::Trash)
-                    .tooltip(move |_window, cx| Tooltip::for_action("Delete Rule", &DeleteRule, cx))
+                    .tooltip(move |_window, cx| Tooltip::for_action("Delete Skill", &DeleteSkill, cx))
                     .on_click(|_, window, cx| {
-                        window.dispatch_action(Box::new(DeleteRule), cx);
+                        window.dispatch_action(Box::new(DeleteSkill), cx);
                     }),
             )
     }
 
-    fn render_active_rule(&mut self, cx: &mut Context<RulesLibrary>) -> gpui::Stateful<Div> {
+    fn render_active_skill(&mut self, cx: &mut Context<SkillLibrary>) -> gpui::Stateful<Div> {
         div()
-            .id("rule-editor")
+            .id("skill-editor")
             .h_full()
             .flex_grow()
             .border_l_1()
             .border_color(cx.theme().colors().border)
             .bg(cx.theme().colors().editor_background)
-            .children(self.active_rule_id.and_then(|prompt_id| {
-                let rule_metadata = self.store.read(cx).metadata(prompt_id)?;
-                let rule_editor = &self.rule_editors[&prompt_id];
-                let focus_handle = rule_editor.body_editor.focus_handle(cx);
+            .children(self.active_skill_id.clone().and_then(|prompt_id| {
+                let skill_metadata = self.store.read(cx).metadata(prompt_id.clone())?;
+                let skill_editor = &self.skill_editors[&prompt_id];
+                let focus_handle = skill_editor.body_editor.focus_handle(cx);
                 let registry = LanguageModelRegistry::read_global(cx);
                 let model = registry.default_model().map(|default| default.model);
                 let built_in = prompt_id.is_built_in();
 
                 Some(
                     v_flex()
-                        .id("rule-editor-inner")
+                        .id("skill-editor-inner")
                         .size_full()
                         .relative()
                         .overflow_hidden()
@@ -1312,8 +1433,8 @@ impl RulesLibrary {
                                 .px_2()
                                 .gap_2()
                                 .justify_between()
-                                .child(self.render_active_rule_editor(
-                                    &rule_editor.title_editor,
+                                .child(self.render_active_skill_editor(
+                                    &skill_editor.title_editor,
                                     built_in,
                                     cx,
                                 ))
@@ -1321,7 +1442,7 @@ impl RulesLibrary {
                                     h_flex()
                                         .h_full()
                                         .flex_shrink_0()
-                                        .children(rule_editor.token_count.map(|token_count| {
+                                        .children(skill_editor.token_count.map(|token_count| {
                                             let token_count: SharedString =
                                                 token_count.to_string().into();
                                             let label_token_count: SharedString =
@@ -1358,7 +1479,7 @@ impl RulesLibrary {
                                                 this.child(self.render_built_in_rule_controls())
                                             } else {
                                                 this.child(self.render_regular_rule_controls(
-                                                    rule_metadata.default,
+                                                    skill_metadata.default,
                                                 ))
                                             }
                                         }),
@@ -1377,7 +1498,7 @@ impl RulesLibrary {
                                         .pl_2p5()
                                         .h_full()
                                         .flex_1()
-                                        .child(rule_editor.body_editor.clone()),
+                                        .child(skill_editor.body_editor.clone()),
                                 ),
                         ),
                 )
@@ -1385,29 +1506,29 @@ impl RulesLibrary {
     }
 }
 
-impl Render for RulesLibrary {
+impl Render for SkillLibrary {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let ui_font = theme::setup_ui_font(window, cx);
         let theme = cx.theme().clone();
 
         client_side_decorations(
             v_flex()
-                .id("rules-library")
-                .key_context("RulesLibrary")
-                .on_action(cx.listener(|this, &NewRule, window, cx| this.new_rule(window, cx)))
+                .id("Skill library")
+                .key_context("SkillLibrary")
+                .on_action(cx.listener(|this, &NewSkill, window, cx| this.new_skill(window, cx)))
                 .on_action(
-                    cx.listener(|this, &DeleteRule, window, cx| {
-                        this.delete_active_rule(window, cx)
+                    cx.listener(|this, &DeleteSkill, window, cx| {
+                        this.delete_active_skill(window, cx)
                     }),
                 )
-                .on_action(cx.listener(|this, &DuplicateRule, window, cx| {
-                    this.duplicate_active_rule(window, cx)
+                .on_action(cx.listener(|this, &DuplicateSkill, window, cx| {
+                    this.duplicate_active_skill(window, cx)
                 }))
-                .on_action(cx.listener(|this, &ToggleDefaultRule, window, cx| {
-                    this.toggle_default_for_active_rule(window, cx)
+                .on_action(cx.listener(|this, &ToggleDefaultSkill, window, cx| {
+                    this.toggle_default_for_active_skill(window, cx)
                 }))
                 .on_action(cx.listener(|this, &RestoreDefaultContent, window, cx| {
-                    this.restore_default_content_for_active_rule(window, cx)
+                    this.restore_default_content_for_active_skill(window, cx)
                 }))
                 .size_full()
                 .overflow_hidden()
@@ -1421,8 +1542,8 @@ impl Render for RulesLibrary {
                         .when(!cfg!(target_os = "macos"), |this| {
                             this.border_t_1().border_color(cx.theme().colors().border)
                         })
-                        .child(self.render_rule_list(cx))
-                        .child(self.render_active_rule(cx)),
+                        .child(self.render_skill_list(cx))
+                        .child(self.render_active_skill(cx)),
                 ),
             window,
             cx,

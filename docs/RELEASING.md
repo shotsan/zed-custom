@@ -1,6 +1,6 @@
-# Zed Custom Release Guide
+# zed-custom Custom Release Guide
 
-This document explains how to trigger and manage releases for your custom fork of Zed.
+This document explains how to trigger and manage releases for your custom fork of zed-custom.
 
 ## 🚀 How to Trigger a Release
 
@@ -38,7 +38,7 @@ Once the tag is pushed, go to the **Actions** tab in your GitHub repository. You
 ## 📦 What happens during the release?
 
 The GitHub Action performs the following steps:
-1. **Compilation**: Builds the `zed`, `cli`, and `remote_server` binaries for all supported platforms.
+1. **Compilation**: Builds the `zed-custom`, `cli`, and `remote_server` binaries for all supported platforms.
 2. **Bundling**: Packages the binaries into user-ready formats (`.dmg` for Mac, `.tar.gz` for Linux).
 3. **Drafting Release**: Creates a new entry in your repository's "Releases" section.
 4. **Notes Generation**: Automatically generates release notes based on the commit history since the last tag.

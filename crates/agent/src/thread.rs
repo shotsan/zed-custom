@@ -2,13 +2,15 @@ use crate::{
     BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
     DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, ElasticSearchTool, FetchTool, FindPathTool, GrepTool,
     ListDirectoryTool, LspFindReferencesTool, LspGetDefinitionTool, LspGetImplementationsTool,
-    MemoryDatabase, MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
+    MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
     ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SaveReflectionTool,
     SemanticIndex, SearchTool, StreamingEditFileTool, SubagentTool, SystemPromptTemplate, Template,
     Templates, TerminalTool, ThreadsDatabase, ThinkingTool, ToolPermissionDecision, WebSearchTool,
     decide_permission_from_settings,
 };
-use acp_thread::{self, MentionUri, UserMessageId};
+#[cfg(any(test, feature = "test-support"))]
+use crate::MemoryDatabase;
+use acp_thread::{MentionUri, UserMessageId};
 use action_log::ActionLog;
 use feature_flags::{FeatureFlagAppExt as _, SubagentsFeatureFlag};
 

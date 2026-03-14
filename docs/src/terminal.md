@@ -1,6 +1,6 @@
 # Terminal
 
-Zed includes a built-in terminal emulator that supports multiple terminal instances, custom shells, and deep integration with the editor.
+zed-custom includes a built-in terminal emulator that supports multiple terminal instances, custom shells, and deep integration with the editor.
 
 ## Opening Terminals
 
@@ -27,7 +27,7 @@ Split terminals horizontally with `Cmd+D` (macOS) or `Ctrl+Shift+5` (Linux/Windo
 
 ## Configuring the Shell
 
-By default, Zed uses your system's default shell (from `/etc/passwd` on Unix systems). To use a different shell:
+By default, zed-custom uses your system's default shell (from `/etc/passwd` on Unix systems). To use a different shell:
 
 ```json [settings]
 {
@@ -81,7 +81,7 @@ Add environment variables to all terminal sessions:
 {
   "terminal": {
     "env": {
-      "EDITOR": "zed --wait",
+      "EDITOR": "zed-custom --wait",
       "MY_VAR": "value"
     }
   }
@@ -92,7 +92,7 @@ Add environment variables to all terminal sessions:
 
 ### Python Virtual Environment Detection
 
-Zed can automatically activate Python virtual environments when opening a terminal. By default, it searches for `.env`, `env`, `.venv`, and `venv` directories:
+zed-custom can automatically activate Python virtual environments when opening a terminal. By default, it searches for `.env`, `env`, `.venv`, and `venv` directories:
 
 ```json [settings]
 {
@@ -161,7 +161,7 @@ Blinking options: `"off"`, `"terminal_controlled"` (default), `"on"`
 
 ### Minimum Contrast
 
-Zed adjusts terminal colors to maintain readability. The default value of `45` ensures text remains visible. Set to `0` to disable contrast adjustment and use exact theme colors:
+zed-custom adjusts terminal colors to maintain readability. The default value of `45` ensures text remains visible. Set to `0` to disable contrast adjustment and use exact theme colors:
 
 ```json [settings]
 {
@@ -268,7 +268,7 @@ When enabled, mouse scroll events are converted to arrow key presses in applicat
 
 ## Path Hyperlinks
 
-Zed detects file paths in terminal output and makes them clickable. `Cmd+Click` (macOS) or `Ctrl+Click` (Linux/Windows) opens the file in Zed, jumping to the line number if one is detected.
+zed-custom detects file paths in terminal output and makes them clickable. `Cmd+Click` (macOS) or `Ctrl+Click` (Linux/Windows) opens the file in zed-custom, jumping to the line number if one is detected.
 
 Common formats recognized:
 
@@ -331,7 +331,7 @@ The title can be set by your shell using the escape sequence `\e]2;Title\007`.
 
 ## Integration with Tasks
 
-The terminal integrates with Zed's [task system](./tasks.md). When you run a task, it executes in the terminal. Rerun the last task from a terminal with:
+The terminal integrates with zed-custom's [task system](./tasks.md). When you run a task, it executes in the terminal. Rerun the last task from a terminal with:
 
 - macOS: `Cmd+Alt+R`
 - Linux/Windows: `Ctrl+Shift+R` or `Alt+T`
@@ -365,6 +365,6 @@ For the complete list of terminal settings, see the [Terminal section in All Set
 
 ## What's Next
 
-- [Tasks](./tasks.md) — Run commands and scripts from Zed
+- [Tasks](./tasks.md) — Run commands and scripts from zed-custom
 - [REPL](./repl.md) — Interactive code execution
-- [CLI Reference](./reference/cli.md) — Command-line interface for opening files in Zed
+- [CLI Reference](./reference/cli.md) — Command-line interface for opening files in zed-custom

@@ -1500,11 +1500,11 @@ mod tests {
 
     #[gpui::test]
     async fn test_heading_with_paragraph() {
-        let parsed = parse("# Zed\nThe editor").await;
+        let parsed = parse("# zed-custom\nThe editor").await;
 
         assert_eq!(
             parsed.children,
-            vec![h1(text("Zed", 2..5), 0..6), p("The editor", 6..16),]
+            vec![h1(text("zed-custom", 2..5), 0..6), p("The editor", 6..16),]
         );
     }
 
@@ -1745,7 +1745,7 @@ mod tests {
 
     #[gpui::test]
     async fn test_image_links_detection() {
-        let parsed = parse("![test](https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-zed-open-source-code-editor-rust-2.png)").await;
+        let parsed = parse("![test](https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-zed_custom-open-source-code-editor-rust-2.png)").await;
 
         let paragraph = if let ParsedMarkdownElement::Paragraph(text) = &parsed.children[0] {
             text
@@ -1757,7 +1757,7 @@ mod tests {
                 MarkdownParagraphChunk::Image(Image {
                     source_range: 0..111,
                     link: Link::Web {
-                        url: "https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-zed-open-source-code-editor-rust-2.png".to_string(),
+                        url: "https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-zed_custom-open-source-code-editor-rust-2.png".to_string(),
                     },
                     alt_text: Some("test".into()),
                     height: None,
@@ -1768,7 +1768,7 @@ mod tests {
 
     #[gpui::test]
     async fn test_image_alt_text() {
-        let parsed = parse("[![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)\n ").await;
+        let parsed = parse("[![zed-custom](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)\n ").await;
 
         let paragraph = if let ParsedMarkdownElement::Paragraph(text) = &parsed.children[0] {
             text
@@ -1782,7 +1782,7 @@ mod tests {
                         link: Link::Web {
                             url: "https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json".to_string(),
                         },
-                        alt_text: Some("Zed".into()),
+                        alt_text: Some("zed-custom".into()),
                         height: None,
                         width: None,
                     },)

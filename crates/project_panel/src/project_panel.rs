@@ -75,7 +75,7 @@ use workspace::{
     notifications::{DetachAndPromptErr, NotifyResultExt, NotifyTaskExt},
 };
 use worktree::CreatedEntry;
-use zed_actions::{project_panel::ToggleFocus, workspace::OpenWithSystem};
+use zed_custom_actions::{project_panel::ToggleFocus, workspace::OpenWithSystem};
 
 const PROJECT_PANEL_KEY: &str = "ProjectPanel";
 const NEW_ENTRY_ID: ProjectEntryId = ProjectEntryId::MAX;
@@ -1161,10 +1161,10 @@ impl ProjectPanel {
                                 Box::new(Paste),
                             )
                             .separator()
-                            .action("Copy Path", Box::new(zed_actions::workspace::CopyPath))
+                            .action("Copy Path", Box::new(zed_custom_actions::workspace::CopyPath))
                             .action(
                                 "Copy Relative Path",
-                                Box::new(zed_actions::workspace::CopyRelativePath),
+                                Box::new(zed_custom_actions::workspace::CopyRelativePath),
                             )
                             .when(!is_dir && self.has_git_changes(entry_id), |menu| {
                                 menu.separator().action(
@@ -3025,7 +3025,7 @@ impl ProjectPanel {
 
     fn copy_path(
         &mut self,
-        _: &zed_actions::workspace::CopyPath,
+        _: &zed_custom_actions::workspace::CopyPath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -3053,7 +3053,7 @@ impl ProjectPanel {
 
     fn copy_relative_path(
         &mut self,
-        _: &zed_actions::workspace::CopyRelativePath,
+        _: &zed_custom_actions::workspace::CopyRelativePath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {

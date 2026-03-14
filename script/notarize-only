@@ -23,7 +23,7 @@ fi
 
 if [[ -z "$DMG_PATH" || ! -f "$DMG_PATH" ]]; then
     echo "Error: DMG file not found. Please provide path to .dmg file."
-    echo "Usage: $0 [path/to/zed.dmg]"
+    echo "Usage: $0 [path/to/zed-custom.dmg]"
     exit 1
 fi
 

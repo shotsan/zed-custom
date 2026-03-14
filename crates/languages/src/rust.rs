@@ -1226,8 +1226,8 @@ async fn human_readable_package_name(
 // For providing local `cargo check -p $pkgid` task, we do not need most of the information we have returned.
 // Output example in the root of Zed project:
 // ```sh
-// ❯ cargo pkgid zed
-// path+file:///absolute/path/to/project/zed/crates/zed#0.131.0
+// ❯ cargo pkgid zed_custom
+// path+file:///absolute/path/to/project/zed_custom/crates/zed_custom#0.131.0
 // ```
 // Another variant, if a project has a custom package name or hyphen in the name:
 // ```
@@ -1839,10 +1839,10 @@ mod tests {
 
         assert_eq!(
             adapter
-                .label_for_symbol("zed", lsp::SymbolKind::PACKAGE, &language)
+                .label_for_symbol("zed_custom", lsp::SymbolKind::PACKAGE, &language)
                 .await,
             Some(CodeLabel::new(
-                "extern crate zed".to_string(),
+                "extern crate zed_custom".to_string(),
                 13..16,
                 vec![(0..6, highlight_keyword), (7..12, highlight_keyword),],
             ))
@@ -1936,8 +1936,8 @@ mod tests {
     fn test_package_name_from_pkgid() {
         for (input, expected) in [
             (
-                "path+file:///absolute/path/to/project/zed/crates/zed#0.131.0",
-                "zed",
+                "path+file:///absolute/path/to/project/zed_custom/crates/zed_custom#0.131.0",
+                "zed_custom",
             ),
             (
                 "path+file:///absolute/path/to/project/custom-package#my-custom-package@0.1.0",
@@ -1952,16 +1952,16 @@ mod tests {
     fn test_target_info_from_metadata() {
         for (input, absolute_path, expected) in [
             (
-                r#"{"packages":[{"id":"path+file:///absolute/path/to/project/zed/crates/zed#0.131.0","manifest_path":"/path/to/zed/Cargo.toml","targets":[{"name":"zed","kind":["bin"],"src_path":"/path/to/zed/src/main.rs"}]}]}"#,
-                "/path/to/zed/src/main.rs",
+                r#"{"packages":[{"id":"path+file:///absolute/path/to/project/zed_custom/crates/zed_custom#0.131.0","manifest_path":"/path/to/zed_custom/Cargo.toml","targets":[{"name":"zed_custom","kind":["bin"],"src_path":"/path/to/zed_custom/src/main.rs"}]}]}"#,
+                "/path/to/zed_custom/src/main.rs",
                 Some((
                     Some(TargetInfo {
-                        package_name: "zed".into(),
-                        target_name: "zed".into(),
+                        package_name: "zed_custom".into(),
+                        target_name: "zed_custom".into(),
                         required_features: Vec::new(),
                         target_kind: TargetKind::Bin,
                     }),
-                    Arc::from("/path/to/zed".as_ref()),
+                    Arc::from("/path/to/zed_custom".as_ref()),
                 )),
             ),
             (

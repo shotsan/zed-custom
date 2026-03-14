@@ -1,6 +1,6 @@
 # Deno
 
-Deno support is available through the [Deno extension](https://github.com/zed-extensions/deno).
+Deno support is available through the [Deno extension](https://github.com/zed-custom-extensions/deno).
 
 - Language server: [Deno Language Server](https://docs.deno.com/runtime/manual/advanced/language_server/overview/)
 
@@ -51,7 +51,7 @@ To use the Deno Language Server with TypeScript and TSX files, you will likely w
 }
 ```
 
-See [Configuring supported languages](../configuring-languages.md) in the Zed documentation for more information.
+See [Configuring supported languages](../configuring-languages.md) in the zed-custom documentation for more information.
 
 <!--
 TBD: Deno TypeScript REPL instructions [docs/repl#typescript-deno](../repl.md#typescript-deno)
@@ -89,7 +89,7 @@ To get completions for `deno.json` or `package.json` you can add the following t
 
 ## DAP support
 
-To debug deno programs, add this to `.zed/debug.json`
+To debug deno programs, add this to `.zed-custom/debug.json`
 
 ```json [debug]
 [
@@ -109,7 +109,7 @@ To debug deno programs, add this to `.zed/debug.json`
 
 ## Runnable support
 
-To run deno tasks like tests from the ui, add this to `.zed/tasks.json`
+To run deno tasks like tests from the ui, add this to `.zed-custom/tasks.json`
 
 ```json [tasks]
 [

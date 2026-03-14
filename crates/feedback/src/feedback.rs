@@ -2,13 +2,12 @@ use gpui::{App, ClipboardItem, PromptLevel, actions};
 use system_specs::{CopySystemSpecsIntoClipboard, SystemSpecs};
 use util::ResultExt;
 use workspace::Workspace;
-use zed_actions::feedback::{EmailZed, FileBugReport, RequestFeature};
+use zed_custom_actions::feedback::{EmailZedCustom, FileBugReport, RequestFeature};
 
-actions!(
-    zed,
+actions!(zed,
     [
-        /// Opens the Zed repository on GitHub.
-        OpenZedRepo,
+        /// Opens the zed-custom repository on GitHub.
+        OpenZedCustomRepo,
     ]
 );
 
@@ -79,7 +78,7 @@ pub fn init(cx: &mut App) {
                 })
                 .detach();
             })
-            .register_action(move |_, _: &EmailZed, window, cx| {
+            .register_action(move |_, _: &EmailZedCustom, window, cx| {
                 let specs = SystemSpecs::new(window, cx);
                 cx.spawn_in(window, async move |_, cx| {
                     let specs = specs.await;
@@ -90,7 +89,7 @@ pub fn init(cx: &mut App) {
                 })
                 .detach();
             })
-            .register_action(move |_, _: &OpenZedRepo, _, cx| {
+            .register_action(move |_, _: &OpenZedCustomRepo, _, cx| {
                 cx.open_url(ZED_REPO_URL);
             });
     })

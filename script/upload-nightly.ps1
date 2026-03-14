@@ -11,11 +11,11 @@ $ErrorActionPreference = "Stop"
 ParseZedWorkspace
 Write-Host "Uploading nightly for target: $target"
 
-$bucketName = "zed-nightly-host"
-$releaseVersion = & "$PSScriptRoot\get-crate-version.ps1" zed
+$bucketName = "zed-custom-nightly-host"
+$releaseVersion = & "$PSScriptRoot\get-crate-version.ps1" zed-custom
 $version = "$releaseVersion+nightly.$env:GITHUB_RUN_NUMBER.$env:GITHUB_SHA"
 
-$remoteServerFiles = Get-ChildItem -Path "target" -Filter "zed-remote-server-windows-*.zip" -Recurse -File -ErrorAction SilentlyContinue
+$remoteServerFiles = Get-ChildItem -Path "target" -Filter "zed-custom-remote-server-windows-*.zip" -Recurse -File -ErrorAction SilentlyContinue
 
 foreach ($file in $remoteServerFiles) {
     UploadToBlobStore -BucketName $bucketName -FileToUpload $file.FullName -BlobStoreKey "nightly/$($file.Name)"
@@ -23,10 +23,10 @@ foreach ($file in $remoteServerFiles) {
     Remove-Item -Path $file.FullName -ErrorAction SilentlyContinue
 }
 
-UploadToBlobStore -BucketName $bucketName -FileToUpload "target/Zed-$Architecture.exe" -BlobStoreKey "nightly/Zed-$Architecture.exe"
-UploadToBlobStore -BucketName $bucketName -FileToUpload "target/Zed-$Architecture.exe" -BlobStoreKey "$version/Zed-$Architecture.exe"
+UploadToBlobStore -BucketName $bucketName -FileToUpload "target/zed-custom-$Architecture.exe" -BlobStoreKey "nightly/zed-custom-$Architecture.exe"
+UploadToBlobStore -BucketName $bucketName -FileToUpload "target/zed-custom-$Architecture.exe" -BlobStoreKey "$version/zed-custom-$Architecture.exe"
 
-Remove-Item -Path "target/Zed-$Architecture.exe" -ErrorAction SilentlyContinue
+Remove-Item -Path "target/zed-custom-$Architecture.exe" -ErrorAction SilentlyContinue
 
 $version | Out-File -FilePath "target/latest-sha" -NoNewline
 UploadToBlobStore -BucketName $bucketName -FileToUpload "target/latest-sha" -BlobStoreKey "nightly/latest-sha-windows"

@@ -44,7 +44,7 @@ impl Example for FileSearchExample {
         cx.assert(glob.ends_with(FILENAME), "glob ends with file name")?;
 
         let without_filename = glob.replace(FILENAME, "");
-        let matches = Regex::new("(\\*\\*|zed)/(\\*\\*?/)?")
+        let matches = Regex::new("(\\*\\*|zed_custom)/(\\*\\*?/)?")
             .unwrap()
             .is_match(&without_filename);
 

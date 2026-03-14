@@ -504,7 +504,7 @@ impl SshRemoteConnection {
         let destination = connection_options.ssh_destination();
 
         let temp_dir = tempfile::Builder::new()
-            .prefix("zed-ssh-session")
+            .prefix("zed_custom-ssh-session")
             .tempdir()?;
         let askpass_delegate = askpass::AskPassDelegate::new(cx, {
             let delegate = delegate.clone();
@@ -634,7 +634,7 @@ impl SshRemoteConnection {
             _ => version.to_string(),
         };
         let binary_name = format!(
-            "zed-remote-server-{}-{}{}",
+            "zed_custom-remote-server-{}-{}{}",
             release_channel.dev_name(),
             version_str,
             if self.ssh_platform.os.is_windows() {

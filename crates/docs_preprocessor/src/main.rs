@@ -533,7 +533,7 @@ fn handle_postprocessing() -> Result<()> {
         .expect("has output")
         .as_table_mut()
         .expect("output is table");
-    let zed_html = output.remove("zed-html").expect("zed-html output defined");
+    let zed_html = output.remove("zed_custom-html").expect("zed_custom-html output defined");
     let default_description = zed_html
         .get("default-description")
         .expect("Default description not found")
@@ -640,7 +640,7 @@ fn handle_postprocessing() -> Result<()> {
 
         title_tag_contents
             .trim()
-            .strip_suffix("- Zed")
+            .strip_suffix("- zed-custom")
             .unwrap_or(title_tag_contents)
             .trim()
             .to_string()

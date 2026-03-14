@@ -212,11 +212,11 @@ Inherit all conventions from `docs/.rules`. Key points:
 | command palette | command bar                            |
 | panel           | sidebar (be specific: "Project Panel") |
 
-## Zed-Specific Conventions
+## zed-custom-Specific Conventions
 
 ### Recognized Rules Files
 
-When documenting rules/instructions for AI, note that Zed recognizes these files (in priority order):
+When documenting rules/instructions for AI, note that zed-custom recognizes these files (in priority order):
 
 - `.rules`
 - `.cursorrules`
@@ -230,15 +230,15 @@ When documenting rules/instructions for AI, note that Zed recognizes these files
 
 ### Settings File Locations
 
-- macOS: `~/.config/zed/settings.json`
-- Linux: `~/.config/zed/settings.json`
-- Windows: `%AppData%\Zed\settings.json`
+- macOS: `~/.config/zed-custom/settings.json`
+- Linux: `~/.config/zed-custom/settings.json`
+- Windows: `%AppData%\zed-custom\settings.json`
 
 ### Keymap File Locations
 
-- macOS: `~/.config/zed/keymap.json`
-- Linux: `~/.config/zed/keymap.json`
-- Windows: `%AppData%\Zed\keymap.json`
+- macOS: `~/.config/zed-custom/keymap.json`
+- Linux: `~/.config/zed-custom/keymap.json`
+- Windows: `%AppData%\zed-custom\keymap.json`
 
 ## Safety Constraints
 

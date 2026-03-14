@@ -360,7 +360,7 @@ impl ManageProfilesModal {
             return;
         };
 
-        //todo: This causes the web search tool to show up even it only works when using zed hosted models
+        //todo: This causes the web search tool to show up even it only works when using zed_custom hosted models
         let tool_names: Vec<Arc<str>> = agent::supported_built_in_tool_names(
             self.active_model.as_ref().map(|model| model.provider_id()),
             cx,

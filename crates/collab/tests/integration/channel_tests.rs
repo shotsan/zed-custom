@@ -370,7 +370,7 @@ async fn test_channel_room(
 
     let zed_id = server
         .make_channel(
-            "zed",
+            "zed_custom",
             None,
             (&client_a, cx_a),
             &mut [(&client_b, cx_b), (&client_c, cx_c)],
@@ -405,7 +405,7 @@ async fn test_channel_room(
         cx_b,
         &[ExpectedChannel {
             id: zed_id,
-            name: "zed".into(),
+            name: "zed_custom".into(),
             depth: 0,
         }],
     );
@@ -585,7 +585,7 @@ async fn test_channel_jumping(executor: BackgroundExecutor, cx_a: &mut TestAppCo
     let client_a = server.create_client(cx_a, "user_a").await;
 
     let zed_id = server
-        .make_channel("zed", None, (&client_a, cx_a), &mut [])
+        .make_channel("zed_custom", None, (&client_a, cx_a), &mut [])
         .await;
     let rust_id = server
         .make_channel("rust", None, (&client_a, cx_a), &mut [])
@@ -949,7 +949,7 @@ async fn test_channel_link_notifications(
     let user_c = client_c.user_id().unwrap();
 
     let channels = server
-        .make_channel_tree(&[("zed", None)], (&client_a, cx_a))
+        .make_channel_tree(&[("zed_custom", None)], (&client_a, cx_a))
         .await;
     let zed_channel = channels[0];
 
@@ -983,7 +983,7 @@ async fn test_channel_link_notifications(
 
     executor.run_until_parked();
 
-    // we have an admin (a), member (b) and guest (c) all part of the zed channel.
+    // we have an admin (a), member (b) and guest (c) all part of the zed_custom channel.
 
     // create a new private channel, make it public, and move it under the previous one, and verify it shows for b and not c
     let active_channel = client_a
@@ -1105,7 +1105,7 @@ async fn test_channel_membership_notifications(
 
     let channels = server
         .make_channel_tree(
-            &[("zed", None), ("vim", Some("zed")), ("opensource", None)],
+            &[("zed_custom", None), ("vim", Some("zed_custom")), ("opensource", None)],
             (&client_a, cx_a),
         )
         .await;
@@ -1136,7 +1136,7 @@ async fn test_channel_membership_notifications(
 
     executor.run_until_parked();
 
-    // we have an admin (a), and a guest (b) with access to all of zed, and membership in vim.
+    // we have an admin (a), and a guest (b) with access to all of zed_custom, and membership in vim.
     assert_channels(
         client_b.channel_store(),
         cx_b,
@@ -1144,7 +1144,7 @@ async fn test_channel_membership_notifications(
             ExpectedChannel {
                 depth: 0,
                 id: zed_channel,
-                name: "zed".into(),
+                name: "zed_custom".into(),
             },
             ExpectedChannel {
                 depth: 1,

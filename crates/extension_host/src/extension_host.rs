@@ -185,8 +185,7 @@ pub struct ExtensionIndexLanguageEntry {
     pub grammar: Option<Arc<str>>,
 }
 
-actions!(
-    zed,
+actions!(zed,
     [
         /// Reloads all installed extensions.
         ReloadExtensions

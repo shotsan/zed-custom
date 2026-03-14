@@ -560,7 +560,7 @@ impl BedrockModel {
                             secret_access_key,
                             session_token,
                             None,
-                            "zed-bedrock-provider",
+                            "zed_custom-bedrock-provider",
                         );
                         config_builder = config_builder.credentials_provider(aws_creds);
                     }
@@ -818,7 +818,7 @@ pub fn into_bedrock(
                                     LanguageModelToolResultContent::Image(_) => {
                                         BedrockToolResultContentBlock::Text(
                                             // TODO: Bedrock image support
-                                            "[Tool responded with an image, but Zed doesn't support these in Bedrock models yet]".to_string()
+                                            "[Tool responded with an image, but zed-custom doesn't support these in Bedrock models yet]".to_string()
                                         )
                                     }
                                 })
@@ -1467,7 +1467,7 @@ impl ConfigurationView {
             .child(self.session_token_editor.clone())
             .child(
                 Label::new(format!(
-                    "You can also set the {}, {} and {} environment variables (or {} for Bedrock API Key authentication) and restart Zed.",
+                    "You can also set the {}, {} and {} environment variables (or {} for Bedrock API Key authentication) and restart zed-custom.",
                     ZED_BEDROCK_ACCESS_KEY_ID_VAR.name,
                     ZED_BEDROCK_SECRET_ACCESS_KEY_VAR.name,
                     ZED_BEDROCK_REGION_VAR.name,

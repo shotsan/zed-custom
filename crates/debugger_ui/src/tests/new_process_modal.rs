@@ -206,7 +206,7 @@ async fn test_save_debug_scenario_to_file(executor: BackgroundExecutor, cx: &mut
         .unwrap();
 
     let debug_json_content = fs
-        .load(path!("/project/.zed/debug.json").as_ref())
+        .load(path!("/project/.zed_custom/debug.json").as_ref())
         .await
         .expect("debug.json should exist")
         .lines()
@@ -269,7 +269,7 @@ async fn test_save_debug_scenario_to_file(executor: BackgroundExecutor, cx: &mut
         ]"#};
 
     let debug_json_content = fs
-        .load(path!("/project/.zed/debug.json").as_ref())
+        .load(path!("/project/.zed_custom/debug.json").as_ref())
         .await
         .expect("debug.json should exist")
         .lines()
@@ -291,7 +291,7 @@ async fn test_debug_modal_subtitles_with_multiple_worktrees(
     fs.insert_tree(
         path!("/workspace1"),
         json!({
-            ".zed": {
+            ".zed_custom": {
                 "debug.json": r#"[
                     {
                         "adapter": "fake-adapter",
@@ -342,7 +342,7 @@ async fn test_debug_modal_subtitles_with_multiple_worktrees(
 
     assert_eq!(
         subtitles.as_slice(),
-        [path!(".zed/debug.json"), path!(".zed/debug.json")]
+        [path!(".zed_custom/debug.json"), path!(".zed_custom/debug.json")]
     );
 }
 
@@ -397,7 +397,7 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
             .await
             .unwrap_or_else(|_| {
                 panic!(
-                    "Adapter {} should successfully convert from Zed format",
+                    "Adapter {} should successfully convert from zed-custom format",
                     adapter_name
                 )
             });

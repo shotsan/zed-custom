@@ -1,4 +1,5 @@
 use std::{ops::Range, path::Path, rc::Rc, sync::Arc, time::Duration};
+use feature_flags::FeatureFlagAppExt;
 
 use acp_thread::{AcpThread, AgentSessionInfo};
 use agent::{ContextServerRegistry, SharedThread, ThreadStore};
@@ -12,7 +13,7 @@ use project::{
 use serde::{Deserialize, Serialize};
 use settings::{LanguageModelProviderSetting, LanguageModelSelection};
 
-use zed_actions::agent::{OpenClaudeCodeOnboardingModal, ReauthenticateAgent};
+use zed_custom_actions::agent::{OpenClaudeCodeOnboardingModal, ReauthenticateAgent};
 
 use crate::ManageProfiles;
 use crate::ui::{AcpOnboardingModal, ClaudeCodeOnboardingModal};
@@ -56,7 +57,7 @@ use language::LanguageRegistry;
 use language_model::{ConfigurationError, LanguageModelRegistry};
 use project::{Project, ProjectPath, Worktree};
 use prompt_store::{PromptBuilder, PromptStore, UserPromptId};
-use rules_library::{RulesLibrary, open_rules_library};
+use rules_library::{SkillLibrary, open_skill_library};
 use search::{BufferSearchBar, buffer_search};
 use settings::{Settings, update_settings_file};
 use theme::ThemeSettings;
@@ -69,12 +70,12 @@ use workspace::{
     CollaboratorId, DraggedSelection, DraggedTab, ToggleZoom, ToolbarItemView, Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
-use zed_actions::{
+use zed_custom_actions::{
     DecreaseBufferFontSize, IncreaseBufferFontSize, ResetBufferFontSize,
     agent::{
         OpenAcpOnboardingModal, OpenOnboardingModal, OpenSettings, ResetAgentZoom, ResetOnboarding,
     },
-    assistant::{OpenRulesLibrary, ToggleFocus},
+    assistant::{OpenSkillLibrary, ToggleFocus},
 };
 
 const AGENT_PANEL_KEY: &str = "agent_panel";
@@ -139,7 +140,7 @@ pub fn init(cx: &mut App) {
                         });
                     }
                 })
-                .register_action(|workspace, action: &OpenRulesLibrary, window, cx| {
+                .register_action(|workspace, action: &OpenSkillLibrary, window, cx| {
                     if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
                         workspace.focus_panel::<AgentPanel>(window, cx);
                         panel.update(cx, |panel, cx| {
@@ -281,7 +282,7 @@ pub enum AgentType {
 impl AgentType {
     fn label(&self) -> SharedString {
         match self {
-            Self::NativeAgent | Self::TextThread => "Zed Agent".into(),
+            Self::NativeAgent | Self::TextThread => "zed-custom Agent".into(),
             Self::Gemini => "Gemini CLI".into(),
             Self::ClaudeCode => "Claude Code".into(),
             Self::Codex => "Codex".into(),
@@ -440,6 +441,7 @@ pub struct AgentPanel {
     onboarding: Entity<AgentPanelOnboarding>,
     selected_agent: AgentType,
     show_trust_workspace_message: bool,
+    user_slash_commands: Option<Entity<prompt_store::user_slash_command::UserSlashCommandRegistry>>,
 }
 
 impl AgentPanel {
@@ -463,13 +465,13 @@ impl AgentPanel {
     pub fn load(
         workspace: WeakEntity<Workspace>,
         prompt_builder: Arc<PromptBuilder>,
-        mut cx: AsyncWindowContext,
+        cx: AsyncWindowContext,
     ) -> Task<Result<Entity<Self>>> {
-        let prompt_store = cx.update(|_window, cx| PromptStore::global(cx));
         cx.spawn(async move |cx| {
-            let prompt_store = match prompt_store {
-                Ok(prompt_store) => prompt_store.await.ok(),
-                Err(_) => None,
+            let prompt_store = if let Ok(store) = cx.update(|_window, cx| PromptStore::global(cx)) {
+                store.await.ok()
+            } else {
+                None
             };
             let serialized_panel = if let Some(panel) = cx
                 .background_spawn(async move { KEY_VALUE_STORE.read_kvp(AGENT_PANEL_KEY) })
@@ -603,6 +605,19 @@ impl AgentPanel {
                 .ok();
         });
 
+        let user_slash_commands = if cx.has_flag::<feature_flags::UserSlashCommandsFeatureFlag>() {
+            let worktree_roots: Vec<std::path::PathBuf> = project
+                .read(cx)
+                .visible_worktrees(cx)
+                .map(|worktree| worktree.read(cx).abs_path().to_path_buf())
+                .collect();
+            Some(cx.new(|cx| {
+                prompt_store::user_slash_command::UserSlashCommandRegistry::new(fs.clone(), worktree_roots, cx)
+            }))
+        } else {
+            None
+        };
+
         let onboarding = cx.new(|cx| {
             AgentPanelOnboarding::new(
                 user_store.clone(),
@@ -640,6 +655,7 @@ impl AgentPanel {
             language_registry,
             text_thread_store,
             prompt_store,
+            user_slash_commands,
             configuration: None,
             configuration_subscription: None,
             focus_handle: cx.focus_handle(),
@@ -769,7 +785,7 @@ impl AgentPanel {
     }
 
     fn new_text_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        telemetry::event!("Agent Thread Started", agent = "zed-text");
+        telemetry::event!("Agent Thread Started", agent = "zed_custom-text");
 
         let context = self
             .text_thread_store
@@ -893,11 +909,11 @@ impl AgentPanel {
 
     fn deploy_rules_library(
         &mut self,
-        action: &OpenRulesLibrary,
+        action: &OpenSkillLibrary,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let task = open_rules_library(
+        let task = open_skill_library(
             self.language_registry.clone(),
             Box::new(PromptLibraryInlineAssist::new(self.workspace.clone())),
             Rc::new(|| {
@@ -910,6 +926,7 @@ impl AgentPanel {
             action
                 .prompt_to_select
                 .map(|uuid| UserPromptId(uuid).into()),
+            self.user_slash_commands.clone(),
             cx,
         );
 
@@ -918,7 +935,7 @@ impl AgentPanel {
                 if let Err(err) = task.await {
                     let msg = "Failed to open the Rules Library.";
                     let detail = format!(
-                        "{} This can happen if you lack write permissions to `~/.config/zed` \
+                        "{} This can happen if you lack write permissions to `~/.config/zed_custom` \
                         or if it's placed on an unsupported network drive.\n\n\
                         Error: {}",
                         msg,
@@ -2112,16 +2129,16 @@ impl AgentPanel {
                             .header("MCP Servers")
                             .action(
                                 "View Server Extensions",
-                                Box::new(zed_actions::Extensions {
+                                Box::new(zed_custom_actions::Extensions {
                                     category_filter: Some(
-                                        zed_actions::ExtensionCategoryFilter::ContextServers,
+                                        zed_custom_actions::ExtensionCategoryFilter::ContextServers,
                                     ),
                                     id: None,
                                 }),
                             )
                             .action("Add Custom Server…", Box::new(AddContextServer))
                             .separator()
-                            .action("Rules", Box::new(OpenRulesLibrary::default()))
+                            .action("Skill Library", Box::new(OpenSkillLibrary::default()))
                             .action("Profiles", Box::new(ManageProfiles::default()))
                             .action("Settings", Box::new(OpenSettings))
                             .separator()
@@ -2277,7 +2294,7 @@ impl AgentPanel {
                                 }
                             })
                             .item(
-                                ContextMenuEntry::new("Zed Agent")
+                                ContextMenuEntry::new("zed-custom Agent")
                                     .when(
                                         is_agent_selected(AgentType::NativeAgent)
                                             | is_agent_selected(AgentType::TextThread),
@@ -2508,7 +2525,7 @@ impl AgentPanel {
                                     .handler({
                                         move |window, cx| {
                                             window.dispatch_action(
-                                                Box::new(zed_actions::AcpRegistry),
+                                                Box::new(zed_custom_actions::AcpRegistry),
                                                 cx,
                                             )
                                         }
@@ -2586,6 +2603,16 @@ impl AgentPanel {
                     .pl(DynamicSpacing::Base04.rems(cx))
                     .pr(DynamicSpacing::Base06.rems(cx))
                     .child(new_thread_menu)
+                    .child(
+                        IconButton::new("skill_library", IconName::Library)
+                            .icon_size(IconSize::Small)
+                            .tooltip(move |_, cx| {
+                                Tooltip::for_action("Skill Library", &OpenSkillLibrary::default(), cx)
+                            })
+                            .on_click(|_, window, cx| {
+                                window.dispatch_action(Box::new(OpenSkillLibrary::default()), cx);
+                            }),
+                    )
                     .when(show_history_menu, |this| {
                         this.child(self.render_recent_entries_menu(
                             IconName::MenuAltTemp,
@@ -2736,7 +2763,7 @@ impl AgentPanel {
                 .when(border_bottom, |this| {
                     this.border_position(ui::BorderPosition::Bottom)
                 })
-                .title("Sign in to continue using Zed as your LLM provider.")
+                .title("Sign in to continue using zed-custom as your LLM provider.")
                 .actions_slot(
                     Button::new("sign_in", "Sign In")
                         .style(ButtonStyle::Tinted(ui::TintColor::Warning))
@@ -3072,7 +3099,7 @@ impl rules_library::InlineAssistDelegate for PromptLibraryInlineAssist {
         prompt_editor: &Entity<Editor>,
         initial_prompt: Option<String>,
         window: &mut Window,
-        cx: &mut Context<RulesLibrary>,
+        cx: &mut Context<SkillLibrary>,
     ) {
         InlineAssistant::update_global(cx, |assistant, cx| {
             let Some(workspace) = self.workspace.upgrade() else {

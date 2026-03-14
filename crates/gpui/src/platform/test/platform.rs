@@ -466,10 +466,10 @@ struct TestKeyboardLayout;
 
 impl PlatformKeyboardLayout for TestKeyboardLayout {
     fn id(&self) -> &str {
-        "zed.keyboard.example"
+        "zed_custom.keyboard.example"
     }
 
     fn name(&self) -> &str {
-        "zed.keyboard.example"
+        "zed_custom.keyboard.example"
     }
 }

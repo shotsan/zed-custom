@@ -230,7 +230,7 @@ dependencies = [
  "web_search",
  "workspace",
  "worktree",
- "zed_env_vars",
+ "zed-custom-env-vars",
  "zlog",
  "zstd",
 ]
@@ -435,7 +435,7 @@ dependencies = [
  "uuid",
  "watch",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -512,7 +512,7 @@ dependencies = [
  "smallvec",
  "telemetry",
  "ui",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -941,7 +941,7 @@ dependencies = [
  "util",
  "uuid",
  "workspace",
- "zed_env_vars",
+ "zed-custom-env-vars",
 ]
 
 [[package]]
@@ -3506,7 +3506,7 @@ dependencies = [
  "uuid",
  "workspace",
  "worktree",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -3619,7 +3619,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -4789,7 +4789,7 @@ dependencies = [
  "sqlez_macros",
  "tempfile",
  "util",
- "zed_env_vars",
+ "zed-custom-env-vars",
 ]
 
 [[package]]
@@ -4889,7 +4889,7 @@ dependencies = [
  "unindent",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -5088,7 +5088,7 @@ dependencies = [
  "unindent",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -5449,7 +5449,7 @@ dependencies = [
  "uuid",
  "workspace",
  "worktree",
- "zed_actions",
+ "zed-custom-actions",
  "zeta_prompt",
  "zlog",
 ]
@@ -5595,7 +5595,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zeta_prompt",
  "zlog",
 ]
@@ -5680,7 +5680,7 @@ dependencies = [
  "uuid",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
  "ztracing",
 ]
@@ -6269,7 +6269,7 @@ dependencies = [
  "util",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -6368,7 +6368,7 @@ dependencies = [
  "urlencoding",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -6407,7 +6407,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -7443,7 +7443,7 @@ dependencies = [
  "watch",
  "windows 0.61.3",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zeroize",
  "zlog",
  "ztracing",
@@ -8624,7 +8624,7 @@ dependencies = [
  "util",
  "util_macros",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -9055,7 +9055,7 @@ dependencies = [
  "ui_input",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -9223,7 +9223,7 @@ dependencies = [
  "smol",
  "thiserror 2.0.17",
  "util",
- "zed_env_vars",
+ "zed-custom-env-vars",
 ]
 
 [[package]]
@@ -9346,7 +9346,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -10025,7 +10025,7 @@ dependencies = [
  "urlencoding",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -10371,7 +10371,7 @@ dependencies = [
  "smol",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -10760,7 +10760,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -11248,7 +11248,7 @@ dependencies = [
  "util",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -11517,7 +11517,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -11549,7 +11549,7 @@ dependencies = [
  "util",
  "workspace",
  "worktree",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -12459,7 +12459,7 @@ dependencies = [
  "ui",
  "ui_input",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -12565,7 +12565,7 @@ dependencies = [
  "ui",
  "windows 0.61.3",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -13049,7 +13049,7 @@ dependencies = [
  "util",
  "workspace",
  "worktree",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -13738,7 +13738,7 @@ dependencies = [
  "windows-registry 0.6.1",
  "workspace",
  "worktree",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -14371,6 +14371,8 @@ dependencies = [
  "anyhow",
  "collections",
  "editor",
+ "fs",
+ "fuzzy",
  "gpui",
  "language",
  "language_model",
@@ -14388,7 +14390,7 @@ dependencies = [
  "ui_input",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -15054,7 +15056,7 @@ dependencies = [
  "util",
  "util_macros",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "ztracing",
 ]
 
@@ -15413,7 +15415,7 @@ dependencies = [
  "theme",
  "ui",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -15462,7 +15464,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -16484,7 +16486,7 @@ dependencies = [
  "multi_buffer",
  "ui",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -16963,7 +16965,7 @@ dependencies = [
  "sha2",
  "shellexpand 2.1.2",
  "util",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -16989,7 +16991,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -17121,7 +17123,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -17218,7 +17220,7 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -17460,7 +17462,7 @@ dependencies = [
  "util",
  "windows 0.61.3",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -18844,7 +18846,7 @@ dependencies = [
  "util_macros",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
+ "zed-custom-actions",
 ]
 
 [[package]]
@@ -20868,7 +20870,7 @@ dependencies = [
  "util",
  "uuid",
  "windows 0.61.3",
- "zed_actions",
+ "zed-custom-actions",
  "zlog",
 ]
 
@@ -21262,7 +21264,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zed"
+name = "zed-custom"
 version = "0.224.1"
 dependencies = [
  "acp_thread",
@@ -21425,12 +21427,29 @@ dependencies = [
  "windows 0.61.3",
  "winresource",
  "workspace",
+ "zed-custom-actions",
+ "zed-custom-env-vars",
  "zed-reqwest",
- "zed_actions",
- "zed_env_vars",
  "zlog",
  "zlog_settings",
  "ztracing",
+]
+
+[[package]]
+name = "zed-custom-actions"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "schemars",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "zed-custom-env-vars"
+version = "0.1.0"
+dependencies = [
+ "gpui",
 ]
 
 [[package]]
@@ -21541,20 +21560,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "zed_actions"
-version = "0.1.0"
+name = "zed_custom_extension_api"
+version = "0.8.0"
 dependencies = [
- "gpui",
- "schemars",
  "serde",
- "uuid",
-]
-
-[[package]]
-name = "zed_env_vars"
-version = "0.1.0"
-dependencies = [
- "gpui",
+ "serde_json",
+ "wit-bindgen 0.41.0",
 ]
 
 [[package]]
@@ -21573,15 +21584,6 @@ name = "zed_extension_api"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0729d50b4ca0a7e28e590bbe32e3ca0194d97ef654961451a424c661a366fca0"
-dependencies = [
- "serde",
- "serde_json",
- "wit-bindgen 0.41.0",
-]
-
-[[package]]
-name = "zed_extension_api"
-version = "0.8.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -21613,7 +21615,7 @@ dependencies = [
 name = "zed_test_extension"
 version = "0.1.0"
 dependencies = [
- "zed_extension_api 0.8.0",
+ "zed_custom_extension_api",
 ]
 
 [[package]]

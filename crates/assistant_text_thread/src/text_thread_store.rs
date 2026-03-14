@@ -25,7 +25,7 @@ use rpc::AnyProtoClient;
 use std::sync::LazyLock;
 use std::{cmp::Reverse, ffi::OsStr, mem, path::Path, sync::Arc, time::Duration};
 use util::{ResultExt, TryFutureExt};
-use zed_env_vars::ZED_STATELESS;
+use zed_custom_env_vars::ZED_STATELESS;
 
 pub(crate) fn init(client: &AnyProtoClient) {
     client.add_entity_message_handler(TextThreadStore::handle_advertise_contexts);
@@ -836,7 +836,7 @@ impl TextThreadStore {
                 }
 
                 static ASSISTANT_CONTEXT_REGEX: LazyLock<Regex> =
-                    LazyLock::new(|| Regex::new(r" - \d+.zed.json$").unwrap());
+                    LazyLock::new(|| Regex::new(r" - \d+.zed_custom.json$").unwrap());
 
                 let metadata = fs.metadata(&path).await?;
                 if let Some((file_name, metadata)) = path
@@ -995,17 +995,17 @@ mod tests {
         let now = chrono::Local::now();
         let older = SavedTextThreadMetadata {
             title: "older".into(),
-            path: Arc::from(PathBuf::from("/root/older.zed.json")),
+            path: Arc::from(PathBuf::from("/root/older.zed_custom.json")),
             mtime: now - chrono::TimeDelta::days(1),
         };
         let middle = SavedTextThreadMetadata {
             title: "middle".into(),
-            path: Arc::from(PathBuf::from("/root/middle.zed.json")),
+            path: Arc::from(PathBuf::from("/root/middle.zed_custom.json")),
             mtime: now - chrono::TimeDelta::hours(1),
         };
         let newer = SavedTextThreadMetadata {
             title: "newer".into(),
-            path: Arc::from(PathBuf::from("/root/newer.zed.json")),
+            path: Arc::from(PathBuf::from("/root/newer.zed_custom.json")),
             mtime: now,
         };
 
@@ -1038,7 +1038,7 @@ mod tests {
         store.update(cx, |store, _| {
             store.text_threads_metadata = vec![SavedTextThreadMetadata {
                 title: "thread".into(),
-                path: Arc::from(PathBuf::from("/root/thread.zed.json")),
+                path: Arc::from(PathBuf::from("/root/thread.zed_custom.json")),
                 mtime: chrono::Local::now(),
             }];
         });
@@ -1053,8 +1053,8 @@ mod tests {
         let fs = FakeFs::new(cx.background_executor.clone());
         fs.insert_tree("/root", json!({})).await;
 
-        let thread_a = PathBuf::from("/root/thread-a.zed.json");
-        let thread_b = PathBuf::from("/root/thread-b.zed.json");
+        let thread_a = PathBuf::from("/root/thread-a.zed_custom.json");
+        let thread_b = PathBuf::from("/root/thread-b.zed_custom.json");
         fs.touch_path(&thread_a).await;
         fs.touch_path(&thread_b).await;
 

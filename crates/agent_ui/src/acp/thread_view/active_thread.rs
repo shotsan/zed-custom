@@ -1040,10 +1040,10 @@ impl ActiveThreadState {
 
     pub fn refresh_cached_user_commands_from_registry(
         &mut self,
-        registry: &Entity<SlashCommandRegistry>,
+        registry: &Entity<UserSlashCommandRegistry>,
         cx: &App,
     ) {
-        let (mut commands, mut errors) = registry.read_with(cx, |registry, _| {
+        let (mut commands, mut errors) = registry.read_with(cx, |registry: &UserSlashCommandRegistry, _| {
             (registry.commands().clone(), registry.errors().to_vec())
         });
         let server_command_names = self

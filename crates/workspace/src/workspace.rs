@@ -132,7 +132,7 @@ pub use workspace_settings::{
     AutosaveSetting, BottomDockLayout, RestoreOnStartupBehavior, StatusBarSettings, TabBarSettings,
     WorkspaceSettings,
 };
-use zed_actions::{Spawn, feedback::FileBugReport};
+use zed_custom_actions::{Spawn, feedback::FileBugReport};
 
 use crate::{
     item::ItemBufferKind,
@@ -5294,7 +5294,7 @@ impl Workspace {
 
             let Some(task) = task else {
                 anyhow::bail!(
-                    "failed to construct view from leader (maybe from a different version of zed?)"
+                    "failed to construct view from leader (maybe from a different version of zed_custom?)"
                 );
             };
 
@@ -7869,7 +7869,7 @@ actions!(
         /// Use `collab_panel::OpenSelectedChannelNotes` to open the channel notes for the selected
         /// channel in the collab panel.
         ///
-        /// If you want to open a specific channel, use `zed::OpenZedUrl` with a channel notes URL -
+        /// If you want to open a specific channel, use `zed_custom::OpenZedUrl` with a channel notes URL -
         /// can be copied via "Copy link to section" in the context menu of the channel notes
         /// buffer. These URLs look like `https://zed.dev/channel/channel-name-CHANNEL_ID/notes`.
         OpenChannelNotes,
@@ -7887,8 +7887,7 @@ actions!(
         CopyRoomId,
     ]
 );
-actions!(
-    zed,
+actions!(zed,
     [
         /// Opens the Zed log file.
         OpenLog,
@@ -8096,7 +8095,7 @@ pub fn join_channel(
                         let detail: SharedString = match err.error_code() {
                             ErrorCode::SignedOut => "Please sign in to continue.".into(),
                             ErrorCode::UpgradeRequired => concat!(
-                                "Your are running an unsupported version of Zed. ",
+                                "Your are running an unsupported version of zed-custom. ",
                                 "Please update to continue."
                             )
                             .into(),
@@ -8143,7 +8142,7 @@ pub async fn get_any_active_workspace(
         cx.update(|cx| Workspace::new_local(vec![], app_state.clone(), None, None, None, cx))
             .await?;
     }
-    activate_any_workspace_window(&mut cx).context("could not open zed")
+    activate_any_workspace_window(&mut cx).context("could not open zed_custom")
 }
 
 fn activate_any_workspace_window(cx: &mut AsyncApp) -> Option<WindowHandle<Workspace>> {

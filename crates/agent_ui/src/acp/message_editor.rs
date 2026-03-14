@@ -40,7 +40,7 @@ use theme::ThemeSettings;
 use ui::{ButtonLike, ButtonStyle, ContextMenu, Disclosure, ElevationIndex, prelude::*};
 use util::{ResultExt, debug_panic};
 use workspace::{CollaboratorId, Workspace};
-use zed_actions::agent::{Chat, PasteRaw};
+use zed_custom_actions::agent::{Chat, PasteRaw};
 
 enum UserSlashCommands {
     Cached {
@@ -1654,7 +1654,7 @@ mod tests {
         fs.insert_tree(
             "/test",
             json!({
-                ".zed": {
+                ".zed_custom": {
                     "tasks.json": r#"[{"label": "test", "command": "echo"}]"#
                 },
                 "src": {

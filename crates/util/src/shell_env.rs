@@ -94,7 +94,7 @@ async fn capture_unix(
         String::from_utf8_lossy(&process_output.stderr),
     );
 
-    // Parse the JSON output from zed --printenv
+    // Parse the JSON output from zed_custom --printenv
     let env_map: collections::HashMap<String, String> = serde_json::from_str(&env_output)
         .with_context(|| {
             format!("Failed to deserialize environment variables from json: {env_output}")
@@ -138,7 +138,7 @@ async fn capture_windows(
     use std::process::Stdio;
 
     let zed_path =
-        std::env::current_exe().context("Failed to determine current zed executable path.")?;
+        std::env::current_exe().context("Failed to determine current zed_custom executable path.")?;
 
     let shell_kind = ShellKind::new(shell_path, true);
     let mut cmd = crate::command::new_smol_command(shell_path);
@@ -214,7 +214,7 @@ async fn capture_windows(
     );
     let env_output = String::from_utf8_lossy(&output.stdout);
 
-    // Parse the JSON output from zed --printenv
+    // Parse the JSON output from zed_custom --printenv
     serde_json::from_str(&env_output).with_context(|| {
         format!("Failed to deserialize environment variables from json: {env_output}")
     })

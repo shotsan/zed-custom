@@ -25,7 +25,7 @@ use util::{ResultExt as _, debug_panic, maybe, paths::PathExt, shell::ShellKind}
 /// Path to the program used for askpass
 ///
 /// On Unix and remote servers, this defaults to the current executable
-/// On Windows, this is set to the CLI variant of zed
+/// On Windows, this is set to the CLI variant of zed_custom
 static ASKPASS_PROGRAM: OnceLock<std::path::PathBuf> = OnceLock::new();
 
 #[derive(PartialEq, Eq)]
@@ -198,11 +198,11 @@ impl PasswordProxy {
         + Sync,
         executor: BackgroundExecutor,
     ) -> Result<Self> {
-        let temp_dir = tempfile::Builder::new().prefix("zed-askpass").tempdir()?;
+        let temp_dir = tempfile::Builder::new().prefix("zed_custom-askpass").tempdir()?;
         let askpass_socket = temp_dir.path().join("askpass.sock");
         let askpass_script_path = temp_dir.path().join(ASKPASS_SCRIPT_NAME);
         let current_exec =
-            std::env::current_exe().context("Failed to determine current zed executable path.")?;
+            std::env::current_exe().context("Failed to determine current zed_custom executable path.")?;
 
         // TODO: inferred from the use of powershell.exe in askpass_helper_script
         let shell_kind = if cfg!(windows) {
@@ -287,7 +287,7 @@ impl PasswordProxy {
     }
 }
 /// The main function for when Zed is running in netcat mode for use in askpass.
-/// Called from both the remote server binary and the zed binary in their respective main functions.
+/// Called from both the remote server binary and the zed_custom binary in their respective main functions.
 pub fn main(socket: &str) {
     use net::UnixStream;
     use std::io::{self, Read, Write};

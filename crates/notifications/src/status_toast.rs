@@ -3,7 +3,7 @@ use std::rc::Rc;
 use gpui::{DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, IntoElement};
 use ui::{Tooltip, prelude::*};
 use workspace::{ToastAction, ToastView};
-use zed_actions::toast;
+use zed_custom_actions::toast;
 
 #[derive(Clone, Copy)]
 pub struct ToastIcon {
@@ -186,12 +186,12 @@ impl Component for StatusToast {
             |this, _| this.icon(ToastIcon::new(IconName::Check).color(Color::Muted)),
         );
 
-        let success_example = StatusToast::new("Pushed 4 changes to `zed/main`", cx, |this, _| {
+        let success_example = StatusToast::new("Pushed 4 changes to `zed_custom/main`", cx, |this, _| {
             this.icon(ToastIcon::new(IconName::Check).color(Color::Success))
         });
 
         let error_example = StatusToast::new(
-            "git push: Couldn't find remote origin `iamnbutler/zed`",
+            "git push: Couldn't find remote origin `iamnbutler/zed_custom`",
             cx,
             |this, _cx| {
                 this.icon(ToastIcon::new(IconName::XCircle).color(Color::Error))
@@ -205,7 +205,7 @@ impl Component for StatusToast {
         });
 
         let pr_example =
-            StatusToast::new("`zed/new-notification-system` created!", cx, |this, _cx| {
+            StatusToast::new("`zed_custom/new-notification-system` created!", cx, |this, _cx| {
                 this.icon(ToastIcon::new(IconName::GitBranchAlt).color(Color::Muted))
                     .action("Open Pull Request", |_, cx| {
                         cx.open_url("https://github.com/")

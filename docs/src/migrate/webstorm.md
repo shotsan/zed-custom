@@ -1,32 +1,32 @@
-# How to Migrate from WebStorm to Zed
+# How to Migrate from WebStorm to zed-custom
 
-This guide covers how to set up Zed if you're coming from WebStorm, including keybindings, settings, and the differences you should expect as a JavaScript/TypeScript developer.
+This guide covers how to set up zed-custom if you're coming from WebStorm, including keybindings, settings, and the differences you should expect as a JavaScript/TypeScript developer.
 
-## Install Zed
+## Install zed-custom
 
-Zed is available on macOS, Windows, and Linux.
+zed-custom is available on macOS, Windows, and Linux.
 
 For macOS, you can download it from zed.dev/download, or install via Homebrew:
 
 ```sh
-brew install --cask zed
+brew install --cask zed-custom
 ```
 
 For Windows, download the installer from zed.dev/download, or install via winget:
 
 ```sh
-winget install Zed.Zed
+winget install zed-custom.zed-custom
 ```
 
-For most Linux users, the easiest way to install Zed is through our installation script:
+For most Linux users, the easiest way to install zed-custom is through our installation script:
 
 ```sh
 curl -f https://zed.dev/install.sh | sh
 ```
 
-After installation, you can launch Zed from your Applications folder (macOS), Start menu (Windows), or directly from the terminal using:
-`zed .`
-This opens the current directory in Zed.
+After installation, you can launch zed-custom from your Applications folder (macOS), Start menu (Windows), or directly from the terminal using:
+`zed-custom .`
+This opens the current directory in zed-custom.
 
 ## Set Up the JetBrains Keymap
 
@@ -53,11 +53,11 @@ You can configure settings manually in the Settings Editor.
 To edit your settings:
 
 1. `Cmd+,` to open the Settings Editor.
-2. Run `zed: open settings` in the Command Palette.
+2. Run `zed-custom: open settings` in the Command Palette.
 
 Settings WebStorm users typically configure first:
 
-| Zed Setting             | What it does                                                                    |
+| zed-custom Setting             | What it does                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------- |
 | `format_on_save`        | Auto-format when saving. Set to `"on"` to enable.                               |
 | `soft_wrap`             | Wrap long lines. Options: `"none"`, `"editor_width"`, `"preferred_line_length"` |
@@ -65,18 +65,18 @@ Settings WebStorm users typically configure first:
 | `inlay_hints`           | Show parameter names and type hints inline, like WebStorm's hints.              |
 | `relative_line_numbers` | Useful if you're coming from IdeaVim.                                           |
 
-Zed also supports per-project settings. Create a `.zed/settings.json` file in your project root to override global settings for that project, similar to how you might use `.idea` folders in WebStorm.
+zed-custom also supports per-project settings. Create a `.zed-custom/settings.json` file in your project root to override global settings for that project, similar to how you might use `.idea` folders in WebStorm.
 
 > **Tip:** If you're joining an existing project, check `format_on_save` before making your first commit. Otherwise you might accidentally reformat an entire file when you only meant to change one line.
 
 ## Open or Create a Project
 
-After setup, press `Cmd+Shift+O` (with JetBrains keymap) to open a folder. This becomes your workspace in Zed. Unlike WebStorm, there's no project configuration wizard, no framework selection dialog, and no project structure setup required.
+After setup, press `Cmd+Shift+O` (with JetBrains keymap) to open a folder. This becomes your workspace in zed-custom. Unlike WebStorm, there's no project configuration wizard, no framework selection dialog, and no project structure setup required.
 
-To start a new project, create a directory using your terminal or file manager, then open it in Zed. The editor will treat that folder as the root of your project. For new projects, you'd typically run `npm init`, `pnpm create`, or your framework's CLI tool first, then open the resulting folder in Zed.
+To start a new project, create a directory using your terminal or file manager, then open it in zed-custom. The editor will treat that folder as the root of your project. For new projects, you'd typically run `npm init`, `pnpm create`, or your framework's CLI tool first, then open the resulting folder in zed-custom.
 
-You can also launch Zed from the terminal inside any folder with:
-`zed .`
+You can also launch zed-custom from the terminal inside any folder with:
+`zed-custom .`
 
 Once inside a project:
 
@@ -88,7 +88,7 @@ Open buffers appear as tabs across the top. The sidebar shows your file tree and
 
 ## Differences in Keybindings
 
-If you chose the JetBrains keymap during onboarding, most of your shortcuts should already feel familiar. Here's a quick reference for how Zed compares to WebStorm.
+If you chose the JetBrains keymap during onboarding, most of your shortcuts should already feel familiar. Here's a quick reference for how zed-custom compares to WebStorm.
 
 ### Common Shared Keybindings
 
@@ -113,9 +113,9 @@ If you chose the JetBrains keymap during onboarding, most of your shortcuts shou
 | Go Back / Forward             | `Cmd + [` / `Cmd + ]`   |
 | Toggle Breakpoint             | `Ctrl + F8`             |
 
-### Different Keybindings (WebStorm → Zed)
+### Different Keybindings (WebStorm → zed-custom)
 
-| Action                 | WebStorm    | Zed (JetBrains keymap)   |
+| Action                 | WebStorm    | zed-custom (JetBrains keymap)   |
 | ---------------------- | ----------- | ------------------------ |
 | File Structure         | `Cmd + F12` | `Cmd + F12` (outline)    |
 | Navigate to Next Error | `F2`        | `F2`                     |
@@ -123,7 +123,7 @@ If you chose the JetBrains keymap during onboarding, most of your shortcuts shou
 | Debug                  | `Ctrl + D`  | `Alt + Shift + F9`       |
 | Stop                   | `Cmd + F2`  | `Ctrl + F2`              |
 
-### Unique to Zed
+### Unique to zed-custom
 
 | Action            | Shortcut                   | Notes                          |
 | ----------------- | -------------------------- | ------------------------------ |
@@ -133,11 +133,11 @@ If you chose the JetBrains keymap during onboarding, most of your shortcuts shou
 ### How to Customize Keybindings
 
 - Open the Command Palette (`Cmd+Shift+A` or `Shift Shift`)
-- Run `Zed: Open Keymap Editor`
+- Run `zed-custom: Open Keymap Editor`
 
 This opens a list of all available bindings. You can override individual shortcuts or remove conflicts.
 
-Zed also supports key sequences (multi-key shortcuts).
+zed-custom also supports key sequences (multi-key shortcuts).
 
 ## Differences in User Interfaces
 
@@ -145,9 +145,9 @@ Zed also supports key sequences (multi-key shortcuts).
 
 If you've used WebStorm on large projects, you know the wait. Opening a project with many dependencies can mean watching "Indexing..." for anywhere from 30 seconds to several minutes. WebStorm indexes your entire codebase and `node_modules` to power its code intelligence, and re-indexes when dependencies change.
 
-Zed doesn't index. You open a folder and start coding immediately—no progress bars, no "Indexing paused" banners. File search and navigation stay fast regardless of project size or how many `node_modules` dependencies you have.
+zed-custom doesn't index. You open a folder and start coding immediately—no progress bars, no "Indexing paused" banners. File search and navigation stay fast regardless of project size or how many `node_modules` dependencies you have.
 
-WebStorm's index enables features like finding all usages across your entire codebase, tracking import hierarchies, and flagging unused exports project-wide. Zed relies on language servers for this analysis, which may not cover as much ground.
+WebStorm's index enables features like finding all usages across your entire codebase, tracking import hierarchies, and flagging unused exports project-wide. zed-custom relies on language servers for this analysis, which may not cover as much ground.
 
 **How to adapt:**
 
@@ -160,7 +160,7 @@ WebStorm's index enables features like finding all usages across your entire cod
 
 WebStorm has its own JavaScript and TypeScript analysis engine built by JetBrains. This engine understands your code deeply: it resolves types, tracks data flow, knows about framework-specific patterns, and offers specialized refactorings.
 
-Zed uses the Language Server Protocol (LSP) for code intelligence. For JavaScript and TypeScript, Zed supports:
+zed-custom uses the Language Server Protocol (LSP) for code intelligence. For JavaScript and TypeScript, zed-custom supports:
 
 - **vtsls** (default) — Fast TypeScript language server with excellent performance
 - **typescript-language-server** — The standard TypeScript LSP implementation
@@ -186,18 +186,18 @@ Where you might notice differences:
 
 WebStorm manages projects through `.idea` folders containing XML configuration files, framework detection, and run configurations. This model lets WebStorm remember your project settings, manage npm scripts through the UI, and persist run/debug setups.
 
-Zed takes a different approach: a project is just a folder. There's no setup wizard, no framework detection dialog, no project structure to configure.
+zed-custom takes a different approach: a project is just a folder. There's no setup wizard, no framework detection dialog, no project structure to configure.
 
 What this means in practice:
 
 - Run configurations aren't a thing. Define reusable commands in `tasks.json` instead. Note that your existing `.idea/` configurations won't carry over—you'll set up the ones you need fresh.
 - npm scripts live in the terminal. Run `npm run dev`, `pnpm build`, or `yarn test` directly—there's no dedicated npm panel.
-- No framework detection. Zed treats React, Angular, Vue, and vanilla JS/TS the same way.
+- No framework detection. zed-custom treats React, Angular, Vue, and vanilla JS/TS the same way.
 
 **How to adapt:**
 
-- Create a `.zed/settings.json` in your project root for project-specific settings
-- Define common commands in `tasks.json` (open via Command Palette: `zed: open tasks`):
+- Create a `.zed-custom/settings.json` in your project root for project-specific settings
+- Define common commands in `tasks.json` (open via Command Palette: `zed-custom: open tasks`):
 
 ```json
 [
@@ -227,22 +227,22 @@ What this means in practice:
 
 WebStorm's value for web development comes largely from its framework integration. React components get special treatment. Angular has dedicated tooling. Vue single-file components are fully understood. The npm tool window shows all your scripts.
 
-Zed has none of this built-in. The TypeScript language server sees your code as TypeScript—it doesn't understand that a function is a React component or that a file is an Angular service.
+zed-custom has none of this built-in. The TypeScript language server sees your code as TypeScript—it doesn't understand that a function is a React component or that a file is an Angular service.
 
 **How to adapt:**
 
 - Use grep and file search liberally. `Cmd+Shift+F` with a regex can find component definitions, route configurations, or API endpoints.
 - Rely on your language server's "find references" (`Alt+F7`) for navigation—it works, just without framework context
-- Consider using framework-specific CLI tools (`ng`, `next`, `vite`) from Zed's terminal
+- Consider using framework-specific CLI tools (`ng`, `next`, `vite`) from zed-custom's terminal
 - For React, JSX/TSX syntax and TypeScript types still provide good intelligence
 
-> **Tip:** For projects with complex configurations, keep your framework's documentation handy. Zed's speed comes with less hand-holding for framework-specific features.
+> **Tip:** For projects with complex configurations, keep your framework's documentation handy. zed-custom's speed comes with less hand-holding for framework-specific features.
 
 ### Tool Windows vs. Docks
 
-WebStorm organizes auxiliary views into numbered tool windows (Project = 1, npm = Alt+F11, Terminal = Alt+F12, etc.). Zed uses a similar concept called "docks":
+WebStorm organizes auxiliary views into numbered tool windows (Project = 1, npm = Alt+F11, Terminal = Alt+F12, etc.). zed-custom uses a similar concept called "docks":
 
-| WebStorm Tool Window | Zed Equivalent | Shortcut (JetBrains keymap) |
+| WebStorm Tool Window | zed-custom Equivalent | Shortcut (JetBrains keymap) |
 | -------------------- | -------------- | --------------------------- |
 | Project (1)          | Project Panel  | `Cmd + 1`                   |
 | Git (9 or Cmd+0)     | Git Panel      | `Cmd + 0`                   |
@@ -251,28 +251,28 @@ WebStorm organizes auxiliary views into numbered tool windows (Project = 1, npm 
 | Problems (6)         | Diagnostics    | `Cmd + 6`                   |
 | Debug (5)            | Debug Panel    | `Cmd + 5`                   |
 
-Zed has three dock positions: left, bottom, and right. Panels can be moved between docks by dragging or through settings.
+zed-custom has three dock positions: left, bottom, and right. Panels can be moved between docks by dragging or through settings.
 
-Note that there's no dedicated npm tool window in Zed. Use the terminal or define tasks for your common npm scripts.
+Note that there's no dedicated npm tool window in zed-custom. Use the terminal or define tasks for your common npm scripts.
 
 ### Debugging
 
-Both WebStorm and Zed offer integrated debugging for JavaScript and TypeScript:
+Both WebStorm and zed-custom offer integrated debugging for JavaScript and TypeScript:
 
-- Zed uses `vscode-js-debug` (the same debug adapter that VS Code uses)
+- zed-custom uses `vscode-js-debug` (the same debug adapter that VS Code uses)
 - Set breakpoints with `Ctrl+F8`
 - Start debugging with `Alt+Shift+F9` or press `F4` and select a debug target
 - Step through code with `F7` (step into), `F8` (step over), `Shift+F8` (step out)
 - Continue execution with `F9`
 
-Zed can debug:
+zed-custom can debug:
 
 - Node.js applications and scripts
 - Chrome/browser JavaScript
 - Jest, Mocha, Vitest, and other test frameworks
 - Next.js (both server and client-side)
 
-For more control, create a `.zed/debug.json` file:
+For more control, create a `.zed-custom/debug.json` file:
 
 ```json
 [
@@ -297,17 +297,17 @@ For more control, create a `.zed/debug.json` file:
 ]
 ```
 
-Zed also recognizes `.vscode/launch.json` configurations, so existing VS Code debug setups often work out of the box.
+zed-custom also recognizes `.vscode/launch.json` configurations, so existing VS Code debug setups often work out of the box.
 
 ### Running Tests
 
-WebStorm has a dedicated test runner with a visual interface showing pass/fail status for each test. Zed provides test running through:
+WebStorm has a dedicated test runner with a visual interface showing pass/fail status for each test. zed-custom provides test running through:
 
 - **Gutter icons** — Click the play button next to test functions or describe blocks
 - **Tasks** — Define test commands in `tasks.json`
 - **Terminal** — Run `npm test`, `jest`, `vitest`, etc. directly
 
-Zed supports auto-detection for common test frameworks:
+zed-custom supports auto-detection for common test frameworks:
 
 - Jest
 - Mocha
@@ -322,14 +322,14 @@ The test output appears in the terminal panel. For Jest, use `--verbose` for det
 
 WebStorm has a plugin ecosystem covering additional language support, themes, and tool integrations.
 
-Zed's extension ecosystem is smaller and more focused:
+zed-custom's extension ecosystem is smaller and more focused:
 
 - Language support and syntax highlighting
 - Themes
 - Slash commands for AI
 - Context servers
 
-Several features that require plugins in WebStorm are built into Zed:
+Several features that require plugins in WebStorm are built into zed-custom:
 
 - Real-time collaboration with voice chat
 - AI coding assistance
@@ -339,9 +339,9 @@ Several features that require plugins in WebStorm are built into Zed:
 - Prettier formatting
 - ESLint integration
 
-### What's Not in Zed
+### What's Not in zed-custom
 
-To set expectations clearly, here's what WebStorm offers that Zed doesn't have:
+To set expectations clearly, here's what WebStorm offers that zed-custom doesn't have:
 
 - **npm tool window** — Use the terminal or tasks instead
 - **HTTP Client** — Use tools like Postman, Insomnia, or curl
@@ -351,9 +351,9 @@ To set expectations clearly, here's what WebStorm offers that Zed doesn't have:
 - **Built-in REST client** — Use external tools or extensions
 - **Profiler integration** — Use Chrome DevTools or Node.js profiling tools
 
-## Collaboration in Zed vs. WebStorm
+## Collaboration in zed-custom vs. WebStorm
 
-WebStorm offers Code With Me as a separate feature for collaboration. Zed has collaboration built into the core experience.
+WebStorm offers Code With Me as a separate feature for collaboration. zed-custom has collaboration built into the core experience.
 
 - Open the Collab Panel in the left dock
 - Create a channel and [invite your collaborators](https://zed.dev/docs/collaboration#inviting-a-collaborator) to join
@@ -361,9 +361,9 @@ WebStorm offers Code With Me as a separate feature for collaboration. Zed has co
 
 Once connected, you'll see each other's cursors, selections, and edits in real time. Voice chat is included. There's no need for separate tools or third-party logins.
 
-## Using AI in Zed
+## Using AI in zed-custom
 
-If you're used to AI assistants in WebStorm (like GitHub Copilot, JetBrains AI Assistant, or Junie), Zed offers similar capabilities with more flexibility.
+If you're used to AI assistants in WebStorm (like GitHub Copilot, JetBrains AI Assistant, or Junie), zed-custom offers similar capabilities with more flexibility.
 
 ### Configuring GitHub Copilot
 
@@ -372,19 +372,19 @@ If you're used to AI assistants in WebStorm (like GitHub Copilot, JetBrains AI A
 3. Click **Configure** next to "Configure Providers"
 4. Under **GitHub Copilot**, click **Sign in to GitHub**
 
-Once signed in, just start typing. Zed will offer suggestions inline for you to accept.
+Once signed in, just start typing. zed-custom will offer suggestions inline for you to accept.
 
 ### Additional AI Options
 
-To use other AI models in Zed, you have several options:
+To use other AI models in zed-custom, you have several options:
 
-- Use Zed's hosted models, with higher rate limits. Requires [authentication](https://zed.dev/docs/accounts.html) and subscription to [Zed Pro](https://zed.dev/docs/ai/subscription.html).
+- Use zed-custom's hosted models, with higher rate limits. Requires [authentication](https://zed.dev/docs/accounts.html) and subscription to [zed-custom Pro](https://zed.dev/docs/ai/subscription.html).
 - Bring your own [API keys](https://zed.dev/docs/ai/llm-providers.html), no authentication needed
 - Use [external agents like Claude Code](https://zed.dev/docs/ai/external-agents.html)
 
 ## Advanced Config and Productivity Tweaks
 
-Zed exposes advanced settings for power users who want to fine-tune their environment.
+zed-custom exposes advanced settings for power users who want to fine-tune their environment.
 
 Here are a few useful tweaks for JavaScript/TypeScript developers:
 
@@ -444,12 +444,12 @@ In your `tsconfig.json`, enable strict mode for better type checking:
 
 ## Next Steps
 
-Now that you're set up, here are some resources to help you get the most out of Zed:
+Now that you're set up, here are some resources to help you get the most out of zed-custom:
 
 - [All Settings](../reference/all-settings.md) — Customize settings, themes, and editor behavior
 - [Key Bindings](../key-bindings.md) — Learn how to customize and extend your keymap
 - [Tasks](../tasks.md) — Set up build and run commands for your projects
-- [AI Features](../ai/overview.md) — Explore Zed's AI capabilities beyond code completion
+- [AI Features](../ai/overview.md) — Explore zed-custom's AI capabilities beyond code completion
 - [Collaboration](../collaboration/overview.md) — Share your projects and code together in real time
-- [JavaScript in Zed](../languages/javascript.md) — JavaScript-specific setup and configuration
-- [TypeScript in Zed](../languages/typescript.md) — TypeScript-specific setup and configuration
+- [JavaScript in zed-custom](../languages/javascript.md) — JavaScript-specific setup and configuration
+- [TypeScript in zed-custom](../languages/typescript.md) — TypeScript-specific setup and configuration

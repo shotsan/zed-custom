@@ -159,7 +159,7 @@ impl NodeRuntime {
                 Ok(instance) => {
                     log::log!(
                         log_level,
-                        "using Zed managed Node.js at {} since {}",
+                        "using zed-custom managed Node.js at {} since {}",
                         instance.installation_path.display(),
                         why_using_managed
                     );
@@ -442,7 +442,7 @@ impl ManagedNodeRuntime {
                         true
                     } else {
                         log::warn!(
-                            "Zed managed Node.js binary at {} failed check with output: {:?}",
+                            "zed-custom managed Node.js binary at {} failed check with output: {:?}",
                             node_binary.display(),
                             output
                         );

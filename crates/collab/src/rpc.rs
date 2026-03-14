@@ -1039,7 +1039,7 @@ pub struct ProtocolVersion(u32);
 impl Header for ProtocolVersion {
     fn name() -> &'static HeaderName {
         static ZED_PROTOCOL_VERSION: OnceLock<HeaderName> = OnceLock::new();
-        ZED_PROTOCOL_VERSION.get_or_init(|| HeaderName::from_static("x-zed-protocol-version"))
+        ZED_PROTOCOL_VERSION.get_or_init(|| HeaderName::from_static("x-zed_custom-protocol-version"))
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
@@ -1066,7 +1066,7 @@ pub struct AppVersionHeader(Version);
 impl Header for AppVersionHeader {
     fn name() -> &'static HeaderName {
         static ZED_APP_VERSION: OnceLock<HeaderName> = OnceLock::new();
-        ZED_APP_VERSION.get_or_init(|| HeaderName::from_static("x-zed-app-version"))
+        ZED_APP_VERSION.get_or_init(|| HeaderName::from_static("x-zed_custom-app-version"))
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
@@ -1095,7 +1095,7 @@ pub struct ReleaseChannelHeader(String);
 impl Header for ReleaseChannelHeader {
     fn name() -> &'static HeaderName {
         static ZED_RELEASE_CHANNEL: OnceLock<HeaderName> = OnceLock::new();
-        ZED_RELEASE_CHANNEL.get_or_init(|| HeaderName::from_static("x-zed-release-channel"))
+        ZED_RELEASE_CHANNEL.get_or_init(|| HeaderName::from_static("x-zed_custom-release-channel"))
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
@@ -3274,7 +3274,7 @@ async fn join_channel_internal(
 ) -> Result<()> {
     let joined_room = {
         let mut db = session.db().await;
-        // If zed quits without leaving the room, and the user re-opens zed before the
+        // If zed_custom quits without leaving the room, and the user re-opens zed_custom before the
         // RECONNECT_TIMEOUT, we need to make sure that we kick the user out of the previous
         // room they were in.
         if let Some(connection) = db.stale_room_connection(session.user_id()).await? {
@@ -3547,7 +3547,7 @@ async fn send_channel_message(
     _response: Response<proto::SendChannelMessage>,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Delete a channel message
@@ -3556,7 +3556,7 @@ async fn remove_channel_message(
     _response: Response<proto::RemoveChannelMessage>,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 async fn update_channel_message(
@@ -3564,7 +3564,7 @@ async fn update_channel_message(
     _response: Response<proto::UpdateChannelMessage>,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Mark a channel message as read
@@ -3572,7 +3572,7 @@ async fn acknowledge_channel_message(
     _request: proto::AckChannelMessage,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Mark a buffer version as synced
@@ -3600,7 +3600,7 @@ async fn join_channel_chat(
     _response: Response<proto::JoinChannelChat>,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Stop receiving chat updates for a channel
@@ -3608,7 +3608,7 @@ async fn leave_channel_chat(
     _request: proto::LeaveChannelChat,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Retrieve the chat history for a channel
@@ -3617,7 +3617,7 @@ async fn get_channel_messages(
     _response: Response<proto::GetChannelMessages>,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Retrieve specific chat messages
@@ -3626,7 +3626,7 @@ async fn get_channel_messages_by_id(
     _response: Response<proto::GetChannelMessagesById>,
     _session: MessageContext,
 ) -> Result<()> {
-    Err(anyhow!("chat has been removed in the latest version of Zed").into())
+    Err(anyhow!("chat has been removed in the latest version of zed-custom").into())
 }
 
 /// Retrieve the current users notifications

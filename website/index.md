@@ -18,6 +18,8 @@ hero:
       link: https://github.com/shotsan/zed-custom
 
 features:
+  - title: 📚 Skill Library
+    details: A modular prompt management system. Save refined prompts as "Skills" and hot-swap AI expertise (expert coding, auditing, architecture) instantly.
   - title: 🧠 Long-Term Memory
     details: Persistent SQLite database that stores project context across restarts. No more context amnesia.
   - title: ⚡ LSP Symbol Search

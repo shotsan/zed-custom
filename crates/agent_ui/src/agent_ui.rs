@@ -21,7 +21,7 @@ mod terminal_inline_assistant;
 mod text_thread_editor;
 mod text_thread_history;
 mod ui;
-mod user_slash_command;
+// mod user_slash_command; (Moved to prompt_store)
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -54,8 +54,8 @@ use crate::agent_registry_ui::AgentRegistryPage;
 pub use crate::inline_assistant::InlineAssistant;
 pub use agent_diff::{AgentDiffPane, AgentDiffToolbar};
 pub use text_thread_editor::{AgentPanelDelegate, TextThreadEditor};
-use zed_actions;
-
+use zed_custom_actions;
+pub use prompt_store::user_slash_command;
 actions!(
     agent,
     [
@@ -276,7 +276,7 @@ pub fn init(
 ) {
     agent::ThreadStore::init_global(cx);
     assistant_text_thread::init(client, cx);
-    rules_library::init(cx);
+    rules_library::init(fs.clone(), cx);
     if !is_eval {
         // Initializing the language model from the user settings messes with the eval, so we only initialize them when
         // we're not running inside of the eval.
@@ -297,7 +297,7 @@ pub fn init(
     cx.observe_new(|workspace: &mut Workspace, _window, _cx| {
         workspace.register_action(
             move |workspace: &mut Workspace,
-                  _: &zed_actions::AcpRegistry,
+                  _: &zed_custom_actions::AcpRegistry,
                   window: &mut Window,
                   cx: &mut Context<Workspace>| {
                 let existing = workspace
@@ -374,7 +374,7 @@ fn update_command_palette_filter(cx: &mut App) {
             filter.hide_namespace("edit_prediction");
 
             filter.hide_action_types(&edit_prediction_actions);
-            filter.hide_action_types(&[TypeId::of::<zed_actions::OpenZedPredictOnboarding>()]);
+            filter.hide_action_types(&[TypeId::of::<zed_custom_actions::OpenZedPredictOnboarding>()]);
         } else {
             if agent_enabled {
                 filter.show_namespace("agent");
@@ -416,9 +416,9 @@ fn update_command_palette_filter(cx: &mut App) {
             }
 
             filter.show_namespace("zed_predict_onboarding");
-            filter.show_action_types(&[TypeId::of::<zed_actions::OpenZedPredictOnboarding>()]);
+            filter.show_action_types(&[TypeId::of::<zed_custom_actions::OpenZedPredictOnboarding>()]);
             if !agent_v2_enabled {
-                filter.hide_action_types(&[TypeId::of::<zed_actions::agent::ToggleAgentPane>()]);
+                filter.hide_action_types(&[TypeId::of::<zed_custom_actions::agent::ToggleAgentPane>()]);
             }
         }
     });

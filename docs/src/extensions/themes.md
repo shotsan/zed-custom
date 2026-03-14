@@ -8,9 +8,9 @@ See [this blog post](https://zed.dev/blog/user-themes-now-in-preview) for more d
 
 ## Theme JSON Structure
 
-The structure of a Zed theme is defined in the [Zed Theme JSON Schema](https://zed.dev/schema/themes/v0.2.0.json).
+The structure of a zed-custom theme is defined in the [zed-custom Theme JSON Schema](https://zed.dev/schema/themes/v0.2.0.json).
 
-A Zed theme consists of a Theme Family object including:
+A zed-custom theme consists of a Theme Family object including:
 
 - `name`: The name for the theme family
 - `author`: The name of the author of the theme family
@@ -50,4 +50,4 @@ The core components a Theme object include:
 6. Terminal Colors:
    - ANSI color definitions for the integrated terminal
 
-We recommend looking at our [existing themes](https://github.com/zed-industries/zed/tree/main/assets/themes) to get a more comprehensive idea of what can be styled.
+We recommend looking at our [existing themes](https://github.com/zed-industries/zed-custom/tree/main/assets/themes) to get a more comprehensive idea of what can be styled.

@@ -1,6 +1,6 @@
 # Edit Prediction
 
-Edit Prediction is Zed's LLM mechanism for predicting the code you want to write.
+Edit Prediction is zed-custom's LLM mechanism for predicting the code you want to write.
 Each keystroke sends a new request to the edit prediction provider, which returns individual or multi-line suggestions that can be quickly accepted by pressing `tab`.
 
 The default provider is [Zeta, a proprietary open source and open dataset model](https://huggingface.co/zed-industries/zeta), but you can also use [other providers](#other-providers) like GitHub Copilot, Supermaven, and Codestral.
@@ -14,7 +14,7 @@ You can confirm that Zeta is properly configured either by verifying whether you
 
 ```json [settings]
 "features": {
-  "edit_prediction_provider": "zed"
+  "edit_prediction_provider": "zed-custom"
 },
 ```
 
@@ -22,13 +22,13 @@ Or you can also look for a little Z icon in the right of your status bar at the 
 
 ### Pricing and Plans
 
-From just signing in, while in Zed's free plan, you get 2,000 Zeta-powered edit predictions per month.
+From just signing in, while in zed-custom's free plan, you get 2,000 Zeta-powered edit predictions per month.
 But you can get _**unlimited edit predictions**_ by upgrading to [the Pro plan](../ai/plans-and-usage.md).
-More information can be found in [Zed's pricing page](https://zed.dev/pricing).
+More information can be found in [zed-custom's pricing page](https://zed.dev/pricing).
 
 ### Switching Modes {#switching-modes}
 
-Zed's Edit Prediction comes with two different display modes:
+zed-custom's Edit Prediction comes with two different display modes:
 
 1. `eager` (default): predictions are displayed inline as long as it doesn't conflict with language server completions
 2. `subtle`: predictions only appear inline when holding a modifier key (`alt` by default)
@@ -49,7 +49,7 @@ Or directly via the UI through the status bar menu:
 
 ### Conflict With Other `tab` Actions {#edit-predictions-conflict}
 
-By default, when `tab` would normally perform a different action, Zed requires a modifier key to accept predictions:
+By default, when `tab` would normally perform a different action, zed-custom requires a modifier key to accept predictions:
 
 1. When the language server completions menu is visible.
 2. When your cursor isn't at the right indentation level.
@@ -75,7 +75,7 @@ By default, `tab` is used to accept edit predictions. You can use another keybin
 }
 ```
 
-When there's a [conflict with the `tab` key](#edit-predictions-conflict), Zed uses a different key context to accept keybindings (`edit_prediction_conflict`).
+When there's a [conflict with the `tab` key](#edit-predictions-conflict), zed-custom uses a different key context to accept keybindings (`edit_prediction_conflict`).
 If you want to use a different one, you can insert this in your keymap:
 
 ```json [settings]
@@ -90,7 +90,7 @@ If you want to use a different one, you can insert this in your keymap:
 If your keybinding contains a modifier (`ctrl` in the example above), it will also be used to preview the edit prediction and temporarily hide the language server completion menu.
 
 You can also bind this action to keybind without a modifier.
-In that case, Zed will use the default modifier (`alt`) to preview the edit prediction.
+In that case, zed-custom will use the default modifier (`alt`) to preview the edit prediction.
 
 ```json [settings]
 {
@@ -201,7 +201,7 @@ If your window manager does not reserve `alt-tab`, and you would prefer to use `
 
 ### Missing keybind {#edit-predictions-missing-keybinding}
 
-Zed requires at least one keybinding for the {#action editor::AcceptEditPrediction} action in both the `Editor && edit_prediction` and `Editor && edit_prediction_conflict` contexts ([learn more above](#edit-predictions-keybinding)).
+zed-custom requires at least one keybinding for the {#action editor::AcceptEditPrediction} action in both the `Editor && edit_prediction` and `Editor && edit_prediction_conflict` contexts ([learn more above](#edit-predictions-keybinding)).
 
 If you have previously bound the default keybindings to different actions in the global context, you will not be able to preview or accept edit predictions. For example:
 
@@ -237,7 +237,7 @@ If you would like to use the default keybinding, you can free it up by either mo
 
 There are different levels in which you can disable edit predictions to be displayed, including not having it turned on at all.
 
-Alternatively, if you have Zed set as your provider, consider [using Subtle Mode](#switching-modes).
+Alternatively, if you have zed-custom set as your provider, consider [using Subtle Mode](#switching-modes).
 
 ### On Buffers
 
@@ -249,7 +249,7 @@ To not have predictions appear automatically as you type, set this within `setti
 }
 ```
 
-This hides every indication that there is a prediction available, regardless of [the display mode](#switching-modes) you're in (valid only if you have Zed as your provider).
+This hides every indication that there is a prediction available, regardless of [the display mode](#switching-modes) you're in (valid only if you have zed-custom as your provider).
 Still, you can trigger edit predictions manually by executing {#action editor::ShowEditPrediction} or hitting {#kb editor::ShowEditPrediction}.
 
 ### For Specific Languages
@@ -273,7 +273,7 @@ To disable edit predictions for specific directories or files, set this within `
 ```json [settings]
 {
   "edit_predictions": {
-    "disabled_globs": ["~/.config/zed/settings.json"]
+    "disabled_globs": ["~/.config/zed-custom/settings.json"]
   }
 }
 ```
@@ -290,7 +290,7 @@ To completely turn off edit prediction across all providers, explicitly set the 
 
 ## Configuring Other Providers {#other-providers}
 
-Zed's Edit Prediction also work with other completion model providers aside from Zeta.
+zed-custom's Edit Prediction also work with other completion model providers aside from Zeta.
 Learn about the available ones below.
 
 ### GitHub Copilot {#github-copilot}
@@ -309,7 +309,7 @@ To sign in to GitHub Copilot, click on the Copilot icon in the status bar. A pop
 
 #### Using GitHub Copilot Enterprise
 
-If your organization uses GitHub Copilot Enterprise, you can configure Zed to use your enterprise instance by specifying the enterprise URI in your `settings.json`:
+If your organization uses GitHub Copilot Enterprise, you can configure zed-custom to use your enterprise instance by specifying the enterprise URI in your `settings.json`:
 
 ```json [settings]
 {
@@ -323,7 +323,7 @@ If your organization uses GitHub Copilot Enterprise, you can configure Zed to us
 
 Replace `"https://your.enterprise.domain"` with the URL provided by your GitHub Enterprise administrator (e.g., `https://foo.ghe.com`).
 
-Once set, Zed will route Copilot requests through your enterprise endpoint.
+Once set, zed-custom will route Copilot requests through your enterprise endpoint.
 When you sign in by clicking the Copilot icon in the status bar, you will be redirected to your configured enterprise URL to complete authentication.
 All other Copilot features and usage remain the same.
 
@@ -370,4 +370,4 @@ After adding your API key, set Codestral as your provider in `settings.json`:
 
 ## See also
 
-To learn about other ways to interact with AI in Zed, you may also want to see more about the [Agent Panel](./agent-panel.md) or the [Inline Assistant](./inline-assistant.md) feature.
+To learn about other ways to interact with AI in zed-custom, you may also want to see more about the [Agent Panel](./agent-panel.md) or the [Inline Assistant](./inline-assistant.md) feature.

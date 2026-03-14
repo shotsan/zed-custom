@@ -1,13 +1,13 @@
 ---
-description: Zed is a text editor that supports lots of Git features
-title: Zed Editor Git integration documentation
+description: zed-custom is a text editor that supports lots of Git features
+title: zed-custom Editor Git integration documentation
 ---
 
 # Git
 
-Zed has built-in Git support that lets you manage version control without leaving the editor. The Git Panel shows your working tree state, staging area, and branch information. Changes you make on the command line are reflected immediately in Zed.
+zed-custom has built-in Git support that lets you manage version control without leaving the editor. The Git Panel shows your working tree state, staging area, and branch information. Changes you make on the command line are reflected immediately in zed-custom.
 
-For operations that Zed doesn't support natively, you can use the integrated terminal.
+For operations that zed-custom doesn't support natively, you can use the integrated terminal.
 
 ## Git Panel
 
@@ -17,7 +17,7 @@ You can open the Git Panel using {#action git_panel::ToggleFocus}, or by clickin
 
 In the panel you can see the state of your project at a glance: which repository and branch are active, what files have changed and the current staging state of each file.
 
-Zed monitors your repository so that changes you make on the command line are instantly reflected.
+zed-custom monitors your repository so that changes you make on the command line are instantly reflected.
 
 ### Configuration
 
@@ -36,7 +36,7 @@ The Git Panel shows a flat list of changed files by default. To see files organi
 
 #### Inline Blame
 
-Zed shows Git blame information on the current line. To turn this off or add a delay before it appears, go to **Version Control > Inline Git Blame**.
+zed-custom shows Git blame information on the current line. To turn this off or add a delay before it appears, go to **Version Control > Inline Git Blame**.
 
 #### Hiding the Gutter Indicators
 
@@ -44,11 +44,11 @@ The colored bars in the gutter that show added, modified, and deleted lines can 
 
 #### Commit Message Line Length
 
-Zed wraps commit messages at 72 characters (a Git convention). To change this, search for "Git Commit" in Settings and adjust **Preferred Line Length**.
+zed-custom wraps commit messages at 72 characters (a Git convention). To change this, search for "Git Commit" in Settings and adjust **Preferred Line Length**.
 
 ## Project Diff
 
-You can see all of the changes captured by Git in Zed by opening the Project Diff ({#kb git::Diff}), accessible via the {#action git::Diff} action in the Command Palette or the Git Panel.
+You can see all of the changes captured by Git in zed-custom by opening the Project Diff ({#kb git::Diff}), accessible via the {#action git::Diff} action in the Command Palette or the Git Panel.
 
 All of the changes displayed in the Project Diff behave exactly the same as any other multibuffer: they are all editable excerpts of files.
 
@@ -56,7 +56,7 @@ You can stage or unstage each hunk as well as a whole file by hitting the button
 
 ### Word Diff Highlighting
 
-By default, Zed highlights changed words within modified lines to make it easier to spot exactly what changed. To disable this globally, open the Settings Editor and go to **Languages & Tools > Miscellaneous**, then turn off **Word Diff Enabled**.
+By default, zed-custom highlights changed words within modified lines to make it easier to spot exactly what changed. To disable this globally, open the Settings Editor and go to **Languages & Tools > Miscellaneous**, then turn off **Word Diff Enabled**.
 
 To disable word diff for specific languages only, add this to your settings.json:
 
@@ -83,25 +83,25 @@ To open File History:
 
 ## Fetch, Push, and Pull
 
-Fetch, push, or pull from your Git repository in Zed via the buttons available on the Git Panel or via the Command Palette by looking at the respective actions: {#action git::Fetch}, {#action git::Push}, and {#action git::Pull}.
+Fetch, push, or pull from your Git repository in zed-custom via the buttons available on the Git Panel or via the Command Palette by looking at the respective actions: {#action git::Fetch}, {#action git::Push}, and {#action git::Pull}.
 
 ### Push Configuration
 
-Zed respects Git's push configuration. When pushing, Zed checks the following in order:
+zed-custom respects Git's push configuration. When pushing, zed-custom checks the following in order:
 
 1. `pushRemote` configured for the current branch
 2. `remote.pushDefault` in your Git config
 3. The branch's tracking remote
 
-This matches Git's standard behavior, so if you've configured `pushRemote` or `pushDefault` in your `.gitconfig` or via `git config`, Zed will use those settings.
+This matches Git's standard behavior, so if you've configured `pushRemote` or `pushDefault` in your `.gitconfig` or via `git config`, zed-custom will use those settings.
 
 ## Remotes
 
-When your repository has multiple remotes, Zed shows a remote selector in the Git Panel. Click the remote button next to push/pull to choose which remote to use for that operation.
+When your repository has multiple remotes, zed-custom shows a remote selector in the Git Panel. Click the remote button next to push/pull to choose which remote to use for that operation.
 
 ## Staging Workflow
 
-Zed has two primary staging workflows, using either the Project Diff or the panel directly.
+zed-custom has two primary staging workflows, using either the Project Diff or the panel directly.
 
 ### Using the Project Diff
 
@@ -121,19 +121,19 @@ Entries can be staged using each individual entry's checkbox. All changes can be
 
 ## Committing
 
-Zed offers two commit textareas:
+zed-custom offers two commit textareas:
 
 1. The first one is available right at the bottom of the Git Panel. Hitting {#kb git::Commit} immediately commits all of your staged changes.
 2. The second is available via the action {#action git::ExpandCommitEditor} or via hitting the {#kb git::ExpandCommitEditor} while focused in the Git Panel commit textarea.
 
 ### Undoing a Commit
 
-As soon as you commit in Zed, in the Git Panel, you'll see a bar right under the commit textarea, which will show the recently submitted commit.
+As soon as you commit in zed-custom, in the Git Panel, you'll see a bar right under the commit textarea, which will show the recently submitted commit.
 In there, you can use the "Uncommit" button, which performs the `git reset HEADˆ--soft` command.
 
 ### Configuring Commit Line Length
 
-By default, Zed sets the commit line length to `72` but it can be configured in your local `settings.json` file.
+By default, zed-custom sets the commit line length to `72` but it can be configured in your local `settings.json` file.
 
 Find more information about setting the `preferred-line-length` in the [Configuration](#configuration) section.
 
@@ -145,13 +145,13 @@ Create a new branch using {#action git::Branch} or switch to an existing branch 
 
 ### Deleting Branches
 
-To delete a branch, open the branch switcher with {#action git::Switch}, find the branch you want to delete, and use the delete option. Zed will confirm before deleting to prevent accidental data loss.
+To delete a branch, open the branch switcher with {#action git::Switch}, find the branch you want to delete, and use the delete option. zed-custom will confirm before deleting to prevent accidental data loss.
 
 > **Note:** You cannot delete the branch you currently have checked out. Switch to a different branch first.
 
 ## Merge Conflicts
 
-When you encounter merge conflicts after a merge, rebase, or pull, Zed highlights the conflicting regions in your files and displays resolution buttons above each conflict.
+When you encounter merge conflicts after a merge, rebase, or pull, zed-custom highlights the conflicting regions in your files and displays resolution buttons above each conflict.
 
 ### Viewing Conflicts
 
@@ -182,7 +182,7 @@ To stash all your current changes, use the {#action git::StashAll} action. This 
 
 ### Managing Stashes
 
-Zed provides a stash picker accessible via {#action git::ViewStash} or from the Git Panel's overflow menu. From the stash picker, you can:
+zed-custom provides a stash picker accessible via {#action git::ViewStash} or from the Git Panel's overflow menu. From the stash picker, you can:
 
 - **View stash list**: Browse all your saved stashes with their descriptions and timestamps
 - **Open diffs**: See exactly what changes are stored in each stash
@@ -192,7 +192,7 @@ Zed provides a stash picker accessible via {#action git::ViewStash} or from the 
 
 ### Quick Stash Operations
 
-For faster workflows, Zed provides direct actions to work with the most recent stash:
+For faster workflows, zed-custom provides direct actions to work with the most recent stash:
 
 - **Apply latest stash**: Use {#action git::StashApply} to apply the most recent stash without removing it
 - **Pop latest stash**: Use {#action git::StashPop} to apply and remove the most recent stash
@@ -209,10 +209,10 @@ To view a stash's contents, select it in the stash picker and press {#kb stash_p
 
 ## AI Support in Git
 
-Zed currently supports LLM-powered commit message generation.
+zed-custom currently supports LLM-powered commit message generation.
 You can ask AI to generate a commit message by focusing on the message editor within the Git Panel and either clicking on the pencil icon in the bottom left, or reaching for the {#action git::GenerateCommitMessage} ({#kb git::GenerateCommitMessage}) keybinding.
 
-> Note that you need to have an LLM provider configured either via your own API keys or through Zed's hosted AI models.
+> Note that you need to have an LLM provider configured either via your own API keys or through zed-custom's hosted AI models.
 > Visit [the AI configuration page](./ai/configuration.md) to learn how to do so.
 
 You can specify your preferred model to use by providing a `commit_message_model` agent setting.
@@ -238,9 +238,9 @@ Any specific instructions for commit messages added to [Rules files](./ai/rules.
 
 ## Git Integrations
 
-Zed integrates with popular Git hosting services to ensure that Git commit hashes and references to Issues, Pull Requests, and Merge Requests become clickable links.
+zed-custom integrates with popular Git hosting services to ensure that Git commit hashes and references to Issues, Pull Requests, and Merge Requests become clickable links.
 
-Zed currently supports links to the hosted versions of
+zed-custom currently supports links to the hosted versions of
 [GitHub](https://github.com),
 [GitLab](https://gitlab.com),
 [Bitbucket](https://bitbucket.org),
@@ -267,7 +267,7 @@ Supported `provider` values are `github`, `gitlab`, `bitbucket`, `gitea`, `forge
 
 ### Permalinks
 
-Zed also has a Copy Permalink feature to create a permanent link to a code snippet on your Git hosting service.
+zed-custom also has a Copy Permalink feature to create a permanent link to a code snippet on your Git hosting service.
 These links are useful for sharing a specific line or range of lines in a file at a specific commit.
 Trigger this action via the [Command Palette](./getting-started.md#command-palette) (search for `permalink`),
 by creating a [custom key bindings](key-bindings.md#custom-key-bindings) to the
@@ -276,7 +276,7 @@ or by simply right clicking and selecting `Copy Permalink` with line(s) selected
 
 ## Diff Hunk Keyboard Shortcuts
 
-When viewing files with changes, Zed displays diff hunks that can be expanded or collapsed for detailed review:
+When viewing files with changes, zed-custom displays diff hunks that can be expanded or collapsed for detailed review:
 
 - **Expand all diff hunks**: {#action editor::ExpandAllDiffHunks} ({#kb editor::ExpandAllDiffHunks})
 - **Collapse all diff hunks**: Press `Escape` (bound to {#action editor::Cancel})
@@ -321,14 +321,14 @@ When viewing files with changes, Zed displays diff hunks that can be expanded or
 
 ## Git CLI Configuration
 
-If you would like to also use Zed for your [git commit message editor](https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_editor) when committing from the command line you can use `zed --wait`:
+If you would like to also use zed-custom for your [git commit message editor](https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_editor) when committing from the command line you can use `zed-custom --wait`:
 
 ```sh
-git config --global core.editor "zed --wait"
+git config --global core.editor "zed-custom --wait"
 ```
 
 Or add the following to your shell environment (in `~/.zshrc`, `~/.bashrc`, etc):
 
 ```sh
-export GIT_EDITOR="zed --wait"
+export GIT_EDITOR="zed-custom --wait"
 ```

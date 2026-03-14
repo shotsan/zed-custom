@@ -179,13 +179,12 @@ impl LanguageModelRegistry {
     }
 
     pub fn providers(&self) -> Vec<Arc<dyn LanguageModelProvider>> {
-        let zed_provider_id = LanguageModelProviderId("zed.dev".into());
         let mut providers = Vec::with_capacity(self.providers.len());
-        if let Some(provider) = self.providers.get(&zed_provider_id) {
+        if let Some(provider) = self.providers.get(&crate::ZED_CLOUD_PROVIDER_ID) {
             providers.push(provider.clone());
         }
         providers.extend(self.providers.values().filter_map(|p| {
-            if p.id() != zed_provider_id {
+            if p.id() != crate::ZED_CLOUD_PROVIDER_ID {
                 Some(p.clone())
             } else {
                 None

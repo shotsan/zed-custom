@@ -48,8 +48,8 @@ pub(crate) fn call_bump_version(
                 .actions(Level::Write),
         )
         .uses(
-            "zed-industries",
-            "zed",
+            "zed_custom-industries",
+            "zed_custom",
             ".github/workflows/extension_bump.yml",
             "main",
         )

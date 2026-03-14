@@ -3,7 +3,7 @@
 # Usage: ./script/test-azure-anthropic [model_name]
 #
 # Reads API key from AZURE_ANTHROPIC_API_KEY env var or local_secrets.env.
-# Tests the exact same endpoint + headers that Zed's Anthropic provider uses.
+# Tests the exact same endpoint + headers that zed-custom's Anthropic provider uses.
 
 set -euo pipefail
 
@@ -58,7 +58,7 @@ else
 fi
 
 echo ""
-echo "=== Zed Config Reminder ==="
+echo "=== zed-custom Config Reminder ==="
 echo "In settings.json, use:"
 echo "  \"api_url\": \"https://serveringmodels.services.ai.azure.com/anthropic\""
-echo "  Model name in Zed must match: \"$MODEL\""
+echo "  Model name in zed-custom must match: \"$MODEL\""

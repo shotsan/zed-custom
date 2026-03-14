@@ -32,6 +32,7 @@ const PROVIDER_NAME: LanguageModelProviderName = language_model::ANTHROPIC_PROVI
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct AnthropicSettings {
     pub api_url: String,
+    pub api_key: Option<String>,
     /// Extend Zed's list of Anthropic models.
     pub available_models: Vec<AvailableModel>,
 }
@@ -188,7 +189,7 @@ impl LanguageModelProvider for AnthropicLanguageModelProvider {
     }
 
     fn is_authenticated(&self, cx: &App) -> bool {
-        self.state.read(cx).is_authenticated()
+        Self::settings(cx).api_key.is_some() || self.state.read(cx).is_authenticated()
     }
 
     fn authenticate(&self, cx: &mut App) -> Task<Result<(), AuthenticateError>> {
@@ -447,7 +448,11 @@ impl AnthropicModel {
 
         let (api_key, api_url) = self.state.read_with(cx, |state, cx| {
             let api_url = AnthropicLanguageModelProvider::api_url(cx);
-            (state.api_key_state.key(&api_url), api_url)
+            let api_key = AnthropicLanguageModelProvider::settings(cx)
+                .api_key
+                .clone()
+                .or_else(|| state.api_key_state.key(&api_url).map(|k| k.to_string()));
+            (api_key, api_url)
         });
 
         let beta_headers = self.model.beta_headers();
@@ -515,7 +520,10 @@ impl LanguageModel for AnthropicModel {
     fn api_key(&self, cx: &App) -> Option<String> {
         self.state.read_with(cx, |state, cx| {
             let api_url = AnthropicLanguageModelProvider::api_url(cx);
-            state.api_key_state.key(&api_url).map(|key| key.to_string())
+            AnthropicLanguageModelProvider::settings(cx)
+                .api_key
+                .clone()
+                .or_else(|| state.api_key_state.key(&api_url).map(|key| key.to_string()))
         })
     }
 
@@ -537,8 +545,12 @@ impl LanguageModel for AnthropicModel {
 
         let (api_key, api_url) = self.state.read_with(cx, |state, cx| {
             let api_url = AnthropicLanguageModelProvider::api_url(cx);
+            let api_key = AnthropicLanguageModelProvider::settings(cx)
+                .api_key
+                .clone()
+                .or_else(|| state.api_key_state.key(&api_url).map(|k| k.to_string()));
             (
-                state.api_key_state.key(&api_url).map(|k| k.to_string()),
+                api_key,
                 api_url.to_string(),
             )
         });
@@ -1115,14 +1127,17 @@ impl ConfigurationView {
     }
 
     fn should_render_editor(&self, cx: &mut Context<Self>) -> bool {
-        !self.state.read(cx).is_authenticated()
+        AnthropicLanguageModelProvider::settings(cx).api_key.is_none() && !self.state.read(cx).is_authenticated()
     }
 }
 
 impl Render for ConfigurationView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let env_var_set = self.state.read(cx).api_key_state.is_from_env_var();
-        let configured_card_label = if env_var_set {
+        let settings_key_set = AnthropicLanguageModelProvider::settings(cx).api_key.is_some();
+        let configured_card_label = if settings_key_set {
+            "API key set in settings.json".to_string()
+        } else if env_var_set {
             format!("API key set in {API_KEY_ENV_VAR_NAME} environment variable")
         } else {
             let api_url = AnthropicLanguageModelProvider::api_url(cx);
@@ -1159,7 +1174,7 @@ impl Render for ConfigurationView {
                 .child(self.api_key_editor.clone())
                 .child(
                     Label::new(
-                        format!("You can also set the {API_KEY_ENV_VAR_NAME} environment variable and restart Zed."),
+                        format!("You can also set the {API_KEY_ENV_VAR_NAME} environment variable and restart zed-custom."),
                     )
                     .size(LabelSize::Small)
                     .color(Color::Muted)
@@ -1168,12 +1183,16 @@ impl Render for ConfigurationView {
                 .into_any_element()
         } else {
             ConfiguredApiCard::new(configured_card_label)
-                .disabled(env_var_set)
+                .disabled(env_var_set || settings_key_set)
                 .on_click(cx.listener(|this, _, window, cx| this.reset_api_key(window, cx)))
-                .when(env_var_set, |this| {
-                    this.tooltip_label(format!(
-                    "To reset your API key, unset the {API_KEY_ENV_VAR_NAME} environment variable."
-                ))
+                .when(env_var_set || settings_key_set, |this| {
+                    if settings_key_set {
+                        this.tooltip_label("To reset your API key, remove it from your settings.json.")
+                    } else {
+                        this.tooltip_label(format!(
+                            "To reset your API key, unset the {API_KEY_ENV_VAR_NAME} environment variable."
+                        ))
+                    }
                 })
                 .into_any_element()
         }

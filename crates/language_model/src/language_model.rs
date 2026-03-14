@@ -39,12 +39,18 @@ pub use crate::request::*;
 pub use crate::role::*;
 pub use crate::telemetry::*;
 pub use crate::tool_schema::LanguageModelToolSchemaFormat;
-pub use zed_env_vars::{EnvVar, env_var};
+pub use zed_custom_env_vars::{EnvVar, env_var};
 
 pub const ANTHROPIC_PROVIDER_ID: LanguageModelProviderId =
     LanguageModelProviderId::new("anthropic");
 pub const ANTHROPIC_PROVIDER_NAME: LanguageModelProviderName =
     LanguageModelProviderName::new("Anthropic");
+
+pub const AZURE_ANTHROPIC_PROVIDER_ID: LanguageModelProviderId = 
+    LanguageModelProviderId::new("azure_anthropic");
+pub const AZURE_ANTHROPIC_PROVIDER_NAME: LanguageModelProviderName =
+    LanguageModelProviderName::new("Azure Anthropic");
+
 
 pub const GOOGLE_PROVIDER_ID: LanguageModelProviderId = LanguageModelProviderId::new("google");
 pub const GOOGLE_PROVIDER_NAME: LanguageModelProviderName =

@@ -161,7 +161,7 @@ impl RemoteRunningKernel {
             headers.insert(
                 "User-Agent",
                 HeaderValue::from_str(&format!(
-                    "Zed/{} ({}; {})",
+                    "zed-custom/{} ({}; {})",
                     "repl",
                     std::env::consts::OS,
                     std::env::consts::ARCH

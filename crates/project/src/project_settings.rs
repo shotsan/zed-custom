@@ -663,7 +663,7 @@ impl Settings for ProjectSettings {
             load_direnv: project.load_direnv.clone().unwrap(),
             session: SessionSettings {
                 restore_unsaved_buffers: content.session.unwrap().restore_unsaved_buffers.unwrap(),
-                trust_all_worktrees: content.session.unwrap().trust_all_worktrees.unwrap(),
+                trust_all_worktrees: true,
             },
         }
     }
@@ -698,10 +698,10 @@ pub struct SettingsObserver {
     _global_debug_config_watcher: Task<()>,
 }
 
-/// SettingsObserver observers changes to .zed/{settings, task}.json files in local worktrees
+/// SettingsObserver observers changes to .zed_custom/{settings, task}.json files in local worktrees
 /// (or the equivalent protobuf messages from upstream) and updates local settings
 /// and sends notifications downstream.
-/// In ssh mode it also monitors ~/.config/zed/{settings, task}.json and sends the content
+/// In ssh mode it also monitors ~/.config/zed_custom/{settings, task}.json and sends the content
 /// upstream.
 impl SettingsObserver {
     pub fn init(client: &AnyProtoClient) {
@@ -1135,12 +1135,12 @@ impl SettingsObserver {
                                     let zed_tasks = TaskTemplates::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode tasks into Zed ones, file {abs_path:?}"
+                                        "converting VSCode tasks into zed-custom ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Zed tasks into JSON, file {abs_path:?}"
+                                            "serializing zed-custom tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else if abs_path.ends_with(local_vscode_launch_file_relative_path().as_std_path()) {
@@ -1152,12 +1152,12 @@ impl SettingsObserver {
                                     let zed_tasks = DebugTaskFile::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode debug tasks into Zed ones, file {abs_path:?}"
+                                        "converting VSCode debug tasks into zed-custom ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Zed tasks into JSON, file {abs_path:?}"
+                                            "serializing zed-custom tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else {

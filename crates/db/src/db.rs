@@ -20,7 +20,7 @@ use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::{LazyLock, atomic::Ordering};
 use util::{ResultExt, maybe};
-use zed_env_vars::ZED_STATELESS;
+use zed_custom_env_vars::ZED_STATELESS;
 
 const CONNECTION_INITIALIZE_QUERY: &str = sql!(
     PRAGMA foreign_keys=TRUE;

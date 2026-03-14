@@ -26,7 +26,7 @@ impl NativeAgentServer {
 
 impl AgentServer for NativeAgentServer {
     fn name(&self) -> SharedString {
-        "Zed Agent".into()
+        "zed-custom Agent".into()
     }
 
     fn logo(&self) -> ui::IconName {
@@ -119,7 +119,7 @@ mod tests {
     agent_servers::e2e_tests::common_e2e_tests!(
         async |fs, cx| {
             let auth = cx.update(|cx| {
-                prompt_store::init(cx);
+                prompt_store::init(fs.clone(), cx);
                 let registry = language_model::LanguageModelRegistry::read_global(cx);
                 let auth = registry
                     .provider(&language_model::ANTHROPIC_PROVIDER_ID)

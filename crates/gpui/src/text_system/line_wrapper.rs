@@ -857,7 +857,7 @@ mod tests {
         // URL case
         assert_word("github.com");
         assert_not_word("zed-industries/zed");
-        assert_not_word("zed-industries\\zed");
+        assert_not_word("zed-industries\\zed_custom");
         assert_not_word("a=1&b=2");
         assert_not_word("foo?b=2");
 

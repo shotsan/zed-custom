@@ -8,8 +8,7 @@ use serde::Serialize;
 use std::{env, fmt::Display};
 use sysinfo::{MemoryRefreshKind, RefreshKind, System};
 
-actions!(
-    zed,
+actions!(zed,
     [
         /// Copies system specifications to the clipboard for bug reports.
         CopySystemSpecsIntoClipboard,
@@ -106,7 +105,7 @@ impl Display for SystemSpecs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let os_information = format!("OS: {} {}", self.os_name, self.os_version);
         let app_version_information = format!(
-            "Zed: v{} ({}) {}{}",
+            "zed-custom: v{} ({}) {}{}",
             self.app_version,
             match &self.commit_sha {
                 Some(commit_sha) => format!("{} {}", self.release_channel, commit_sha),

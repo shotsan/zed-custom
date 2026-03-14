@@ -207,7 +207,7 @@ impl ExtensionBuilder {
 
         let wasm_extension_api_version =
             parse_wasm_extension_version(&manifest.id, &component_bytes)
-                .context("compiled wasm did not contain a valid zed extension api version")?;
+                .context("compiled wasm did not contain a valid zed_custom extension api version")?;
         manifest.lib.version = Some(wasm_extension_api_version);
 
         let extension_file = extension_dir.join("extension.wasm");
@@ -498,7 +498,7 @@ impl ExtensionBuilder {
             name != "name"
                 && !name.starts_with("component-type:")
                 && name != "dylink.0"
-                && name != "zed:api-version"
+                && name != "zed_custom:api-version"
         };
 
         let mut output = Vec::new();

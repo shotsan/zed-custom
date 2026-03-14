@@ -43,11 +43,11 @@ impl ZedEditPredictionDelegate {
 
 impl EditPredictionDelegate for ZedEditPredictionDelegate {
     fn name() -> &'static str {
-        "zed-predict"
+        "zed_custom-predict"
     }
 
     fn display_name() -> &'static str {
-        "Zed's Edit Predictions"
+        "zed-custom's Edit Predictions"
     }
 
     fn show_predictions_in_menu() -> bool {

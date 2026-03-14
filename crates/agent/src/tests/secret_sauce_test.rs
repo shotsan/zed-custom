@@ -38,7 +38,7 @@ async fn test_secret_sauce_tool_registration(cx: &mut TestAppContext) {
     // MemoryStore setup
     let memory_db_conn = Connection::open_memory(Some("test_memory_db"));
     let memory_db = Arc::new(MemoryDatabase::new(background.clone(), memory_db_conn).unwrap());
-    let memory_store = Arc::new(MemoryStore::new(memory_db, PathBuf::from("/tmp/zed-memory")));
+    let memory_store = Arc::new(MemoryStore::new(memory_db, PathBuf::from("/tmp/zed_custom-memory")));
     
     let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
     

@@ -36,7 +36,7 @@ fn run_cherry_pick(
         token: &StepOutput,
     ) -> Step<Run> {
         named::bash(&format!("./script/cherry-pick {branch} {commit} {channel}"))
-            .add_env(("GIT_COMMITTER_NAME", "Zed Zippy"))
+            .add_env(("GIT_COMMITTER_NAME", "zed-custom Zippy"))
             .add_env(("GIT_COMMITTER_EMAIL", "hi@zed.dev"))
             .add_env(("GITHUB_TOKEN", token))
     }

@@ -31,7 +31,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use settings::Settings;
 use std::{any::TypeId, sync::Arc};
-use zed_actions::{outline::ToggleOutline, workspace::CopyPath, workspace::CopyRelativePath};
+use zed_custom_actions::{outline::ToggleOutline, workspace::CopyPath, workspace::CopyRelativePath};
 
 use ui::{BASE_REM_SIZE_IN_PX, IconButtonShape, Tooltip, prelude::*, utils::SearchInputWidth};
 use util::{ResultExt, paths::PathMatcher};

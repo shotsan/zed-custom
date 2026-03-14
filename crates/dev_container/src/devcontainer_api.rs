@@ -226,7 +226,7 @@ async fn ensure_devcontainer_cli(
 
     if let Err(e) = command.output().await {
         log::error!(
-            "Unable to find devcontainer CLI in $PATH. Checking for a zed installed version. Error: {:?}",
+            "Unable to find devcontainer CLI in $PATH. Checking for a zed_custom installed version. Error: {:?}",
             e
         );
 
@@ -556,7 +556,7 @@ mod tests {
 
     #[test]
     fn should_parse_from_devcontainer_json() {
-        let json = r#"{"outcome":"success","containerId":"826abcac45afd412abff083ab30793daff2f3c8ce2c831df728baf39933cb37a","remoteUser":"vscode","remoteWorkspaceFolder":"/workspaces/zed"}"#;
+        let json = r#"{"outcome":"success","containerId":"826abcac45afd412abff083ab30793daff2f3c8ce2c831df728baf39933cb37a","remoteUser":"vscode","remoteWorkspaceFolder":"/workspaces/zed_custom"}"#;
         let up: DevContainerUp = parse_json_from_cli(json).unwrap();
         assert_eq!(up._outcome, "success");
         assert_eq!(
@@ -564,10 +564,10 @@ mod tests {
             "826abcac45afd412abff083ab30793daff2f3c8ce2c831df728baf39933cb37a"
         );
         assert_eq!(up._remote_user, "vscode");
-        assert_eq!(up.remote_workspace_folder, "/workspaces/zed");
+        assert_eq!(up.remote_workspace_folder, "/workspaces/zed_custom");
 
         let json_in_plaintext = r#"[2026-01-22T16:19:08.802Z] @devcontainers/cli 0.80.1. Node.js v22.21.1. darwin 24.6.0 arm64.
-            {"outcome":"success","containerId":"826abcac45afd412abff083ab30793daff2f3c8ce2c831df728baf39933cb37a","remoteUser":"vscode","remoteWorkspaceFolder":"/workspaces/zed"}"#;
+            {"outcome":"success","containerId":"826abcac45afd412abff083ab30793daff2f3c8ce2c831df728baf39933cb37a","remoteUser":"vscode","remoteWorkspaceFolder":"/workspaces/zed_custom"}"#;
         let up: DevContainerUp = parse_json_from_cli(json_in_plaintext).unwrap();
         assert_eq!(up._outcome, "success");
         assert_eq!(
@@ -575,6 +575,6 @@ mod tests {
             "826abcac45afd412abff083ab30793daff2f3c8ce2c831df728baf39933cb37a"
         );
         assert_eq!(up._remote_user, "vscode");
-        assert_eq!(up.remote_workspace_folder, "/workspaces/zed");
+        assert_eq!(up.remote_workspace_folder, "/workspaces/zed_custom");
     }
 }

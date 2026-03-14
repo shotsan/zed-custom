@@ -19,7 +19,7 @@ To begin, type a message in a `You` block.
 
 As you type, the remaining tokens count for the selected model is updated.
 
-Inserting text from an editor is as simple as highlighting the text and running `agent: add selection to thread` ({#kb agent::AddSelectionToThread}); Zed will wrap it in a fenced code block if it is code.
+Inserting text from an editor is as simple as highlighting the text and running `agent: add selection to thread` ({#kb agent::AddSelectionToThread}); zed-custom will wrap it in a fenced code block if it is code.
 
 ![Quoting a selection](https://zed.dev/img/assistant/quoting-a-selection.png)
 
@@ -101,7 +101,7 @@ Usage: `/diagnostics [--include-warnings] [path]`
 
 ### `/elastic`
 
-The `/elastic` command queries a configured Elasticsearch cluster and injects the resulting JSON search hits directly into the context. This is useful for quickly referencing logs or external data without leaving Zed.
+The `/elastic` command queries a configured Elasticsearch cluster and injects the resulting JSON search hits directly into the context. This is useful for quickly referencing logs or external data without leaving zed-custom.
 
 Usage: `/elastic <query>`
 
@@ -226,16 +226,16 @@ You might want to nest rules to:
 ### Example
 
 ```plaintext
-Title: Zed-Flavored Rust
+Title: zed-custom-Flavored Rust
 
-## About Zed
+## About zed-custom
 
-/prompt Zed: Zed (a rule about what Zed is)
+/prompt zed-custom: zed-custom (a rule about what zed-custom is)
 
-## Rust - Zed Style
+## Rust - zed-custom Style
 
-/prompt Rust: Async - Async-std (zed doesn't use tokio)
-/prompt Rust: Zed-style Crates (we have some unique conventions)
+/prompt Rust: Async - Async-std (zed-custom doesn't use tokio)
+/prompt Rust: zed-custom-style Crates (we have some unique conventions)
 /prompt Rust - Workspace deps (bias towards reusing deps from the workspace)
 ```
 
@@ -255,7 +255,7 @@ See [Extension: Slash Commands](../extensions/slash-commands.md) to learn how to
 
 ## Text Threads vs. Threads
 
-For some time, text threads were the only way to interact with AI in Zed.
+For some time, text threads were the only way to interact with AI in zed-custom.
 In May 2025, we introduced a new version of the agent panel, which, as opposed to being editor-based, is optimized for readability.
 Visit [the Agent Panel page](./agent-panel.md) to learn more about it.
 
@@ -269,9 +269,9 @@ Consequently, [MCP servers](./mcp.md) and [external agents](./external-agents.md
 
 ### Rule Templates {#rule-templates}
 
-Zed uses rule templates to power internal assistant features, like the terminal assistant, or the content rules used in the inline assistant.
+zed-custom uses rule templates to power internal assistant features, like the terminal assistant, or the content rules used in the inline assistant.
 
-Zed has the following internal rule templates:
+zed-custom has the following internal rule templates:
 
 - `content_prompt.hbs`: Used for generating content in the editor.
 - `terminal_assistant_prompt.hbs`: Used for the terminal assistant feature.
@@ -282,29 +282,29 @@ At this point it is unknown if we will expand templates further to be user-creat
 
 > **Note:** It is not recommended to override templates unless you know what you are doing. Editing templates will break your assistant if done incorrectly.
 
-Zed allows you to override the default rules used for various assistant features by placing custom Handlebars (.hbs) templates in your `~/.config/zed/prompt_overrides` directory.
+zed-custom allows you to override the default rules used for various assistant features by placing custom Handlebars (.hbs) templates in your `~/.config/zed-custom/prompt_overrides` directory.
 
 The following templates can be overridden:
 
-1. [`content_prompt.hbs`](https://github.com/zed-industries/zed/tree/main/assets/prompts/content_prompt.hbs): Used for generating content in the editor.
+1. [`content_prompt.hbs`](https://github.com/zed-industries/zed-custom/tree/main/assets/prompts/content_prompt.hbs): Used for generating content in the editor.
 
-2. [`terminal_assistant_prompt.hbs`](https://github.com/zed-industries/zed/tree/main/assets/prompts/terminal_assistant_prompt.hbs): Used for the terminal assistant feature.
+2. [`terminal_assistant_prompt.hbs`](https://github.com/zed-industries/zed-custom/tree/main/assets/prompts/terminal_assistant_prompt.hbs): Used for the terminal assistant feature.
 
 > **Note:** Be sure you want to override these, as you'll miss out on iteration on our built-in features.
-> This should be primarily used when developing Zed.
+> This should be primarily used when developing zed-custom.
 
-You can customize these templates to better suit your needs while maintaining the core structure and variables used by Zed.
-Zed will automatically reload your prompt overrides when they change on disk.
+You can customize these templates to better suit your needs while maintaining the core structure and variables used by zed-custom.
+zed-custom will automatically reload your prompt overrides when they change on disk.
 
-Consult Zed's [assets/prompts](https://github.com/zed-industries/zed/tree/main/assets/prompts) directory for current versions you can play with.
+Consult zed-custom's [assets/prompts](https://github.com/zed-industries/zed-custom/tree/main/assets/prompts) directory for current versions you can play with.
 
 ### History {#history}
 
 After you submit your first message in a text thread, a name for your context is generated by the language model, and the context is automatically saved to your file system in
 
-- `~/.config/zed/conversations` (macOS)
-- `~/.local/share/zed/conversations` (Linux)
-- `%LocalAppData%\Zed\conversations` (Windows)
+- `~/.config/zed-custom/conversations` (macOS)
+- `~/.local/share/zed-custom/conversations` (Linux)
+- `%LocalAppData%\zed-custom\conversations` (Windows)
 
 You can access and load previous contexts by clicking on the history button in the top-left corner of the agent panel.
 

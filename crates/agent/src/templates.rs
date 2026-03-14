@@ -108,6 +108,7 @@ mod tests {
             has_python_files: false,
             memories: Vec::new(),
             custom_instructions: None,
+            custom_system_prompt: None,
         };
         let templates = Templates::new();
         let rendered = template.render(&templates).unwrap();

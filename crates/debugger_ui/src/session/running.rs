@@ -641,7 +641,7 @@ impl RunningState {
                     .for_each(|value| Self::substitute_variables_in_config(value, context));
             }
             serde_json::Value::String(s) => {
-                // Some built-in zed tasks wrap their arguments in quotes as they might contain spaces.
+                // Some built-in zed_custom tasks wrap their arguments in quotes as they might contain spaces.
                 if s.starts_with("\"$ZED_") && s.ends_with('"') {
                     *s = s[1..s.len() - 1].to_string();
                 }
@@ -703,7 +703,7 @@ impl RunningState {
                     .for_each(|value| Self::relativize_paths(None, value, context));
             }
             serde_json::Value::String(s) if key == Some("program") || key == Some("cwd") => {
-                // Some built-in zed tasks wrap their arguments in quotes as they might contain spaces.
+                // Some built-in zed_custom tasks wrap their arguments in quotes as they might contain spaces.
                 if s.starts_with("\"$ZED_") && s.ends_with('"') {
                     *s = s[1..s.len() - 1].to_string();
                 }
@@ -1173,7 +1173,7 @@ impl RunningState {
                 let Err(e) = request_type else {
                     unreachable!();
                 };
-                anyhow::bail!("Zed cannot determine how to run this debug scenario. `build` field was not provided and Debug Adapter won't accept provided configuration because: {e}");
+                anyhow::bail!("zed-custom cannot determine how to run this debug scenario. `build` field was not provided and Debug Adapter won't accept provided configuration because: {e}");
             };
 
             Ok(DebugTaskDefinition {

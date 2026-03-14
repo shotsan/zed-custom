@@ -1,12 +1,12 @@
 # Agent Settings
 
-Learn about all the settings you can customize in Zed's Agent Panel.
+Learn about all the settings you can customize in zed-custom's Agent Panel.
 
 ## Model Settings {#model-settings}
 
 ### Default Model {#default-model}
 
-If you're using [Zed's hosted LLM service](./subscription.md), it sets `claude-sonnet-4` as the default model for agentic work (agent panel, inline assistant) and `gpt-5-nano` as the default "fast" model (thread summarization, git commit messages). If you're not subscribed or want to change these defaults, you can manually edit the `default_model` object in your settings:
+If you're using [zed-custom's hosted LLM service](./subscription.md), it sets `claude-sonnet-4` as the default model for agentic work (agent panel, inline assistant) and `gpt-5-nano` as the default "fast" model (thread summarization, git commit messages). If you're not subscribed or want to change these defaults, you can manually edit the `default_model` object in your settings:
 
 ```json [settings]
 {
@@ -254,7 +254,7 @@ It is set to `true` by default, but if set to false, the card will be fully coll
 
 ### Feedback Controls
 
-Control whether to display the thumbs up/down buttons at the bottom of each agent response, allowing you to give Zed feedback about the agent's performance.
+Control whether to display the thumbs up/down buttons at the bottom of each agent response, allowing you to give zed-custom feedback about the agent's performance.
 The default value is `true`.
 
 ```json [settings]
@@ -278,7 +278,7 @@ The default value is `true`.
 }
 ```
 
-Zed uses a **Smart Caching** strategy to maximize cache hits while staying within the theoretical limits of providers (like Anthropic's strict 4-breakpoint limit). The strategy prioritizes caching:
+zed-custom uses a **Smart Caching** strategy to maximize cache hits while staying within the theoretical limits of providers (like Anthropic's strict 4-breakpoint limit). The strategy prioritizes caching:
 1. The **System Prompt**.
 2. The available **Tools**.
 3. The **most recent history entry** (to stabilize the prompt prefix and efficiently handle multi-turn conversations).
@@ -288,7 +288,7 @@ You can also toggle this setting quickly in the Agent Panel using the **Zap** ic
 
 ## Elasticsearch {#elasticsearch}
 
-Zed includes built-in Elasticsearch support with **two separate features** — an agent tool the model calls autonomously, and a `/elastic` slash command you invoke manually. See [Elasticsearch Integration](../tools/elastic-search.md) for the full guide.
+zed-custom includes built-in Elasticsearch support with **two separate features** — an agent tool the model calls autonomously, and a `/elastic` slash command you invoke manually. See [Elasticsearch Integration](../tools/elastic-search.md) for the full guide.
 
 To enable both features, add the following to your `settings.json`:
 

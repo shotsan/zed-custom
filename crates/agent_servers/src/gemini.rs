@@ -66,7 +66,7 @@ impl AgentServer for Gemini {
         });
 
         cx.spawn(async move |cx| {
-            extra_env.insert("SURFACE".to_owned(), "zed".to_owned());
+            extra_env.insert("SURFACE".to_owned(), "zed_custom".to_owned());
 
             if let Some(api_key) = cx.update(api_key_for_gemini_cli).await.ok() {
                 extra_env.insert("GEMINI_API_KEY".into(), api_key);

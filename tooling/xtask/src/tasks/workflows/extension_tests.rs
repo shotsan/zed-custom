@@ -13,7 +13,7 @@ pub(crate) const ZED_EXTENSION_CLI_SHA: &str = "03d8e9aee95ea6117d75a48bcac2e192
 // This should follow the set target in crates/extension/src/extension_builder.rs
 const EXTENSION_RUST_TARGET: &str = "wasm32-wasip2";
 
-// This is used by various extensions repos in the zed-extensions org to run automated tests.
+// This is used by various extensions repos in the zed_custom-extensions org to run automated tests.
 pub(crate) fn extension_tests() -> Workflow {
     let should_check_rust = PathCondition::new("check_rust", r"^(Cargo.lock|Cargo.toml|.*\.rs)$");
     let should_check_extension = PathCondition::new("check_extension", r"^.*\.scm$");
@@ -95,11 +95,11 @@ pub fn cache_zed_extension_cli() -> (Step<Use>, StepOutput) {
         "cache",
         "0057852bfaa89a56745cba8c7296529d2fc39830",
     )
-    .id("cache-zed-extension-cli")
+    .id("cache-zed_custom-extension-cli")
     .with(
         Input::default()
-            .add("path", "zed-extension")
-            .add("key", "zed-extension-${{ env.ZED_EXTENSION_CLI_SHA }}"),
+            .add("path", "zed_custom-extension")
+            .add("key", "zed_custom-extension-${{ env.ZED_EXTENSION_CLI_SHA }}"),
     );
     let output = StepOutput::new(&step, "cache-hit");
     (step, output)
@@ -109,8 +109,8 @@ pub fn download_zed_extension_cli(cache_hit: StepOutput) -> Step<Run> {
     named::bash(
     indoc! {
         r#"
-        wget --quiet "https://zed-extension-cli.nyc3.digitaloceanspaces.com/$ZED_EXTENSION_CLI_SHA/x86_64-unknown-linux-gnu/zed-extension"
-        chmod +x zed-extension
+        wget --quiet "https://zed_custom-extension-cli.nyc3.digitaloceanspaces.com/$ZED_EXTENSION_CLI_SHA/x86_64-unknown-linux-gnu/zed_custom-extension"
+        chmod +x zed_custom-extension
         "#,
     }
     ).if_condition(Expression::new(format!("{} != 'true'", cache_hit.expr())))
@@ -121,7 +121,7 @@ pub fn check() -> Step<Run> {
         r#"
         mkdir -p /tmp/ext-scratch
         mkdir -p /tmp/ext-output
-        ./zed-extension --source-dir . --scratch-dir /tmp/ext-scratch --output-dir /tmp/ext-output
+        ./zed_custom-extension --source-dir . --scratch-dir /tmp/ext-scratch --output-dir /tmp/ext-output
         "#
     })
 }

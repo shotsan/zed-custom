@@ -169,7 +169,7 @@ fn git_panel_context_menu(
                 StashAll.boxed_clone(),
             )
             .action_disabled_when(!state.has_stash_items, "Stash Pop", StashPop.boxed_clone())
-            .action("View Stash", zed_actions::git::ViewStash.boxed_clone())
+            .action("View Stash", zed_custom_actions::git::ViewStash.boxed_clone())
             .separator()
             .action("Open Diff", project_diff::Diff.boxed_clone())
             .separator()
@@ -4269,10 +4269,10 @@ impl GitPanel {
                     .child(
                         div()
                             .pr_2p5()
-                            .on_action(|&zed_actions::editor::MoveUp, _, cx| {
+                            .on_action(|&zed_custom_actions::editor::MoveUp, _, cx| {
                                 cx.stop_propagation();
                             })
-                            .on_action(|&zed_actions::editor::MoveDown, _, cx| {
+                            .on_action(|&zed_custom_actions::editor::MoveDown, _, cx| {
                                 cx.stop_propagation();
                             })
                             .child(EditorElement::new(&self.commit_editor, panel_editor_style)),
@@ -5805,7 +5805,7 @@ impl RenderOnce for PanelRepoFooter {
             .label_size(LabelSize::Small)
             .truncate(true)
             .on_click(|_, window, cx| {
-                window.dispatch_action(zed_actions::git::Switch.boxed_clone(), cx);
+                window.dispatch_action(zed_custom_actions::git::Switch.boxed_clone(), cx);
             });
 
         let branch_selector = PopoverMenu::new("popover-button")
@@ -5816,7 +5816,7 @@ impl RenderOnce for PanelRepoFooter {
             })
             .trigger_with_tooltip(
                 branch_selector_button,
-                Tooltip::for_action_title("Switch Branch", &zed_actions::git::Switch),
+                Tooltip::for_action_title("Switch Branch", &zed_custom_actions::git::Switch),
             )
             .anchor(Corner::BottomLeft)
             .offset(gpui::Point {
@@ -5924,7 +5924,7 @@ impl Component for PanelRepoFooter {
                 is_head: true,
                 ref_name: branch_name.to_string().into(),
                 upstream: upstream.map(|tracking| Upstream {
-                    ref_name: format!("zed/{}", branch_name).into(),
+                    ref_name: format!("zed_custom/{}", branch_name).into(),
                     tracking,
                 }),
                 most_recent_commit: Some(CommitSummary {
@@ -6040,7 +6040,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed"),
+                                        SharedString::from("zed_custom"),
                                         Some(custom("main", behind_upstream)),
                                     ))
                                     .into_any_element(),
@@ -6051,7 +6051,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed"),
+                                        SharedString::from("zed_custom"),
                                         Some(custom(
                                             "redesign-and-update-git-ui-list-entry-style",
                                             behind_upstream,
@@ -6101,7 +6101,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed"),
+                                        SharedString::from("zed_custom"),
                                         Some(custom("update-README", behind_upstream)),
                                     ))
                                     .into_any_element(),
@@ -6209,7 +6209,7 @@ mod tests {
         fs.insert_tree(
             "/root",
             json!({
-                "zed": {
+                "zed_custom": {
                     ".git": {},
                     "crates": {
                         "gpui": {
@@ -6225,7 +6225,7 @@ mod tests {
         .await;
 
         fs.set_status_for_repo(
-            Path::new(path!("/root/zed/.git")),
+            Path::new(path!("/root/zed_custom/.git")),
             &[
                 ("crates/gpui/gpui.rs", StatusCode::Modified.worktree()),
                 ("crates/util/util.rs", StatusCode::Modified.worktree()),
@@ -6233,7 +6233,7 @@ mod tests {
         );
 
         let project =
-            Project::test(fs.clone(), [path!("/root/zed/crates/gpui").as_ref()], cx).await;
+            Project::test(fs.clone(), [path!("/root/zed_custom/crates/gpui").as_ref()], cx).await;
         let workspace =
             cx.add_window(|window, cx| Workspace::test_new(project.clone(), window, cx));
         let cx = &mut VisualTestContext::from_window(*workspace, cx);

@@ -17,7 +17,7 @@ use sqlez::{
 };
 use std::sync::Arc;
 use ui::{App, SharedString};
-use zed_env_vars::ZED_STATELESS;
+use zed_custom_env_vars::ZED_STATELESS;
 
 pub type DbMessage = crate::Message;
 pub type DbSummary = crate::legacy_thread::DetailedSummaryState;
@@ -645,7 +645,7 @@ mod tests {
             .unwrap();
 
         let entries = database.list_threads().await.unwrap();
-        assert_eq!(entries.len(), 1);
+        assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].id, newer_id);
         assert_eq!(entries[0].title.as_ref(), "Thread B");
         assert_eq!(

@@ -19,11 +19,14 @@ use std::time::Duration;
 use util::ResultExt;
 use watch;
 
+#[cfg(any(test, feature = "test-support"))]
+use crate::MemoryDatabase;
 use crate::{
-    AgentTool, AnyAgentTool, ContextServerRegistry, MemoryStore, MemoryDatabase, semantic_search::SemanticIndex,
+    AgentTool, AnyAgentTool, ContextServerRegistry, MemoryStore, semantic_search::SemanticIndex,
     MAX_PARALLEL_SUBAGENTS, MAX_SUBAGENT_DEPTH, SubagentContext, Templates, Thread, ThreadEvent,
     ToolCallAuthorization, ToolCallEventStream,
 };
+use acp_thread::SUBAGENT_TOOL_NAME;
 
 /// When a subagent's remaining context window falls below this fraction (25%),
 /// the "context running out" prompt is sent to encourage the subagent to wrap up.
@@ -184,7 +187,7 @@ impl AgentTool for SubagentTool {
     type Output = String;
 
     fn name() -> &'static str {
-        acp_thread::SUBAGENT_TOOL_NAME
+        SUBAGENT_TOOL_NAME
     }
 
     fn kind() -> acp::ToolKind {

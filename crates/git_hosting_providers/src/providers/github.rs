@@ -290,7 +290,7 @@ mod tests {
             parsed_remote,
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             }
         );
     }
@@ -340,7 +340,7 @@ mod tests {
             parsed_remote,
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             }
         );
     }
@@ -357,7 +357,7 @@ mod tests {
             parsed_remote,
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             }
         );
     }
@@ -372,7 +372,7 @@ mod tests {
             parsed_remote,
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             }
         );
     }
@@ -387,7 +387,7 @@ mod tests {
             parsed_remote,
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             }
         );
     }
@@ -411,7 +411,7 @@ mod tests {
     fn test_build_github_permalink_from_ssh_url() {
         let remote = ParsedGitRemote {
             owner: "zed-industries".into(),
-            repo: "zed".into(),
+            repo: "zed_custom".into(),
         };
         let permalink = Github::public_instance().build_permalink(
             remote,
@@ -431,16 +431,16 @@ mod tests {
         let permalink = Github::public_instance().build_permalink(
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             },
             BuildPermalinkParams::new(
                 "b2efec9824c45fcc90c9a7eb107a50d1772a60aa",
-                &repo_path("crates/zed/src/main.rs"),
+                &repo_path("crates/zed_custom/src/main.rs"),
                 None,
             ),
         );
 
-        let expected_url = "https://github.com/zed-industries/zed/blob/b2efec9824c45fcc90c9a7eb107a50d1772a60aa/crates/zed/src/main.rs";
+        let expected_url = "https://github.com/zed-industries/zed/blob/b2efec9824c45fcc90c9a7eb107a50d1772a60aa/crates/zed_custom/src/main.rs";
         assert_eq!(permalink.to_string(), expected_url.to_string())
     }
 
@@ -449,7 +449,7 @@ mod tests {
         let permalink = Github::public_instance().build_permalink(
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             },
             BuildPermalinkParams::new(
                 "e6ebe7974deb6bb6cc0e2595c8ec31f0c71084b7",
@@ -467,7 +467,7 @@ mod tests {
         let permalink = Github::public_instance().build_permalink(
             ParsedGitRemote {
                 owner: "zed-industries".into(),
-                repo: "zed".into(),
+                repo: "zed_custom".into(),
             },
             BuildPermalinkParams::new(
                 "e6ebe7974deb6bb6cc0e2595c8ec31f0c71084b7",
@@ -484,7 +484,7 @@ mod tests {
     fn test_build_github_create_pr_url() {
         let remote = ParsedGitRemote {
             owner: "zed-industries".into(),
-            repo: "zed".into(),
+            repo: "zed_custom".into(),
         };
 
         let provider = Github::public_instance();
@@ -503,7 +503,7 @@ mod tests {
     fn test_github_pull_requests() {
         let remote = ParsedGitRemote {
             owner: "zed-industries".into(),
-            repo: "zed".into(),
+            repo: "zed_custom".into(),
         };
 
         let github = Github::public_instance();
@@ -564,7 +564,7 @@ mod tests {
     fn test_build_create_pull_request_url() {
         let remote = ParsedGitRemote {
             owner: "zed-industries".into(),
-            repo: "zed".into(),
+            repo: "zed_custom".into(),
         };
 
         let github = Github::public_instance();
@@ -577,7 +577,7 @@ mod tests {
             "https://github.com/zed-industries/zed/pull/new/feature%2Fnew-feature"
         );
 
-        let base_url = Url::parse("https://github.zed.com").unwrap();
+        let base_url = Url::parse("https://github.zed.dev").unwrap();
         let github = Github::new("GitHub Self-Hosted", base_url);
         let url = github
             .build_create_pull_request_url(&remote, "feature/new-feature")
@@ -585,7 +585,7 @@ mod tests {
 
         assert_eq!(
             url.as_str(),
-            "https://github.zed.com/zed-industries/zed/pull/new/feature%2Fnew-feature"
+            "https://github.zed.dev/zed-industries/zed/pull/new/feature%2Fnew-feature"
         );
     }
 }

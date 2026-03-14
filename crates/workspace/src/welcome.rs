@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ui::{ButtonLike, Divider, DividerColor, KeyBinding, Vector, VectorName, prelude::*};
 use util::ResultExt;
-use zed_actions::{Extensions, OpenOnboarding, OpenSettings, agent, command_palette};
+use zed_custom_actions::{Extensions, OpenOnboarding, OpenSettings, agent, command_palette};
 
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize, JsonSchema, Action)]
 #[action(namespace = welcome)]
@@ -22,8 +22,7 @@ pub struct OpenRecentProject {
     pub index: usize,
 }
 
-actions!(
-    zed,
+actions!(zed,
     [
         /// Show the Zed welcome screen
         ShowWelcome
@@ -283,7 +282,7 @@ impl WelcomePage {
                     })
                     .detach();
                 } else {
-                    use zed_actions::OpenRecent;
+                    use zed_custom_actions::OpenRecent;
                     window.dispatch_action(OpenRecent::default().boxed_clone(), cx);
                 }
             }
@@ -355,11 +354,7 @@ impl Render for WelcomePage {
                 .into_any_element()
         };
 
-        let welcome_label = if self.fallback_to_recent_projects {
-            "Welcome back to Zed"
-        } else {
-            "Welcome to Zed"
-        };
+        let welcome_label = "zed-custom";
 
         h_flex()
             .key_context("Welcome")
@@ -391,10 +386,10 @@ impl Render for WelcomePage {
                                     .justify_center()
                                     .mb_4()
                                     .gap_4()
-                                    .child(Vector::square(VectorName::ZedLogo, rems_from_px(45.)))
+                                    .child(Vector::square(VectorName::ZedCustomLogo, rems_from_px(45.)))
                                     .child(
                                         v_flex().child(Headline::new(welcome_label)).child(
-                                            Label::new("The editor for what's next")
+                                            Label::new("simple, and always learning")
                                                 .size(LabelSize::Small)
                                                 .color(Color::Muted)
                                                 .italic(),

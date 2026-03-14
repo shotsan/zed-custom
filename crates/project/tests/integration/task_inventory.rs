@@ -445,16 +445,16 @@ async fn test_inventory_static_task_filters(cx: &mut TestAppContext) {
         (
             TaskSourceKind::Worktree {
                 id: worktree_1,
-                directory_in_worktree: rel_path(".zed").into(),
-                id_base: "local worktree tasks from directory \".zed\"".into(),
+                directory_in_worktree: rel_path(".zed_custom").into(),
+                id_base: "local worktree tasks from directory \".zed_custom\"".into(),
             },
             common_name.to_string(),
         ),
         (
             TaskSourceKind::Worktree {
                 id: worktree_1,
-                directory_in_worktree: rel_path(".zed").into(),
-                id_base: "local worktree tasks from directory \".zed\"".into(),
+                directory_in_worktree: rel_path(".zed_custom").into(),
+                id_base: "local worktree tasks from directory \".zed_custom\"".into(),
             },
             "worktree_1".to_string(),
         ),
@@ -463,16 +463,16 @@ async fn test_inventory_static_task_filters(cx: &mut TestAppContext) {
         (
             TaskSourceKind::Worktree {
                 id: worktree_2,
-                directory_in_worktree: rel_path(".zed").into(),
-                id_base: "local worktree tasks from directory \".zed\"".into(),
+                directory_in_worktree: rel_path(".zed_custom").into(),
+                id_base: "local worktree tasks from directory \".zed_custom\"".into(),
             },
             common_name.to_string(),
         ),
         (
             TaskSourceKind::Worktree {
                 id: worktree_2,
-                directory_in_worktree: rel_path(".zed").into(),
-                id_base: "local worktree tasks from directory \".zed\"".into(),
+                directory_in_worktree: rel_path(".zed_custom").into(),
+                id_base: "local worktree tasks from directory \".zed_custom\"".into(),
             },
             "worktree_2".to_string(),
         ),
@@ -493,7 +493,7 @@ async fn test_inventory_static_task_filters(cx: &mut TestAppContext) {
             .update_file_based_tasks(
                 TaskSettingsLocation::Worktree(SettingsLocation {
                     worktree_id: worktree_1,
-                    path: rel_path(".zed"),
+                    path: rel_path(".zed_custom"),
                 }),
                 Some(&mock_tasks_from_names(
                     worktree_1_tasks.iter().map(|(_, name)| name.as_str()),
@@ -504,7 +504,7 @@ async fn test_inventory_static_task_filters(cx: &mut TestAppContext) {
             .update_file_based_tasks(
                 TaskSettingsLocation::Worktree(SettingsLocation {
                     worktree_id: worktree_2,
-                    path: rel_path(".zed"),
+                    path: rel_path(".zed_custom"),
                 }),
                 Some(&mock_tasks_from_names(
                     worktree_2_tasks.iter().map(|(_, name)| name.as_str()),

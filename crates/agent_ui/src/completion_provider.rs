@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use crate::acp::AcpThreadHistory;
-use crate::user_slash_command::{self, CommandLoadError, UserSlashCommand};
+use prompt_store::user_slash_command::{self, CommandLoadError, UserSlashCommand};
 use acp_thread::{AgentSessionInfo, MentionUri};
 use anyhow::Result;
 use collections::{HashMap, HashSet};

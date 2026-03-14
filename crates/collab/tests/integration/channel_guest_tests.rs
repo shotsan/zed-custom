@@ -242,7 +242,7 @@ async fn test_channel_requires_zed_cla(cx_a: &mut TestAppContext, cx_b: &mut Tes
     });
 
     // A tries to grant write access to B, but cannot because B has not
-    // yet signed the zed CLA.
+    // yet signed the zed_custom CLA.
     active_call_a
         .update(cx_a, |call, cx| {
             call.room().unwrap().update(cx, |room, cx| {
@@ -262,7 +262,7 @@ async fn test_channel_requires_zed_cla(cx_a: &mut TestAppContext, cx_b: &mut Tes
     });
 
     // A tries to grant write access to B, but cannot because B has not
-    // yet signed the zed CLA.
+    // yet signed the zed_custom CLA.
     active_call_a
         .update(cx_a, |call, cx| {
             call.room().unwrap().update(cx, |room, cx| {
@@ -281,7 +281,7 @@ async fn test_channel_requires_zed_cla(cx_a: &mut TestAppContext, cx_b: &mut Tes
         assert!(room_b.read_with(cx_b, |room, _| room.can_use_microphone()));
     });
 
-    // User B signs the zed CLA.
+    // User B signs the zed_custom CLA.
     server
         .app_state
         .db

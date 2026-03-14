@@ -185,9 +185,9 @@
   - [AI Improvement](./ai/ai-improvement.md)
 - [Telemetry](./telemetry.md)
 
-# Developing Zed
+# Developing zed-custom
 
-- [Developing Zed](./development.md)
+- [Developing zed-custom](./development.md)
   - [Architecture](./architecture.md)
   - [macOS](./development/macos.md)
   - [Linux](./development/linux.md)

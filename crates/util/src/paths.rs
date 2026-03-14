@@ -26,11 +26,11 @@ pub fn home_dir() -> &'static PathBuf {
     HOME_DIR.get_or_init(|| {
         if cfg!(any(test, feature = "test-support")) {
             if cfg!(target_os = "macos") {
-                PathBuf::from("/Users/zed")
+                PathBuf::from("/Users/zed_custom")
             } else if cfg!(target_os = "windows") {
-                PathBuf::from("C:\\Users\\zed")
+                PathBuf::from("C:\\Users\\zed_custom")
             } else {
-                PathBuf::from("/home/zed")
+                PathBuf::from("/home/zed_custom")
             }
         } else {
             dirs::home_dir().expect("failed to determine home directory")
@@ -2067,9 +2067,9 @@ mod tests {
         );
 
         assert_eq!(
-            PathWithPosition::parse_str("app-editors:zed-0.143.6:20240710-201212.log:34:"),
+            PathWithPosition::parse_str("app-editors:zed_custom-0.143.6:20240710-201212.log:34:"),
             PathWithPosition {
-                path: PathBuf::from("app-editors:zed-0.143.6:20240710-201212.log"),
+                path: PathBuf::from("app-editors:zed_custom-0.143.6:20240710-201212.log"),
                 row: Some(34),
                 column: None,
             }
@@ -2303,7 +2303,7 @@ mod tests {
 
     // #[perf]
     // fn project_search() {
-    //     let path = Path::new("/Users/someonetoignore/work/zed/zed.dev/node_modules");
+    //     let path = Path::new("/Users/someonetoignore/work/zed_custom/zed.dev/node_modules");
     //     let path_matcher =
     //         PathMatcher::new(&["**/node_modules/**".to_owned()], PathStyle::Posix).unwrap();
     //     assert!(

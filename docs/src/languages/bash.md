@@ -1,7 +1,7 @@
 # Bash
 
-Bash language support in Zed is provided by the community-maintained [Basher extension](https://github.com/d1y/bash.zed).
-Report issues to: [https://github.com/d1y/bash.zed/issues](https://github.com/d1y/bash.zed/issues)
+Bash language support in zed-custom is provided by the community-maintained [Basher extension](https://github.com/d1y/bash.zed-custom).
+Report issues to: [https://github.com/d1y/bash.zed-custom/issues](https://github.com/d1y/bash.zed-custom/issues)
 
 - Tree-sitter: [tree-sitter/tree-sitter-bash](https://github.com/tree-sitter/tree-sitter-bash)
 - Language Server: [bash-lsp/bash-language-server](https://github.com/bash-lsp/bash-language-server)
@@ -33,4 +33,4 @@ If you wish to customize the warnings/errors reported you just need to create a 
 
 ### See also:
 
-- [Zed Docs: Language Support: Shell Scripts](./sh.md)
+- [zed-custom Docs: Language Support: Shell Scripts](./sh.md)

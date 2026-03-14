@@ -35,7 +35,7 @@ struct WorkflowFile {
 }
 
 impl WorkflowFile {
-    fn zed(f: fn() -> Workflow) -> WorkflowFile {
+    fn zed_custom(f: fn() -> Workflow) -> WorkflowFile {
         WorkflowFile {
             source: f,
             r#type: WorkflowType::Zed,
@@ -90,7 +90,7 @@ impl WorkflowFile {
 enum WorkflowType {
     /// Workflows living in the Zed repository
     Zed,
-    /// Workflows living in the `zed-extensions/workflows` repository that are
+    /// Workflows living in the `zed_custom-extensions/workflows` repository that are
     /// required workflows for PRs to the extension organization
     ExtensionCI,
     /// Workflows living in each of the extensions to perform checks and version
@@ -107,7 +107,7 @@ impl WorkflowType {
             ),
             workflow_name,
             (*self != WorkflowType::Zed)
-                .then_some(" within the Zed repository.")
+                .then_some(" within the zed-custom repository.")
                 .unwrap_or_default(),
         )
     }
@@ -122,29 +122,29 @@ impl WorkflowType {
 }
 
 pub fn run_workflows(_: GenerateWorkflowArgs) -> Result<()> {
-    if !Path::new("crates/zed/").is_dir() {
+    if !Path::new("crates/zed_custom/").is_dir() {
         anyhow::bail!("xtask workflows must be ran from the project root");
     }
 
     let workflows = [
-        WorkflowFile::zed(after_release::after_release),
-        WorkflowFile::zed(autofix_pr::autofix_pr),
-        WorkflowFile::zed(bump_patch_version::bump_patch_version),
-        WorkflowFile::zed(cherry_pick::cherry_pick),
-        WorkflowFile::zed(compare_perf::compare_perf),
-        WorkflowFile::zed(danger::danger),
-        WorkflowFile::zed(extension_bump::extension_bump),
-        WorkflowFile::zed(extension_release::extension_release),
-        WorkflowFile::zed(extension_tests::extension_tests),
-        WorkflowFile::zed(extension_workflow_rollout::extension_workflow_rollout),
-        WorkflowFile::zed(release::release_mac),
-        WorkflowFile::zed(release::release_linux),
-        WorkflowFile::zed(release_nightly::release_nightly),
-        WorkflowFile::zed(run_agent_evals::run_agent_evals),
-        WorkflowFile::zed(run_agent_evals::run_cron_unit_evals),
-        WorkflowFile::zed(run_agent_evals::run_unit_evals),
-        WorkflowFile::zed(run_bundling::run_bundling),
-        WorkflowFile::zed(run_tests::run_tests),
+        WorkflowFile::zed_custom(after_release::after_release),
+        WorkflowFile::zed_custom(autofix_pr::autofix_pr),
+        WorkflowFile::zed_custom(bump_patch_version::bump_patch_version),
+        WorkflowFile::zed_custom(cherry_pick::cherry_pick),
+        WorkflowFile::zed_custom(compare_perf::compare_perf),
+        WorkflowFile::zed_custom(danger::danger),
+        WorkflowFile::zed_custom(extension_bump::extension_bump),
+        WorkflowFile::zed_custom(extension_release::extension_release),
+        WorkflowFile::zed_custom(extension_tests::extension_tests),
+        WorkflowFile::zed_custom(extension_workflow_rollout::extension_workflow_rollout),
+        WorkflowFile::zed_custom(release::release_mac),
+        WorkflowFile::zed_custom(release::release_linux),
+        WorkflowFile::zed_custom(release_nightly::release_nightly),
+        WorkflowFile::zed_custom(run_agent_evals::run_agent_evals),
+        WorkflowFile::zed_custom(run_agent_evals::run_cron_unit_evals),
+        WorkflowFile::zed_custom(run_agent_evals::run_unit_evals),
+        WorkflowFile::zed_custom(run_bundling::run_bundling),
+        WorkflowFile::zed_custom(run_tests::run_tests),
         /* workflows used for CI/CD in extension repositories */
         WorkflowFile::extension(extensions::run_tests::run_tests),
         WorkflowFile::extension_shared(extensions::bump_version::bump_version),

@@ -1,11 +1,11 @@
 use zed_extension_api::{
-    self as zed, SlashCommand, SlashCommandArgumentCompletion, SlashCommandOutput,
+    self as zed_custom, SlashCommand, SlashCommandArgumentCompletion, SlashCommandOutput,
     SlashCommandOutputSection, Worktree,
 };
 
 struct SlashCommandsExampleExtension;
 
-impl zed::Extension for SlashCommandsExampleExtension {
+impl zed_custom::Extension for SlashCommandsExampleExtension {
     fn new() -> Self {
         SlashCommandsExampleExtension
     }
@@ -87,4 +87,4 @@ impl zed::Extension for SlashCommandsExampleExtension {
     }
 }
 
-zed::register_extension!(SlashCommandsExampleExtension);
+zed_custom::register_extension!(SlashCommandsExampleExtension);

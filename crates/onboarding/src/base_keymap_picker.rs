@@ -11,8 +11,7 @@ use ui::{ListItem, ListItemSpacing, prelude::*};
 use util::ResultExt;
 use workspace::{ModalView, Workspace, ui::HighlightedLabel};
 
-actions!(
-    zed,
+actions!(zed,
     [
         /// Toggles the base keymap selector modal.
         ToggleBaseKeymapSelector

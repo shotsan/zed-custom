@@ -72,7 +72,7 @@ use workspace::{
     pane,
     searchable::{SearchEvent, SearchableItem},
 };
-use zed_actions::agent::{AddSelectionToThread, PasteRaw, ToggleModelSelector};
+use zed_custom_actions::agent::{AddSelectionToThread, PasteRaw, ToggleModelSelector};
 
 use crate::CycleFavoriteModels;
 
@@ -405,7 +405,7 @@ impl TextThreadEditor {
         if self.sending_disabled(cx) {
             return;
         }
-        telemetry::event!("Agent Message Sent", agent = "zed-text");
+        telemetry::event!("Agent Message Sent", agent = "zed_custom-text");
         self.send_to_model(window, cx);
     }
 
@@ -2482,7 +2482,7 @@ impl TextThreadEditor {
     }
 
     fn render_payment_required_error(&self, cx: &mut Context<Self>) -> AnyElement {
-        const ERROR_MESSAGE: &str = "Free tier exceeded. Subscribe and add payment to continue using Zed LLMs. You'll be billed at cost for tokens used.";
+        const ERROR_MESSAGE: &str = "Free tier exceeded. Subscribe and add payment to continue using zed-custom LLMs. You'll be billed at cost for tokens used.";
 
         v_flex()
             .gap_0p5()
@@ -3318,10 +3318,10 @@ mod tests {
     #[gpui::test]
     async fn test_copy_paste_whole_message(cx: &mut TestAppContext) {
         let (context, text_thread_editor, mut cx) = setup_text_thread_editor_text(vec![
-            (Role::User, "What is the Zed editor?"),
+            (Role::User, "What is the zed-custom editor?"),
             (
                 Role::Assistant,
-                "Zed is a modern, high-performance code editor designed from the ground up for speed and collaboration.",
+                "zed-custom is a modern, high-performance code editor designed from the ground up for speed and collaboration.",
             ),
             (Role::User, ""),
         ],cx).await;

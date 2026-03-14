@@ -333,7 +333,7 @@ pub struct AudioSettingsContent {
     /// loud you sound to others.
     ///
     /// Recommended: off (default)
-    /// Microphones are too quite in zed, until everyone is on experimental
+    /// Microphones are too quite in zed_custom, until everyone is on experimental
     /// audio and has auto speaker volume on this will make you very loud
     /// compared to other speakers.
     #[serde(rename = "experimental.auto_microphone_volume")]

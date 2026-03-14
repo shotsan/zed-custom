@@ -1,4 +1,4 @@
-# Zed AI Improvement
+# zed-custom AI Improvement
 
 ## Agent Panel
 
@@ -6,16 +6,16 @@
 
 When you use the Agent Panel through any of these means:
 
-- [Zed's hosted models](./subscription.md)
-- [connecting a non-Zed AI service via API key](./llm-providers.md)
+- [zed-custom's hosted models](./subscription.md)
+- [connecting a non-zed-custom AI service via API key](./llm-providers.md)
 - using an [external agent](./external-agents.md)
 
-Zed does not persistently store user content or use user content to evaluate and/or improve our AI features, unless it is explicitly shared with Zed. Each share is opt-in, and sharing once will not cause future content or data to be shared again.
+zed-custom does not persistently store user content or use user content to evaluate and/or improve our AI features, unless it is explicitly shared with zed-custom. Each share is opt-in, and sharing once will not cause future content or data to be shared again.
 
-> Note that rating responses will send your data related to that response to Zed's servers.
-> **_If you don't want data persisted on Zed's servers, don't rate_**. We will not collect data for improving our Agentic offering without you explicitly rating responses.
+> Note that rating responses will send your data related to that response to zed-custom's servers.
+> **_If you don't want data persisted on zed-custom's servers, don't rate_**. We will not collect data for improving our Agentic offering without you explicitly rating responses.
 
-When using upstream services through Zed's hosted models, we require assurances from our service providers that your user content won't be used for training models.
+When using upstream services through zed-custom's hosted models, we require assurances from our service providers that your user content won't be used for training models.
 
 | Provider  | No Training Guarantee                                   | Zero-Data Retention (ZDR)                                                                                                                     |
 | --------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,19 +23,19 @@ When using upstream services through Zed's hosted models, we require assurances 
 | Google    | [Yes](https://cloud.google.com/terms/service-terms)     | [Yes](https://cloud.google.com/terms/service-terms), see Service Terms sections 17 and 19h                                                    |
 | OpenAI    | [Yes](https://openai.com/enterprise-privacy/)           | [Yes](https://platform.openai.com/docs/guides/your-data)                                                                                      |
 
-When you use your own API keys or external agents, **Zed does not have control over how your data is used by that service provider.**
+When you use your own API keys or external agents, **zed-custom does not have control over how your data is used by that service provider.**
 You should reference your agreement with each service provider to understand what terms and conditions apply.
 
 ### Data we collect
 
-For prompts you have explicitly shared with us, Zed may store copies of those prompts and other data about the specific use of the Agent Panel.
+For prompts you have explicitly shared with us, zed-custom may store copies of those prompts and other data about the specific use of the Agent Panel.
 
 This data includes:
 
 - The prompt given to the Agent
 - Any commentary you include
 - Product telemetry about the agentic thread
-- Metadata about your Zed installation
+- Metadata about your zed-custom installation
 
 ### Data Handling
 
@@ -43,21 +43,21 @@ Collected data is stored in Snowflake, a private database where we track other m
 
 ## Edit Predictions
 
-By default, when using Zed Edit Predictions, Zed does not persistently store user content or use user content for training of its models.
+By default, when using zed-custom Edit Predictions, zed-custom does not persistently store user content or use user content for training of its models.
 
 ### Opt-in
 
 Users who are working on open source licensed projects may optionally opt-in to providing model improvement feedback. This opt-in occurs on a per-project basis. If you work on multiple open source projects and wish to provide model improvement feedback you will have to opt-in for each individual project.
 
-When working on other projects where you haven't opted-in, Zed will not persistently store user content or use user content for training of its models.
+When working on other projects where you haven't opted-in, zed-custom will not persistently store user content or use user content for training of its models.
 
-You can see exactly how Zed detects open source licenses in: [license_detection.rs](https://github.com/zed-industries/zed/blob/main/crates/edit_prediction/src/license_detection.rs).
+You can see exactly how zed-custom detects open source licenses in: [license_detection.rs](https://github.com/zed-industries/zed-custom/blob/main/crates/edit_prediction/src/license_detection.rs).
 
 ### Exclusions
 
-Zed will intentionally exclude certain files from Predictive Edits entirely, even when you have opted-in to model improvement feedback.
+zed-custom will intentionally exclude certain files from Predictive Edits entirely, even when you have opted-in to model improvement feedback.
 
-You can inspect this exclusion list by opening `zed: open default settings` from the command palette:
+You can inspect this exclusion list by opening `zed-custom: open default settings` from the command palette:
 
 ```json [settings]
 {
@@ -77,7 +77,7 @@ You can inspect this exclusion list by opening `zed: open default settings` from
 }
 ```
 
-Users may explicitly exclude additional paths and/or file extensions by adding them to [`edit_predictions.disabled_globs`](https://zed.dev/docs/reference/all-settings#edit-predictions) in their Zed settings.json:
+Users may explicitly exclude additional paths and/or file extensions by adding them to [`edit_predictions.disabled_globs`](https://zed.dev/docs/reference/all-settings#edit-predictions) in their zed-custom settings.json:
 
 ```json [settings]
 {
@@ -89,7 +89,7 @@ Users may explicitly exclude additional paths and/or file extensions by adding t
 
 ### Data we collect
 
-For open source projects where you have opted-in, Zed may store copies of requests and responses to the Zed AI Prediction service.
+For open source projects where you have opted-in, zed-custom may store copies of requests and responses to the zed-custom AI Prediction service.
 
 This data includes:
 
@@ -110,4 +110,4 @@ We then use this training dataset to fine-tune [Qwen2.5-Coder-7B](https://huggin
 
 ## Applicable terms
 
-Please see the [Zed Terms of Service](https://zed.dev/terms-of-service) for more.
+Please see the [zed-custom Terms of Service](https://zed.dev/terms-of-service) for more.

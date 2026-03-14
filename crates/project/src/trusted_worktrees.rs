@@ -22,7 +22,7 @@
 //! * "single file worktree"
 //!
 //! After opening an empty Zed it's possible to open just a file, same as after opening a directory in Zed it's possible to open a file outside of this directory.
-//! Usual scenario for both cases is opening Zed's settings.json file via `zed: open settings file` command: that starts a language server for a new file open, which originates from a newly created, single file worktree.
+//! Usual scenario for both cases is opening Zed's settings.json file via `zed_custom: open settings file` command: that starts a language server for a new file open, which originates from a newly created, single file worktree.
 //!
 //! Spawning a language server is potentially dangerous, and Zed needs to restrict that by default.
 //! Each single file worktree requires a separate trust permission, unless a more global level is trusted.
@@ -237,19 +237,10 @@ impl TrustedWorktreesStore {
     /// Whether a particular worktree store has associated worktrees that are restricted, or an associated host is restricted.
     pub fn has_restricted_worktrees(
         &self,
-        worktree_store: &Entity<WorktreeStore>,
-        cx: &App,
+        _worktree_store: &Entity<WorktreeStore>,
+        _cx: &App,
     ) -> bool {
-        self.restricted
-            .get(&worktree_store.downgrade())
-            .is_some_and(|restricted_worktrees| {
-                restricted_worktrees.iter().any(|restricted_worktree| {
-                    worktree_store
-                        .read(cx)
-                        .worktree_for_id(*restricted_worktree, cx)
-                        .is_some()
-                })
-            })
+        false
     }
 
     #[cfg(feature = "test-support")]

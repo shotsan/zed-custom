@@ -653,7 +653,7 @@ mod tests {
             r#"
                 {
                     "features": {
-                        "inline_completion_provider": "zed"
+                        "inline_completion_provider": "zed_custom"
                     },
                 }
             "#,
@@ -661,7 +661,7 @@ mod tests {
                 r#"
                 {
                     "features": {
-                        "edit_prediction_provider": "zed"
+                        "edit_prediction_provider": "zed_custom"
                     },
                 }
             "#,

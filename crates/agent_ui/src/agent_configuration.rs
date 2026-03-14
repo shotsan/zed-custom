@@ -42,7 +42,7 @@ use ui::{
 };
 use util::ResultExt as _;
 use workspace::{Workspace, create_and_open_local_file};
-use zed_actions::{ExtensionCategoryFilter, OpenBrowser};
+use zed_custom_actions::{ExtensionCategoryFilter, OpenBrowser};
 
 pub(crate) use configure_context_server_modal::ConfigureContextServerModal;
 pub(crate) use configure_context_server_tools_modal::ConfigureContextServerToolsModal;
@@ -465,7 +465,7 @@ impl AgentConfiguration {
             .w_full()
             .child(self.render_section_title(
                 "LLM Providers",
-                "Add at least one provider to use AI-powered features with Zed's native agent.",
+                "Add at least one provider to use AI-powered features with zed-custom's native agent.",
                 popover_menu.into_any_element(),
             ))
             .child(
@@ -559,7 +559,7 @@ impl AgentConfiguration {
                         .entry("Install from Extensions", None, {
                             |window, cx| {
                                 window.dispatch_action(
-                                    zed_actions::Extensions {
+                                    zed_custom_actions::Extensions {
                                         category_filter: Some(
                                             ExtensionCategoryFilter::ContextServers,
                                         ),
@@ -584,7 +584,7 @@ impl AgentConfiguration {
             .border_color(cx.theme().colors().border)
             .child(self.render_section_title(
                 "Model Context Protocol (MCP) Servers",
-                "All MCP servers connected directly or via a Zed extension.",
+                "All MCP servers connected directly or via a zed-custom extension.",
                 add_server_popover.into_any_element(),
             ))
             .child(
@@ -1002,7 +1002,7 @@ impl AgentConfiguration {
                     Some(ContextMenu::build(window, cx, |menu, _window, _cx| {
                         menu.entry("Install from Registry", None, {
                             |window, cx| {
-                                window.dispatch_action(Box::new(zed_actions::AcpRegistry), cx)
+                                window.dispatch_action(Box::new(zed_custom_actions::AcpRegistry), cx)
                             }
                         })
                         .entry("Add Custom Agent", None, {

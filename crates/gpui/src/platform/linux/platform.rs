@@ -37,7 +37,7 @@ pub(crate) const SCROLL_LINES: f32 = 3.0;
 #[cfg(any(feature = "wayland", feature = "x11"))]
 pub(crate) const DOUBLE_CLICK_INTERVAL: Duration = Duration::from_millis(400);
 pub(crate) const DOUBLE_CLICK_DISTANCE: Pixels = px(5.0);
-pub(crate) const KEYRING_LABEL: &str = "zed-github-account";
+pub(crate) const KEYRING_LABEL: &str = "zed_custom-github-account";
 
 #[cfg(any(feature = "wayland", feature = "x11"))]
 const FILE_PICKER_PORTAL_MISSING: &str =
@@ -63,11 +63,11 @@ impl<T> ResultExt for anyhow::Result<T> {
 
                 let proxy = block_on(NotificationProxy::new()).expect(msg);
 
-                let notification_id = "dev.zed.Oops";
+                let notification_id = "dev.zed_custom.Oops";
                 block_on(
                     proxy.add_notification(
                         notification_id,
-                        Notification::new("Zed failed to launch")
+                        Notification::new("zed-custom failed to launch")
                             .body(Some(
                                 format!(
                                     "{e:?}. See https://zed.dev/docs/linux for troubleshooting steps."

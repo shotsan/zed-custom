@@ -207,9 +207,9 @@ members = [
     "crates/worktree",
     "crates/worktree_benchmarks",
     "crates/x_ai",
-    "crates/zed",
-    "crates/zed_actions",
-    "crates/zed_env_vars",
+    "crates/zed-custom",
+    "crates/zed-custom-actions",
+    "crates/zed-custom-env-vars",
     "crates/edit_prediction_cli",
     "crates/zeta_prompt",
     "crates/zlog",
@@ -234,7 +234,7 @@ members = [
     "tooling/perf",
     "tooling/xtask",
 ]
-default-members = ["crates/zed"]
+default-members = ["crates/zed-custom"]
 
 [workspace.package]
 publish = false
@@ -442,9 +442,9 @@ web_search_providers = { path = "crates/web_search_providers" }
 workspace = { path = "crates/workspace" }
 worktree = { path = "crates/worktree" }
 x_ai = { path = "crates/x_ai" }
-zed = { path = "crates/zed" }
-zed_actions = { path = "crates/zed_actions" }
-zed_env_vars = { path = "crates/zed_env_vars" }
+zed-custom = { path = "crates/zed-custom" }
+zed-custom-actions = { path = "crates/zed-custom-actions" }
+zed-custom-env-vars = { path = "crates/zed-custom-env-vars" }
 edit_prediction = { path = "crates/edit_prediction" }
 zeta_prompt = { path = "crates/zeta_prompt" }
 zlog = { path = "crates/zlog" }
@@ -622,7 +622,7 @@ quote = "1.0.9"
 rand = "0.9"
 rayon = "1.8"
 regex = "1.5"
-# WARNING: If you change this, you must also publish a new version of zed-reqwest to crates.io
+# WARNING: If you change this, you must also publish a new version of zed-custom-reqwest to crates.io
 reqwest = { git = "https://github.com/zed-industries/reqwest.git", rev = "c15662463bda39148ba154100dd44d3fba5873a4", default-features = false, features = [
     "charset",
     "http2",
@@ -640,7 +640,7 @@ rust-embed = { version = "8.4", features = ["include-exclude"] }
 rustc-hash = "2.1.0"
 rustls = { version = "0.23.26" }
 rustls-platform-verifier = "0.5.0"
-# WARNING: If you change this, you must also publish a new version of zed-scap to crates.io
+# WARNING: If you change this, you must also publish a new version of zed-custom-scap to crates.io
 scap = { git = "https://github.com/zed-industries/scap", rev = "4afea48c3b002197176fb19cd0f9b180dd36eaac", default-features = false, package = "zed-scap", version = "0.0.8-zed" }
 scraper = "0.25.0"
 schemars = { version = "1.0", features = ["indexmap2"] }
@@ -860,7 +860,7 @@ telemetry_events = { codegen-units = 1 }
 theme_selector = { codegen-units = 1 }
 time_format = { codegen-units = 1 }
 ui_input = { codegen-units = 1 }
-zed_actions = { codegen-units = 1 }
+zed-custom-actions = { codegen-units = 1 }
 
 [profile.release]
 debug = "limited"
@@ -868,7 +868,7 @@ lto = "thin"
 codegen-units = 1
 
 [profile.release.package]
-zed = { codegen-units = 16 }
+zed-custom = { codegen-units = 16 }
 
 [profile.release-fast]
 inherits = "release"

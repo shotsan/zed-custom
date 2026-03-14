@@ -575,7 +575,7 @@ mod test {
         let fs = FakeFs::new(cx.executor());
 
         fs.insert_tree(
-            path!("/zed"),
+            path!("/zed_custom"),
             json!({
                 "assets": {
                     "dir1": {
@@ -600,29 +600,29 @@ mod test {
         )
         .await;
 
-        let project = Project::test(fs, [path!("/zed").as_ref()], cx).await;
+        let project = Project::test(fs, [path!("/zed_custom").as_ref()], cx).await;
 
         let result =
-            cx.update(|cx| collect_files(project.clone(), &["zed/assets/themes".to_string()], cx));
+            cx.update(|cx| collect_files(project.clone(), &["zed_custom/assets/themes".to_string()], cx));
         let result = SlashCommandOutput::from_event_stream(result.boxed())
             .await
             .unwrap();
 
         // Sanity check
-        assert!(result.text.starts_with(path!("zed/assets/themes\n")));
+        assert!(result.text.starts_with(path!("zed_custom/assets/themes\n")));
         assert_eq!(result.sections.len(), 7);
 
         // Ensure that full file paths are included in the real output
         assert!(
             result
                 .text
-                .contains(path!("zed/assets/themes/andromeda/LICENSE"))
+                .contains(path!("zed_custom/assets/themes/andromeda/LICENSE"))
         );
-        assert!(result.text.contains(path!("zed/assets/themes/ayu/LICENSE")));
+        assert!(result.text.contains(path!("zed_custom/assets/themes/ayu/LICENSE")));
         assert!(
             result
                 .text
-                .contains(path!("zed/assets/themes/summercamp/LICENSE"))
+                .contains(path!("zed_custom/assets/themes/summercamp/LICENSE"))
         );
 
         assert_eq!(result.sections[5].label, "summercamp");
@@ -630,17 +630,17 @@ mod test {
         // Ensure that things are in descending order, with properly relativized paths
         assert_eq!(
             result.sections[0].label,
-            path!("zed/assets/themes/andromeda/LICENSE")
+            path!("zed_custom/assets/themes/andromeda/LICENSE")
         );
         assert_eq!(result.sections[1].label, "andromeda");
         assert_eq!(
             result.sections[2].label,
-            path!("zed/assets/themes/ayu/LICENSE")
+            path!("zed_custom/assets/themes/ayu/LICENSE")
         );
         assert_eq!(result.sections[3].label, "ayu");
         assert_eq!(
             result.sections[4].label,
-            path!("zed/assets/themes/summercamp/LICENSE")
+            path!("zed_custom/assets/themes/summercamp/LICENSE")
         );
 
         // Ensure that the project lasts until after the last await
@@ -653,7 +653,7 @@ mod test {
         let fs = FakeFs::new(cx.executor());
 
         fs.insert_tree(
-            path!("/zed"),
+            path!("/zed_custom"),
             json!({
                 "assets": {
                     "themes": {
@@ -673,37 +673,37 @@ mod test {
         )
         .await;
 
-        let project = Project::test(fs, [path!("/zed").as_ref()], cx).await;
+        let project = Project::test(fs, [path!("/zed_custom").as_ref()], cx).await;
 
         let result =
-            cx.update(|cx| collect_files(project.clone(), &["zed/assets/themes".to_string()], cx));
+            cx.update(|cx| collect_files(project.clone(), &["zed_custom/assets/themes".to_string()], cx));
         let result = SlashCommandOutput::from_event_stream(result.boxed())
             .await
             .unwrap();
 
-        assert!(result.text.starts_with(path!("zed/assets/themes\n")));
-        assert_eq!(result.sections[0].label, path!("zed/assets/themes/LICENSE"));
+        assert!(result.text.starts_with(path!("zed_custom/assets/themes\n")));
+        assert_eq!(result.sections[0].label, path!("zed_custom/assets/themes/LICENSE"));
         assert_eq!(
             result.sections[1].label,
-            path!("zed/assets/themes/summercamp/LICENSE")
+            path!("zed_custom/assets/themes/summercamp/LICENSE")
         );
         assert_eq!(
             result.sections[2].label,
-            path!("zed/assets/themes/summercamp/subdir/LICENSE")
+            path!("zed_custom/assets/themes/summercamp/subdir/LICENSE")
         );
         assert_eq!(
             result.sections[3].label,
-            path!("zed/assets/themes/summercamp/subdir/subsubdir/LICENSE")
+            path!("zed_custom/assets/themes/summercamp/subdir/subsubdir/LICENSE")
         );
         assert_eq!(result.sections[4].label, "subsubdir");
         assert_eq!(result.sections[5].label, "subdir");
         assert_eq!(result.sections[6].label, "summercamp");
-        assert_eq!(result.sections[7].label, path!("zed/assets/themes"));
+        assert_eq!(result.sections[7].label, path!("zed_custom/assets/themes"));
 
         assert_eq!(
             result.text,
             path!(
-                "zed/assets/themes\n```zed/assets/themes/LICENSE\n1\n```\n\nsummercamp\n```zed/assets/themes/summercamp/LICENSE\n1\n```\n\nsubdir\n```zed/assets/themes/summercamp/subdir/LICENSE\n1\n```\n\nsubsubdir\n```zed/assets/themes/summercamp/subdir/subsubdir/LICENSE\n3\n```\n\n"
+                "zed_custom/assets/themes\n```zed_custom/assets/themes/LICENSE\n1\n```\n\nsummercamp\n```zed_custom/assets/themes/summercamp/LICENSE\n1\n```\n\nsubdir\n```zed_custom/assets/themes/summercamp/subdir/LICENSE\n1\n```\n\nsubsubdir\n```zed_custom/assets/themes/summercamp/subdir/subsubdir/LICENSE\n3\n```\n\n"
             )
         );
 

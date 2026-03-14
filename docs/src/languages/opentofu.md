@@ -1,6 +1,6 @@
 # OpenTofu
 
-OpenTofu support is available through the [OpenTofu extension](https://github.com/ashpool37/zed-extension-opentofu).
+OpenTofu support is available through the [OpenTofu extension](https://github.com/ashpool37/zed-custom-extension-opentofu).
 
 - Tree-sitter: [MichaHoffmann/tree-sitter-hcl](https://github.com/MichaHoffmann/tree-sitter-hcl)
 - Language Server: [opentofu/tofu-ls](https://github.com/opentofu/tofu-ls)

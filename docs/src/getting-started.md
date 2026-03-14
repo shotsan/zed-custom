@@ -1,8 +1,8 @@
 # Getting Started
 
-Welcome to Zed! We are excited to have you. Zed is a powerful multiplayer code editor designed to stay out of your way and help you build what's next.
+Welcome to zed-custom! We are excited to have you. zed-custom is a powerful multiplayer code editor designed to stay out of your way and help you build what's next.
 
-This guide gets you from zero to productive in Zed. You'll learn the essential commands, configure your environment, and find your way around.
+This guide gets you from zero to productive in zed-custom. You'll learn the essential commands, configure your environment, and find your way around.
 
 ## Quick Start
 
@@ -11,10 +11,10 @@ This guide gets you from zero to productive in Zed. You'll learn the essential c
 Open a folder from the command line:
 
 ```sh
-zed ~/projects/my-app
+zed-custom ~/projects/my-app
 ```
 
-Or use `Cmd+O` (macOS) / `Ctrl+O` (Linux/Windows) to open a folder from within Zed.
+Or use `Cmd+O` (macOS) / `Ctrl+O` (Linux/Windows) to open a folder from within zed-custom.
 
 ### 2. Learn the Essential Commands
 
@@ -27,7 +27,7 @@ Or use `Cmd+O` (macOS) / `Ctrl+O` (Linux/Windows) to open a folder from within Z
 | Toggle terminal | `` Ctrl+` ``  | `` Ctrl+` ``   |
 | Open settings   | `Cmd+,`       | `Ctrl+,`       |
 
-The command palette (`Cmd+Shift+P`) is your gateway to every action in Zed. If you forget a shortcut, search for it there.
+The command palette (`Cmd+Shift+P`) is your gateway to every action in zed-custom. If you forget a shortcut, search for it there.
 
 ### 3. Configure Your Editor
 
@@ -41,7 +41,7 @@ Common first changes:
 
 ### 4. Set Up Your Language
 
-Zed includes built-in support for many languages. For others, install the extension:
+zed-custom includes built-in support for many languages. For others, install the extension:
 
 1. Open Extensions with `Cmd+Shift+X` (macOS) or `Ctrl+Shift+X` (Linux/Windows)
 2. Search for your language
@@ -51,7 +51,7 @@ See [Languages](./languages.md) for language-specific setup instructions.
 
 ### 5. Try AI Features
 
-Zed includes built-in AI assistance. Open the Agent Panel with `Cmd+Shift+A` (macOS) or `Ctrl+Shift+A` (Linux/Windows) to start a conversation, or use `Cmd+Enter` (macOS) / `Ctrl+Enter` (Linux/Windows) for inline assistance.
+zed-custom includes built-in AI assistance. Open the Agent Panel with `Cmd+Shift+A` (macOS) or `Ctrl+Shift+A` (Linux/Windows) to start a conversation, or use `Cmd+Enter` (macOS) / `Ctrl+Enter` (Linux/Windows) for inline assistance.
 
 See [AI Overview](./ai/overview.md) to configure providers and learn what's possible.
 
@@ -60,10 +60,10 @@ See [AI Overview](./ai/overview.md) to configure providers and learn what's poss
 We have dedicated guides for switching from other editors:
 
 - [VS Code](./migrate/vs-code.md) — Import settings, map keybindings, find equivalent features
-- [IntelliJ IDEA](./migrate/intellij.md) — Adapt to Zed's approach to navigation and refactoring
-- [PyCharm](./migrate/pycharm.md) — Set up Python development in Zed
+- [IntelliJ IDEA](./migrate/intellij.md) — Adapt to zed-custom's approach to navigation and refactoring
+- [PyCharm](./migrate/pycharm.md) — Set up Python development in zed-custom
 - [WebStorm](./migrate/webstorm.md) — Configure JavaScript/TypeScript workflows
-- [RustRover](./migrate/rustrover.md) — Rust development in Zed
+- [RustRover](./migrate/rustrover.md) — Rust development in zed-custom
 
 You can also enable familiar keybindings:
 
@@ -72,8 +72,8 @@ You can also enable familiar keybindings:
 
 ## Join the Community
 
-Zed is proudly open source, and we get better with every contribution. Join us on GitHub or in Discord to contribute code, report bugs, or suggest features.
+zed-custom is proudly open source, and we get better with every contribution. Join us on GitHub or in Discord to contribute code, report bugs, or suggest features.
 
 - [Discord](https://discord.com/invite/zedindustries)
-- [GitHub Discussions](https://github.com/zed-industries/zed/discussions)
-- [Zed Reddit](https://www.reddit.com/r/ZedEditor)
+- [GitHub Discussions](https://github.com/zed-industries/zed-custom/discussions)
+- [zed-custom Reddit](https://www.reddit.com/r/ZedEditor)

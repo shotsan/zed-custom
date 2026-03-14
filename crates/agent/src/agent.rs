@@ -493,7 +493,7 @@ impl NativeAgent {
             prompt_store.read_with(cx, |prompt_store, cx| {
                 let prompts = prompt_store.default_prompt_metadata();
                 let load_tasks = prompts.into_iter().map(|prompt_metadata| {
-                    let contents = prompt_store.load(prompt_metadata.id, cx);
+                    let contents = prompt_store.load(prompt_metadata.id.clone(), cx);
                     async move { (contents.await, prompt_metadata) }
                 });
                 cx.background_spawn(futures::future::join_all(load_tasks))
@@ -1276,7 +1276,7 @@ impl acp_thread::AgentModelSelector for NativeAgentModelSelector {
 
 impl acp_thread::AgentConnection for NativeAgentConnection {
     fn telemetry_id(&self) -> SharedString {
-        "zed".into()
+        "zed_custom".into()
     }
 
     fn new_thread(

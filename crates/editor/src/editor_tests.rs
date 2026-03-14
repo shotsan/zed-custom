@@ -15520,7 +15520,7 @@ async fn test_completion_can_run_commands(cx: &mut TestAppContext) {
     assert_eq!(
         command_calls.load(atomic::Ordering::Acquire),
         1,
-        "For completion with a registered command, Zed should send a command execution request",
+        "For completion with a registered command, zed-custom should send a command execution request",
     );
 
     editor.update_in(cx, |editor, window, cx| {
@@ -15559,7 +15559,7 @@ async fn test_completion_can_run_commands(cx: &mut TestAppContext) {
     assert_eq!(
         command_calls.load(atomic::Ordering::Acquire),
         1,
-        "For completion with an unregistered command, Zed should not send a command execution request",
+        "For completion with an unregistered command, zed-custom should not send a command execution request",
     );
 }
 
@@ -28629,14 +28629,14 @@ async fn test_paste_url_from_other_app_replaces_existing_url_without_creating_ma
 
     let mut cx = EditorTestContext::new(cx).await;
     cx.update_buffer(|buffer, cx| buffer.set_language(Some(markdown_language), cx));
-    cx.set_state("Please visit zed's homepage: «https://www.apple.comˇ»");
+    cx.set_state("Please visit zed_custom's homepage: «https://www.apple.comˇ»");
 
     cx.update_editor(|editor, window, cx| {
         cx.write_to_clipboard(ClipboardItem::new_string(url.to_string()));
         editor.paste(&Paste, window, cx);
     });
 
-    cx.assert_editor_state(&format!("Please visit zed's homepage: {url}ˇ"));
+    cx.assert_editor_state(&format!("Please visit zed_custom's homepage: {url}ˇ"));
 }
 
 #[gpui::test]
@@ -28685,7 +28685,7 @@ async fn test_paste_url_from_other_app_without_creating_markdown_link_in_non_mar
 
     let mut cx = EditorTestContext::new(cx).await;
     cx.update_buffer(|buffer, cx| buffer.set_language(Some(markdown_language), cx));
-    cx.set_state("// Hello, «editorˇ».\n// Zed is «ˇgreat» (see this link: ˇ)");
+    cx.set_state("// Hello, «editorˇ».\n// zed-custom is «ˇgreat» (see this link: ˇ)");
 
     cx.update_editor(|editor, window, cx| {
         cx.write_to_clipboard(ClipboardItem::new_string(url.to_string()));
@@ -28693,7 +28693,7 @@ async fn test_paste_url_from_other_app_without_creating_markdown_link_in_non_mar
     });
 
     cx.assert_editor_state(&format!(
-        "// Hello, {url}ˇ.\n// Zed is {url}ˇ (see this link: {url}ˇ)"
+        "// Hello, {url}ˇ.\n// zed-custom is {url}ˇ (see this link: {url}ˇ)"
     ));
 }
 
@@ -30372,7 +30372,7 @@ async fn test_local_worktree_trust(cx: &mut TestAppContext) {
     fs.insert_tree(
         path!("/project"),
         json!({
-            ".zed": {
+            ".zed_custom": {
                 "settings.json": r#"{"languages":{"Rust":{"language_servers":["override-rust-analyzer"]}}}"#
             },
             "main.rs": "fn main() {}"
@@ -30467,7 +30467,7 @@ async fn test_local_worktree_trust(cx: &mut TestAppContext) {
             language::language_settings::language_settings(Some("Rust".into()), file, cx)
                 .language_servers,
             ["...".to_string()],
-            "local .zed/settings.json must not apply before trust approval"
+            "local .zed_custom/settings.json must not apply before trust approval"
         )
     });
 
@@ -30498,7 +30498,7 @@ async fn test_local_worktree_trust(cx: &mut TestAppContext) {
             language::language_settings::language_settings(Some("Rust".into()), file, cx)
                 .language_servers,
             ["override-rust-analyzer".to_string()],
-            "local .zed/settings.json should apply after trust approval"
+            "local .zed_custom/settings.json should apply after trust approval"
         )
     });
     let _fake_language_server = fake_language_server.await.unwrap();

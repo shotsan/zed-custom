@@ -18,7 +18,7 @@ use tokio::process::Command;
 use tree_sitter::{Language, Query, WasmStore};
 
 #[derive(Parser, Debug)]
-#[command(name = "zed-extension")]
+#[command(name = "zed_custom-extension")]
 struct Args {
     /// The path to the extension directory
     #[arg(long)]
@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
     log::info!("compiling extension");
 
     let user_agent = format!(
-        "Zed Extension CLI/{} ({}; {})",
+        "zed-custom Extension CLI/{} ({}; {})",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
         std::env::consts::ARCH

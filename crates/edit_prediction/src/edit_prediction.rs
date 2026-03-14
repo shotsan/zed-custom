@@ -1976,7 +1976,7 @@ impl EditPredictionStore {
                             move |cx| {
                                 cx.new(|cx| {
                                     ErrorMessagePrompt::new(error_message.clone(), cx)
-                                        .with_link_button("Update Zed", "https://zed.dev/releases")
+                                        .with_link_button("Update zed-custom", "https://zed.dev/releases")
                                 })
                             },
                         );
@@ -2233,7 +2233,7 @@ pub(crate) fn filter_redundant_excerpts(
 
 #[derive(Error, Debug)]
 #[error(
-    "You must update to Zed version {minimum_version} or higher to continue using edit predictions."
+    "You must update to zed-custom version {minimum_version} or higher to continue using edit predictions."
 )]
 pub struct ZedUpdateRequiredError {
     minimum_version: Version,
@@ -2308,7 +2308,7 @@ pub fn should_show_upsell_modal() -> bool {
 pub fn init(cx: &mut App) {
     cx.observe_new(move |workspace: &mut Workspace, _, _cx| {
         workspace.register_action(
-            move |workspace, _: &zed_actions::OpenZedPredictOnboarding, window, cx| {
+            move |workspace, _: &zed_custom_actions::OpenZedPredictOnboarding, window, cx| {
                 ZedPredictModal::toggle(
                     workspace,
                     workspace.user_store().clone(),

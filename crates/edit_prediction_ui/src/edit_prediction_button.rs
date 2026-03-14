@@ -44,7 +44,7 @@ use workspace::{
     StatusItemView, Toast, Workspace, create_and_open_local_file, item::ItemHandle,
     notifications::NotificationId,
 };
-use zed_actions::{OpenBrowser, OpenSettingsAt};
+use zed_custom_actions::{OpenBrowser, OpenSettingsAt};
 
 use crate::{
     CaptureExample, RatePredictions, rate_prediction_modal::PredictEditsRatePredictionsFeatureFlag,
@@ -225,7 +225,7 @@ impl Render for EditPredictionButton {
                                         cx.open_url(activate_url.as_str())
                                     })
                                     .entry(
-                                        "Use Zed AI",
+                                        "Use zed-custom AI",
                                         None,
                                         move |_, cx| {
                                             set_completion_provider(
@@ -356,7 +356,7 @@ impl Render for EditPredictionButton {
                     };
 
                     return div().child(
-                        IconButton::new("zed-predict-pending-button", ep_icon)
+                        IconButton::new("zed_custom-predict-pending-button", ep_icon)
                             .shape(IconButtonShape::Square)
                             .indicator(Indicator::dot().color(Color::Muted))
                             .indicator_border_color(Some(cx.theme().colors().status_bar_background))
@@ -369,7 +369,7 @@ impl Render for EditPredictionButton {
                                     source = "Edit Prediction Status Button"
                                 );
                                 window.dispatch_action(
-                                    zed_actions::OpenZedPredictOnboarding.boxed_clone(),
+                                    zed_custom_actions::OpenZedPredictOnboarding.boxed_clone(),
                                     cx,
                                 );
                             })),
@@ -401,7 +401,7 @@ impl Render for EditPredictionButton {
                     None
                 };
 
-                let icon_button = IconButton::new("zed-predict-pending-button", ep_icon)
+                let icon_button = IconButton::new("zed_custom-predict-pending-button", ep_icon)
                     .shape(IconButtonShape::Square)
                     .when_some(indicator_color, |this, color| {
                         this.indicator(Indicator::dot().color(color))
@@ -594,7 +594,7 @@ impl EditPredictionButton {
                 move |_window, cx| hide_copilot(fs.clone(), cx)
             })
             .separator()
-            .entry("Use Zed AI", None, {
+            .entry("Use zed-custom AI", None, {
                 let fs = fs.clone();
                 move |_window, cx| {
                     set_completion_provider(fs.clone(), cx, EditPredictionProvider::Zed)
@@ -1030,7 +1030,7 @@ impl EditPredictionButton {
                         },
                         |_window, cx| cx.open_url(&zed_urls::account_url(cx)),
                     )
-                    .entry("Upgrade to Zed Pro or contact us.", None, |_window, cx| {
+                    .entry("Upgrade to zed-custom Pro or contact us.", None, |_window, cx| {
                         cx.open_url(&zed_urls::account_url(cx))
                     })
                     .separator();

@@ -2,7 +2,7 @@
 
 <div class="warning">
 
-Note that starting from `v0.221`.x, [the ACP Registry](https://agentclientprotocol.com/registry) is the preferred way to install external agents in Zed.
+Note that starting from `v0.221`.x, [the ACP Registry](https://agentclientprotocol.com/registry) is the preferred way to install external agents in zed-custom.
 You can learn more about it in [the release blog post](https://zed.dev/blog/acp-registry)
 
 At some point in the near future, Agent Server extensions will be deprecated.
@@ -10,9 +10,9 @@ At some point in the near future, Agent Server extensions will be deprecated.
 </div>
 
 Agent Servers are programs that provide AI agent implementations through the [Agent Client Protocol (ACP)](https://agentclientprotocol.com).
-Agent Server Extensions let you package up an Agent Server so that users can install the extension and have your agent easily available to use in Zed.
+Agent Server Extensions let you package up an Agent Server so that users can install the extension and have your agent easily available to use in zed-custom.
 
-You can see the current Agent Server extensions either by opening the Extensions tab in Zed (execute the `zed: extensions` command) and changing the filter from `All` to `Agent Servers`, or by visiting [the Zed website](https://zed.dev/extensions?filter=agent-servers).
+You can see the current Agent Server extensions either by opening the Extensions tab in zed-custom (execute the `zed-custom: extensions` command) and changing the filter from `All` to `Agent Servers`, or by visiting [the zed-custom website](https://zed.dev/extensions?filter=agent-servers).
 
 ## Defining Agent Server Extensions
 
@@ -107,9 +107,9 @@ AGENT_MEMORY_LIMIT = "2GB"  # Linux-specific override
 
 When a user installs your extension and selects the agent server:
 
-1. Zed downloads the appropriate archive for the user's platform
+1. zed-custom downloads the appropriate archive for the user's platform
 2. The archive is extracted to a cache directory
-3. Zed launches the agent using the specified command and arguments
+3. zed-custom launches the agent using the specified command and arguments
 4. Environment variables are set as configured
 5. The agent server runs in the background, ready to assist the user
 
@@ -170,13 +170,13 @@ For optimal display, follow these guidelines:
 - Ensure you have a clean SVG code by processing it through [SVGOMG](https://jakearchibald.github.io/svgomg/)
 - Avoid including icons with gradients as they will often make the SVG more complicated and possibly not render perfectly
 
-Note that we'll automatically convert your icon to monochrome to preserve Zed's design consistency.
+Note that we'll automatically convert your icon to monochrome to preserve zed-custom's design consistency.
 (You can still use opacity in different paths of your SVG to add visual layering.)
 
 ---
 
-This is all you need to distribute an agent server through Zed's extension system!
+This is all you need to distribute an agent server through zed-custom's extension system!
 
 ## Publishing
 
-Once your extension is ready, see [Publishing your extension](./developing-extensions.md#publishing-your-extension) to learn how to submit it to the Zed extension registry.
+Once your extension is ready, see [Publishing your extension](./developing-extensions.md#publishing-your-extension) to learn how to submit it to the zed-custom extension registry.

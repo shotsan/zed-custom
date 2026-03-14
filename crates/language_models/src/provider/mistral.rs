@@ -424,7 +424,7 @@ pub fn into_mistral(
                             let tool_content = match &tool_result.content {
                                 LanguageModelToolResultContent::Text(text) => text.to_string(),
                                 LanguageModelToolResultContent::Image(_) => {
-                                    "[Tool responded with an image, but Zed doesn't support these in Mistral models yet]".to_string()
+                                    "[Tool responded with an image, but zed-custom doesn't support these in Mistral models yet]".to_string()
                                 }
                             };
                             messages.push(mistral::RequestMessage::Tool {
@@ -846,7 +846,7 @@ impl Render for ConfigurationView {
                 .child(self.api_key_editor.clone())
                 .child(
                     Label::new(
-                        format!("You can also set the {API_KEY_ENV_VAR_NAME} environment variable and restart Zed."),
+                        format!("You can also set the {API_KEY_ENV_VAR_NAME} environment variable and restart zed-custom."),
                     )
                     .size(LabelSize::Small).color(Color::Muted),
                 )

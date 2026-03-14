@@ -14,8 +14,8 @@ use crate::{
 /// have a theme available at compile time for tests.
 pub fn zed_default_themes() -> ThemeFamily {
     ThemeFamily {
-        id: "zed-default".to_string(),
-        name: "Zed Default".into(),
+        id: "zed_custom-default".to_string(),
+        name: "zed-custom Default".into(),
         author: "".into(),
         themes: vec![zed_default_dark()],
         scales: default_color_scales(),

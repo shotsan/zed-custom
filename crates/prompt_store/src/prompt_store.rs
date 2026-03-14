@@ -1,8 +1,10 @@
 mod prompts;
+pub mod user_slash_command;
 
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use collections::HashMap;
+use fs::Fs;
 use futures::FutureExt as _;
 use futures::future::Shared;
 use fuzzy::StringMatchCandidate;
@@ -30,9 +32,9 @@ use uuid::Uuid;
 
 /// Init starts loading the PromptStore in the background and assigns
 /// a shared future to a global.
-pub fn init(cx: &mut App) {
+pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
     let db_path = paths::prompts_dir().join("prompts-library-db.0.mdb");
-    let prompt_store_task = PromptStore::new(db_path, cx);
+    let prompt_store_task = PromptStore::new(db_path, fs, cx);
     let prompt_store_entity_task = cx
         .spawn(async move |cx| {
             prompt_store_task
@@ -57,6 +59,18 @@ impl PromptMetadata {
         Self {
             id: PromptId::BuiltIn(builtin),
             title: Some(builtin.title().into()),
+            default: false,
+            saved_at: DateTime::default(),
+        }
+    }
+
+    pub fn from_user_slash_command(cmd: &crate::user_slash_command::UserSlashCommand) -> Self {
+        Self {
+            id: PromptId::File {
+                path: cmd.path.clone(),
+                scope: cmd.scope,
+            },
+            title: Some(cmd.name.to_string().into()),
             default: false,
             saved_at: DateTime::default(),
         }
@@ -92,11 +106,35 @@ impl std::fmt::Display for BuiltInPrompt {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum PromptId {
     User { uuid: UserPromptId },
     BuiltIn(BuiltInPrompt),
+    File {
+        #[serde(with = "serde_path")]
+        path: PathBuf,
+        scope: crate::user_slash_command::CommandScope,
+    },
+}
+
+mod serde_path {
+    use std::path::{Path, PathBuf};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(path: &Path, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        path.to_string_lossy().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PathBuf, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(PathBuf::from)
+    }
 }
 
 impl PromptId {
@@ -107,19 +145,19 @@ impl PromptId {
     pub fn as_user(&self) -> Option<UserPromptId> {
         match self {
             Self::User { uuid } => Some(*uuid),
-            Self::BuiltIn { .. } => None,
+            _ => None,
         }
     }
 
     pub fn as_built_in(&self) -> Option<BuiltInPrompt> {
         match self {
-            Self::User { .. } => None,
             Self::BuiltIn(builtin) => Some(*builtin),
+            _ => None,
         }
     }
 
     pub fn is_built_in(&self) -> bool {
-        matches!(self, Self::BuiltIn { .. })
+        matches!(self, Self::BuiltIn(_))
     }
 
     pub fn can_edit(&self) -> bool {
@@ -128,6 +166,7 @@ impl PromptId {
             Self::BuiltIn(builtin) => match builtin {
                 BuiltInPrompt::CommitMessage => true,
             },
+            Self::File { .. } => true,
         }
     }
 }
@@ -165,6 +204,7 @@ impl std::fmt::Display for PromptId {
         match self {
             PromptId::User { uuid } => write!(f, "{}", uuid.0),
             PromptId::BuiltIn(builtin) => write!(f, "{}", builtin),
+            PromptId::File { path, .. } => write!(f, "file://{}", path.display()),
         }
     }
 }
@@ -174,6 +214,7 @@ pub struct PromptStore {
     metadata_cache: RwLock<MetadataCache>,
     metadata: Database<SerdeJson<PromptId>, SerdeJson<PromptMetadata>>,
     bodies: Database<SerdeJson<PromptId>, Str>,
+    fs: Arc<dyn Fs>,
 }
 
 pub struct PromptsUpdatedEvent;
@@ -220,7 +261,7 @@ impl MetadataCache {
     }
 
     fn insert(&mut self, metadata: PromptMetadata) {
-        self.metadata_by_id.insert(metadata.id, metadata.clone());
+        self.metadata_by_id.insert(metadata.id.clone(), metadata.clone());
         if let Some(old_metadata) = self.metadata.iter_mut().find(|m| m.id == metadata.id) {
             *old_metadata = metadata;
         } else {
@@ -249,7 +290,7 @@ impl PromptStore {
         async move { store.await.map_err(|err| anyhow!(err)) }
     }
 
-    pub fn new(db_path: PathBuf, cx: &App) -> Task<Result<Self>> {
+    pub fn new(db_path: PathBuf, fs: Arc<dyn Fs>, cx: &App) -> Task<Result<Self>> {
         cx.background_spawn(async move {
             std::fs::create_dir_all(&db_path)?;
 
@@ -276,6 +317,7 @@ impl PromptStore {
                 metadata_cache: RwLock::new(metadata_cache),
                 metadata,
                 bodies,
+                fs,
             })
         })
     }
@@ -324,7 +366,7 @@ impl PromptStore {
                     &mut txn,
                     &prompt_id_v2,
                     &PromptMetadata {
-                        id: prompt_id_v2,
+                        id: prompt_id_v2.clone(),
                         title: metadata_v1.title.clone(),
                         default: metadata_v1.default,
                         saved_at: metadata_v1.saved_at,
@@ -340,6 +382,14 @@ impl PromptStore {
     }
 
     pub fn load(&self, id: PromptId, cx: &App) -> Task<Result<String>> {
+        if let PromptId::File { path, .. } = id {
+            let fs = self.fs.clone();
+            return cx.background_spawn(async move {
+                let mut prompt = fs.load(&path).await?;
+                LineEnding::normalize(&mut prompt);
+                Ok(prompt)
+            });
+        }
         let env = self.env.clone();
         let bodies = self.bodies;
         cx.background_spawn(async move {
@@ -375,7 +425,7 @@ impl PromptStore {
     }
 
     pub fn delete(&self, id: PromptId, cx: &Context<Self>) -> Task<Result<()>> {
-        self.metadata_cache.write().remove(id);
+        self.metadata_cache.write().remove(id.clone());
 
         let db_connection = self.env.clone();
         let bodies = self.bodies;
@@ -434,7 +484,7 @@ impl PromptStore {
             .metadata
             .iter()
             .find(|metadata| metadata.title.as_ref().map(|title| &***title) == Some(title))?;
-        Some(metadata.id)
+        Some(metadata.id.clone())
     }
 
     pub fn search(
@@ -497,7 +547,7 @@ impl PromptStore {
             PromptMetadata::builtin(builtin)
         } else {
             PromptMetadata {
-                id,
+                id: id.clone(),
                 title,
                 default,
                 saved_at: Utc::now(),
@@ -550,7 +600,7 @@ impl PromptStore {
         }
 
         let prompt_metadata = PromptMetadata {
-            id,
+            id: id.clone(),
             title,
             default,
             saved_at: Utc::now(),

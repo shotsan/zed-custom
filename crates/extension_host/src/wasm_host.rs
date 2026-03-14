@@ -659,7 +659,7 @@ impl WasmHost {
                 // note: Setting the thread local here will slowly "poison" all tokio threads
                 // causing us to not record their panics any longer.
                 //
-                // This is fine though, the main zed binary only uses tokio for livekit and wasm extensions.
+                // This is fine though, the main zed_custom binary only uses tokio for livekit and wasm extensions.
                 // Livekit seldom (if ever) panics 🤞 so the likelihood of us missing a panic in sentry is very low.
                 IS_WASM_THREAD.with(|v| v.store(true, Ordering::Release));
                 while let Some(call) = rx.next().await {

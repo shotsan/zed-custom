@@ -35,7 +35,7 @@ fn fetch_extension_repos() -> NamedJob {
                 "script",
                 indoc::indoc! {r#"
                     const repos = await github.paginate(github.rest.repos.listForOrg, {
-                        org: 'zed-extensions',
+                        org: 'zed_custom-extensions',
                         type: 'public',
                         per_page: 100,
                     });
@@ -70,13 +70,13 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
     fn checkout_zed_repo() -> Step<Use> {
         steps::checkout_repo()
             .name("checkout_zed_repo")
-            .add_with(("path", "zed"))
+            .add_with(("path", "zed_custom"))
             .add_with(("fetch-depth", "0"))
     }
 
     fn checkout_extension_repo(token: &StepOutput) -> Step<Use> {
         steps::checkout_repo_with_token(token)
-            .add_with(("repository", "zed-extensions/${{ matrix.repo }}"))
+            .add_with(("repository", "zed_custom-extensions/${{ matrix.repo }}"))
             .add_with(("path", "extension"))
     }
 
@@ -91,7 +91,7 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
             echo "prev_commit=$PREV_COMMIT" >> "$GITHUB_OUTPUT"
         "#})
         .id("prev-tag")
-        .working_directory("zed");
+        .working_directory("zed_custom");
 
         let step_output = StepOutput::new(&step, "prev_commit");
 
@@ -123,7 +123,7 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
             echo "removed_files=$REMOVED_FILES" >> "$GITHUB_OUTPUT"
         "#})
         .id("calc-changes")
-        .working_directory("zed");
+        .working_directory("zed_custom");
 
         let removed_files = StepOutput::new(&step, "removed_files");
 
@@ -148,9 +148,9 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
             cd - > /dev/null
 
             if [ "${{{{ matrix.repo }}}}" = "workflows" ]; then
-                cp zed/extensions/workflows/*.yml extension/.github/workflows/
+                cp zed_custom/extensions/workflows/*.yml extension/.github/workflows/
             else
-                cp zed/extensions/workflows/shared/*.yml extension/.github/workflows/
+                cp zed_custom/extensions/workflows/shared/*.yml extension/.github/workflows/
             fi
         "#})
     }
@@ -160,7 +160,7 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
             echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
         "#})
         .id("short-sha")
-        .working_directory("zed");
+        .working_directory("zed_custom");
 
         let step_output = StepOutput::new(&step, "sha_short");
 
@@ -168,7 +168,7 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
     }
 
     fn create_pull_request(token: &StepOutput, short_sha: &StepOutput) -> Step<Use> {
-        let title = format!("Update CI workflows to `zed@{}`", short_sha);
+        let title = format!("Update CI workflows to `zed_custom@{}`", short_sha);
 
         named::uses("peter-evans", "create-pull-request", "v7")
             .add_with(("path", "extension"))
@@ -177,18 +177,18 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
                 "body",
                 indoc::indoc! {r#"
                     This PR updates the CI workflow files from the main Zed repository
-                    based on the commit zed-industries/zed@${{ github.sha }}
+                    based on the commit zed_custom-industries/zed_custom@${{ github.sha }}
                 "#},
             ))
             .add_with(("commit-message", title))
             .add_with(("branch", "update-workflows"))
             .add_with((
                 "committer",
-                "zed-zippy[bot] <234243425+zed-zippy[bot]@users.noreply.github.com>",
+                "zed_custom-zippy[bot] <234243425+zed_custom-zippy[bot]@users.noreply.github.com>",
             ))
             .add_with((
                 "author",
-                "zed-zippy[bot] <234243425+zed-zippy[bot]@users.noreply.github.com>",
+                "zed_custom-zippy[bot] <234243425+zed_custom-zippy[bot]@users.noreply.github.com>",
             ))
             .add_with(("base", "main"))
             .add_with(("delete-branch", true))
@@ -212,7 +212,7 @@ fn rollout_workflows_to_extension(fetch_repos_job: &NamedJob) -> NamedJob {
         vars::ZED_ZIPPY_APP_ID,
         vars::ZED_ZIPPY_APP_PRIVATE_KEY,
         Some(
-            RepositoryTarget::new("zed-extensions", &["${{ matrix.repo }}"]).permissions([
+            RepositoryTarget::new("zed_custom-extensions", &["${{ matrix.repo }}"]).permissions([
                 ("permission-pull-requests".to_owned(), Level::Write),
                 ("permission-contents".to_owned(), Level::Write),
                 ("permission-workflows".to_owned(), Level::Write),
@@ -272,8 +272,8 @@ fn create_rollout_tag(rollout_job: &NamedJob) -> NamedJob {
 
     fn configure_git() -> Step<Run> {
         named::bash(indoc! {r#"
-            git config user.name "zed-zippy[bot]"
-            git config user.email "234243425+zed-zippy[bot]@users.noreply.github.com"
+            git config user.name "zed_custom-zippy[bot]"
+            git config user.email "234243425+zed_custom-zippy[bot]@users.noreply.github.com"
         "#})
     }
 

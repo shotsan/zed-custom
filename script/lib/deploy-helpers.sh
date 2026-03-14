@@ -9,8 +9,8 @@ function export_vars_for_environment {
 }
 
 function target_zed_kube_cluster {
-  if [[ $(kubectl config current-context 2> /dev/null) != do-nyc1-zed-1 ]]; then
-    doctl kubernetes cluster kubeconfig save zed-1
+  if [[ $(kubectl config current-context 2> /dev/null) != do-nyc1-zed-custom-1 ]]; then
+    doctl kubernetes cluster kubeconfig save zed-custom-1
   fi
 }
 

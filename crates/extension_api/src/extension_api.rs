@@ -18,23 +18,23 @@ pub use wit::{
     CodeLabel, CodeLabelSpan, CodeLabelSpanLiteral, Command, DownloadedFileType, EnvVars,
     KeyValueStore, LanguageServerInstallationStatus, Project, Range, Worktree, download_file,
     make_file_executable,
-    zed::extension::context_server::ContextServerConfiguration,
-    zed::extension::dap::{
+    zed_custom::extension::context_server::ContextServerConfiguration,
+    zed_custom::extension::dap::{
         AttachRequest, BuildTaskDefinition, BuildTaskDefinitionTemplatePayload, BuildTaskTemplate,
         DebugAdapterBinary, DebugConfig, DebugRequest, DebugScenario, DebugTaskDefinition,
         LaunchRequest, StartDebuggingRequestArguments, StartDebuggingRequestArgumentsRequest,
         TaskTemplate, TcpArguments, TcpArgumentsTemplate, resolve_tcp_template,
     },
-    zed::extension::github::{
+    zed_custom::extension::github::{
         GithubRelease, GithubReleaseAsset, GithubReleaseOptions, github_release_by_tag_name,
         latest_github_release,
     },
-    zed::extension::nodejs::{
+    zed_custom::extension::nodejs::{
         node_binary_path, npm_install_package, npm_package_installed_version,
         npm_package_latest_version,
     },
-    zed::extension::platform::{Architecture, Os, current_platform},
-    zed::extension::slash_command::{
+    zed_custom::extension::platform::{Architecture, Os, current_platform},
+    zed_custom::extension::slash_command::{
         SlashCommand, SlashCommandArgumentCompletion, SlashCommandOutput, SlashCommandOutputSection,
     },
 };
@@ -49,7 +49,7 @@ pub use wit::Guest;
 /// Constructs for interacting with language servers over the
 /// Language Server Protocol (LSP).
 pub mod lsp {
-    pub use crate::wit::zed::extension::lsp::{
+    pub use crate::wit::zed_custom::extension::lsp::{
         Completion, CompletionKind, InsertTextFormat, Symbol, SymbolKind,
     };
 }
@@ -326,7 +326,7 @@ fn extension() -> &'static mut dyn Extension {
 static mut EXTENSION: Option<Box<dyn Extension>> = None;
 
 #[cfg(target_arch = "wasm32")]
-#[unsafe(link_section = "zed:api-version")]
+#[unsafe(link_section = "zed_custom:api-version")]
 #[doc(hidden)]
 pub static ZED_API_VERSION: [u8; 6] = *include_bytes!(concat!(env!("OUT_DIR"), "/version_bytes"));
 

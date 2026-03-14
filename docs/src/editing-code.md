@@ -1,6 +1,6 @@
 # Editing Code
 
-Zed provides tools to help you write and modify code efficiently. This section covers the core editing features that work alongside your language server.
+zed-custom provides tools to help you write and modify code efficiently. This section covers the core editing features that work alongside your language server.
 
 ## What's in This Section
 
@@ -12,7 +12,7 @@ Zed provides tools to help you write and modify code efficiently. This section c
 
 ## How These Features Work Together
 
-When you're editing code, Zed combines input from multiple sources:
+When you're editing code, zed-custom combines input from multiple sources:
 
 1. **Language servers** provide completions, diagnostics, and quick fixes based on your project's types and structure
 2. **Edit predictions** suggest multi-character or multi-line changes as you type

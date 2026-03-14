@@ -1,7 +1,7 @@
 # Kotlin
 
-Kotlin language support in Zed is provided by the community-maintained [Kotlin extension](https://github.com/zed-extensions/kotlin).
-Report issues to: [https://github.com/zed-extensions/kotlin/issues](https://github.com/zed-extensions/kotlin/issues)
+Kotlin language support in zed-custom is provided by the community-maintained [Kotlin extension](https://github.com/zed-custom-extensions/kotlin).
+Report issues to: [https://github.com/zed-custom-extensions/kotlin/issues](https://github.com/zed-custom-extensions/kotlin/issues)
 
 - Tree-sitter: [fwcd/tree-sitter-kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 - Language Server: [fwcd/kotlin-language-server](https://github.com/fwcd/kotlin-language-server)

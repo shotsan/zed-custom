@@ -163,10 +163,10 @@ pub(crate) static JOBS: LazyLock<[Job; 22]> = LazyLock::new(|| {
         // Move old files
         // Not deleting because installing new files can fail
         Job::mkdir(p("old")),
-        Job::move_file(p("Zed.exe"), p("old\\Zed.exe")),
+        Job::move_file(p("zed-custom.exe"), p("old\\zed-custom.exe")),
         Job::mkdir(p("old\\bin")),
-        Job::move_file(p("bin\\Zed.exe"), p("old\\bin\\Zed.exe")),
-        Job::move_file(p("bin\\zed"), p("old\\bin\\zed")),
+        Job::move_file(p("bin\\zed-custom.exe"), p("old\\bin\\zed-custom.exe")),
+        Job::move_file(p("bin\\zed_custom"), p("old\\bin\\zed_custom")),
         //
         // TODO: remove after a few weeks once everyone is on the new version and this file never exists
         Job::move_if_exists(p("OpenConsole.exe"), p("old\\OpenConsole.exe")),
@@ -180,9 +180,9 @@ pub(crate) static JOBS: LazyLock<[Job; 22]> = LazyLock::new(|| {
         //
         Job::move_file(p("conpty.dll"), p("old\\conpty.dll")),
         // Copy new files
-        Job::move_file(p("install\\Zed.exe"), p("Zed.exe")),
-        Job::move_file(p("install\\bin\\Zed.exe"), p("bin\\Zed.exe")),
-        Job::move_file(p("install\\bin\\zed"), p("bin\\zed")),
+        Job::move_file(p("install\\zed-custom.exe"), p("zed-custom.exe")),
+        Job::move_file(p("install\\bin\\zed-custom.exe"), p("bin\\zed-custom.exe")),
+        Job::move_file(p("install\\bin\\zed_custom"), p("bin\\zed_custom")),
         //
         Job::mkdir_if_exists(p("x64"), p("install\\x64")),
         Job::mkdir_if_exists(p("arm64"), p("install\\arm64")),
@@ -319,7 +319,7 @@ pub(crate) fn perform_update(app_dir: &Path, hwnd: Option<isize>, launch: bool) 
 
     if launch {
         #[allow(clippy::disallowed_methods, reason = "doesn't run in the main binary")]
-        let _ = std::process::Command::new(app_dir.join("Zed.exe")).spawn();
+        let _ = std::process::Command::new(app_dir.join("zed-custom.exe")).spawn();
     }
     log::info!("Update completed successfully");
     Ok(())

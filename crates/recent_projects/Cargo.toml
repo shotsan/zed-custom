@@ -51,7 +51,7 @@ ui.workspace = true
 util.workspace = true
 workspace.workspace = true
 worktree.workspace = true
-zed_actions.workspace = true
+zed-custom-actions.workspace = true
 indoc.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]

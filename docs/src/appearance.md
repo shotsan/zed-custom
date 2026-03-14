@@ -1,28 +1,28 @@
 # Appearance
 
-Customize Zed's visual appearance to match your preferences. This guide covers themes, fonts, icons, and other visual settings.
+Customize zed-custom's visual appearance to match your preferences. This guide covers themes, fonts, icons, and other visual settings.
 
 For information on how the settings system works, see [All Settings](./reference/all-settings.md).
 
-## Customize Zed in 5 Minutes
+## Customize zed-custom in 5 Minutes
 
-Here's how to make Zed feel like home:
+Here's how to make zed-custom feel like home:
 
 1. **Pick a theme**: Press {#kb theme_selector::Toggle} to open the Theme Selector. Arrow through the list to preview themes in real time, and press Enter to apply.
 
 2. **Choose an icon theme**: Run `icon theme selector: toggle` from the command palette to browse icon themes.
 
-3. **Set your font**: Open the Settings Editor with {#kb zed::OpenSettings} and search for `buffer_font_family`. Set it to your preferred coding font.
+3. **Set your font**: Open the Settings Editor with {#kb zed-custom::OpenSettings} and search for `buffer_font_family`. Set it to your preferred coding font.
 
 4. **Adjust font size**: In the same Settings Editor, search for `buffer_font_size` and `ui_font_size` to tweak the editor and interface text sizes.
 
-That's it. You now have a personalized Zed setup.
+That's it. You now have a personalized zed-custom setup.
 
 ## Themes
 
-Install themes from the Extensions page ({#action zed::Extensions}), then switch between them with the Theme Selector ({#kb theme_selector::Toggle}).
+Install themes from the Extensions page ({#action zed-custom::Extensions}), then switch between them with the Theme Selector ({#kb theme_selector::Toggle}).
 
-Zed supports separate themes for light and dark mode with automatic switching based on your system preference:
+zed-custom supports separate themes for light and dark mode with automatic switching based on your system preference:
 
 ```json [settings]
 {
@@ -48,8 +48,8 @@ Like color themes, icon themes support separate light and dark variants:
 {
   "icon_theme": {
     "mode": "system",
-    "light": "Zed (Default)",
-    "dark": "Zed (Default)"
+    "light": "zed-custom (Default)",
+    "dark": "zed-custom (Default)"
   }
 }
 ```
@@ -58,7 +58,7 @@ Like color themes, icon themes support separate light and dark variants:
 
 ## Fonts
 
-Zed uses three font settings for different contexts:
+zed-custom uses three font settings for different contexts:
 
 | Setting                | Used for                  |
 | ---------------------- | ------------------------- |
@@ -103,7 +103,7 @@ Adjust line spacing with `buffer_line_height`:
 
 ## UI Elements
 
-Zed provides extensive control over UI elements including:
+zed-custom provides extensive control over UI elements including:
 
 - **Tab bar** — Show/hide, navigation buttons, file icons, git status
 - **Status bar** — Language selector, cursor position, line endings

@@ -1,6 +1,6 @@
 # Go
 
-Go support is available natively in Zed.
+Go support is available natively in zed-custom.
 
 - Tree-sitter: [tree-sitter/tree-sitter-go](https://github.com/tree-sitter/tree-sitter-go)
 - Language Server: [golang/tools/tree/master/gopls](https://github.com/golang/tools/tree/master/gopls)
@@ -39,7 +39,7 @@ If `gopls` is not found you will likely need to add `export PATH="$PATH:$HOME/go
 
 ## Inlay Hints
 
-Zed sets the following initialization options for inlay hints:
+zed-custom sets the following initialization options for inlay hints:
 
 ```json [settings]
 "hints": {
@@ -53,7 +53,7 @@ Zed sets the following initialization options for inlay hints:
 }
 ```
 
-to make the language server send back inlay hints when Zed has them enabled in the settings.
+to make the language server send back inlay hints when zed-custom has them enabled in the settings.
 
 Use
 
@@ -75,9 +75,9 @@ See [gopls inlayHints documentation](https://github.com/golang/tools/blob/master
 
 ## Debugging
 
-Zed supports zero-configuration debugging of Go tests and entry points (`func main`) using Delve. Run {#action debugger::Start} ({#kb debugger::Start}) to see a contextual list of these preconfigured debug tasks.
+zed-custom supports zero-configuration debugging of Go tests and entry points (`func main`) using Delve. Run {#action debugger::Start} ({#kb debugger::Start}) to see a contextual list of these preconfigured debug tasks.
 
-For more control, you can add debug configurations to `.zed/debug.json`. See below for examples.
+For more control, you can add debug configurations to `.zed-custom/debug.json`. See below for examples.
 
 - [Delve configuration documentation](https://github.com/go-delve/delve/blob/master/Documentation/api/dap/README.md#launch-and-attach-configurations)
 
@@ -160,15 +160,15 @@ and the "build" command should build that.
 
 ### Attaching to an existing instance of Delve
 
-You might find yourself needing to connect to an existing instance of Delve that's not necessarily running on your machine; in such case, you can use `tcp_arguments` to instrument Zed's connection to Delve.
+You might find yourself needing to connect to an existing instance of Delve that's not necessarily running on your machine; in such case, you can use `tcp_arguments` to instrument zed-custom's connection to Delve.
 
 ```json [debug]
 [
   {
     "adapter": "Delve",
     "label": "Connect to a running Delve instance",
-    "program": "/Users/zed/Projects/language_repositories/golang/hello/hello",
-    "cwd": "/Users/zed/Projects/language_repositories/golang/hello",
+    "program": "/Users/zed-custom/Projects/language_repositories/golang/hello/hello",
+    "cwd": "/Users/zed-custom/Projects/language_repositories/golang/hello",
     "args": [],
     "env": {},
     "request": "launch",
@@ -179,7 +179,7 @@ You might find yourself needing to connect to an existing instance of Delve that
 ]
 ```
 
-In such case Zed won't spawn a new instance of Delve, as it opts to use an existing one. The consequence of this is that _there will be no terminal_ in Zed; you have to interact with the Delve instance directly, as it handles stdin/stdout of the debuggee.
+In such case zed-custom won't spawn a new instance of Delve, as it opts to use an existing one. The consequence of this is that _there will be no terminal_ in zed-custom; you have to interact with the Delve instance directly, as it handles stdin/stdout of the debuggee.
 
 ## Go Mod
 

@@ -13,7 +13,7 @@ async fn test_channels(db: &Arc<Database>) {
     let a_id = new_test_user(db, "user1@example.com").await;
     let b_id = new_test_user(db, "user2@example.com").await;
 
-    let zed_id = db.create_root_channel("zed", a_id).await.unwrap();
+    let zed_id = db.create_root_channel("zed_custom", a_id).await.unwrap();
 
     // Make sure that people cannot read channels they haven't been invited to
     assert!(db.get_channel(zed_id, b_id).await.is_err());
@@ -58,7 +58,7 @@ async fn test_channels(db: &Arc<Database>) {
     assert_channel_tree_matches(
         result.channels,
         channel_tree(&[
-            (zed_id, &[], "zed"),
+            (zed_id, &[], "zed_custom"),
             (crdb_id, &[zed_id], "crdb"),
             (livestreaming_id, &[zed_id], "livestreaming"),
             (replace_id, &[zed_id], "replace"),
@@ -72,7 +72,7 @@ async fn test_channels(db: &Arc<Database>) {
     assert_channel_tree_matches(
         result.channels,
         channel_tree(&[
-            (zed_id, &[], "zed"),
+            (zed_id, &[], "zed_custom"),
             (crdb_id, &[zed_id], "crdb"),
             (livestreaming_id, &[zed_id], "livestreaming"),
             (replace_id, &[zed_id], "replace"),
@@ -93,7 +93,7 @@ async fn test_channels(db: &Arc<Database>) {
     assert_channel_tree_matches(
         result.channels,
         channel_tree(&[
-            (zed_id, &[], "zed"),
+            (zed_id, &[], "zed_custom"),
             (crdb_id, &[zed_id], "crdb"),
             (livestreaming_id, &[zed_id], "livestreaming"),
             (replace_id, &[zed_id], "replace"),
@@ -291,14 +291,14 @@ async fn test_channel_renames(db: &Arc<Database>) {
         .unwrap()
         .user_id;
 
-    let zed_id = db.create_root_channel("zed", user_1).await.unwrap();
+    let zed_id = db.create_root_channel("zed_custom", user_1).await.unwrap();
 
-    db.rename_channel(zed_id, user_1, "#zed-archive")
+    db.rename_channel(zed_id, user_1, "#zed_custom-archive")
         .await
         .unwrap();
 
     let channel = db.get_channel(zed_id, user_1).await.unwrap();
-    assert_eq!(channel.name, "zed-archive");
+    assert_eq!(channel.name, "zed_custom-archive");
 
     let non_permissioned_rename = db.rename_channel(zed_id, user_2, "hacked-lol").await;
     assert!(non_permissioned_rename.is_err());
@@ -328,7 +328,7 @@ async fn test_db_channel_moving(db: &Arc<Database>) {
         .unwrap()
         .user_id;
 
-    let zed_id = db.create_root_channel("zed", a_id).await.unwrap();
+    let zed_id = db.create_root_channel("zed_custom", a_id).await.unwrap();
 
     let crdb_id = db.create_sub_channel("crdb", zed_id, a_id).await.unwrap();
 
@@ -346,7 +346,7 @@ async fn test_db_channel_moving(db: &Arc<Database>) {
 
     // sanity check
     //     /- gpui2
-    // zed -- crdb - livestreaming - livestreaming_sub
+    // zed_custom -- crdb - livestreaming - livestreaming_sub
     let result = db.get_channels_for_user(a_id).await.unwrap();
     assert_channel_tree(
         result.channels,
@@ -365,7 +365,7 @@ async fn test_db_channel_moving(db: &Arc<Database>) {
         .unwrap();
 
     //     /- gpui2
-    // zed -- crdb -- livestreaming
+    // zed_custom -- crdb -- livestreaming
     //             \- livestreaming_sub
     let result = db.get_channels_for_user(a_id).await.unwrap();
     assert_channel_tree(
@@ -382,7 +382,7 @@ async fn test_db_channel_moving(db: &Arc<Database>) {
     // Check that we can move a whole subtree at once
     db.move_channel(crdb_id, gpui2_id, a_id).await.unwrap();
 
-    // zed -- gpui2 -- crdb -- livestreaming
+    // zed_custom -- gpui2 -- crdb -- livestreaming
     //                      \- livestreaming_sub
     let result = db.get_channels_for_user(a_id).await.unwrap();
     assert_channel_tree(
@@ -613,7 +613,7 @@ async fn test_db_channel_moving_bugs(db: &Arc<Database>) {
         .unwrap()
         .user_id;
 
-    let zed_id = db.create_root_channel("zed", user_id).await.unwrap();
+    let zed_id = db.create_root_channel("zed_custom", user_id).await.unwrap();
 
     let projects_id = db
         .create_sub_channel("projects", zed_id, user_id)
@@ -675,7 +675,7 @@ async fn test_user_is_channel_participant(db: &Arc<Database>) {
     let member = new_test_user(db, "member@example.com").await;
     let guest = new_test_user(db, "guest@example.com").await;
 
-    let zed_channel = db.create_root_channel("zed", admin).await.unwrap();
+    let zed_channel = db.create_root_channel("zed_custom", admin).await.unwrap();
     let internal_channel_id = db
         .create_sub_channel("active", zed_channel, admin)
         .await

@@ -63,8 +63,8 @@ use util::{ResultExt, size::format_file_size, time::duration_alt_display};
 use workspace::{
     CollaboratorId, NewTerminal, OpenOptions, Toast, Workspace, notifications::NotificationId,
 };
-use zed_actions::agent::{Chat, ToggleModelSelector};
-use zed_actions::assistant::OpenRulesLibrary;
+use zed_custom_actions::agent::{Chat, ToggleModelSelector};
+use zed_custom_actions::assistant::OpenSkillLibrary;
 
 use super::config_options::ConfigOptionsView;
 use super::entry_view_state::EntryViewState;
@@ -76,8 +76,9 @@ use crate::acp::message_editor::{MessageEditor, MessageEditorEvent};
 use crate::agent_diff::AgentDiff;
 use crate::profile_selector::{ProfileProvider, ProfileSelector};
 use crate::ui::{AgentNotification, AgentNotificationEvent};
-use crate::user_slash_command::{
-    self, CommandLoadError, SlashCommandRegistry, SlashCommandRegistryEvent, UserSlashCommand,
+use prompt_store::user_slash_command::{
+    self, CommandLoadError, UserSlashCommand, UserSlashCommandRegistry,
+    UserSlashCommandRegistryEvent,
 };
 use crate::{
     AgentDiffPane, AgentPanel, AllowAlways, AllowOnce, AuthorizeToolCall, ClearMessageQueue,
@@ -347,7 +348,7 @@ pub struct AcpThreadView {
     focus_handle: FocusHandle,
     notifications: Vec<WindowHandle<AgentNotification>>,
     notification_subscriptions: HashMap<WindowHandle<AgentNotification>, Vec<Subscription>>,
-    slash_command_registry: Option<Entity<SlashCommandRegistry>>,
+    slash_command_registry: Option<Entity<UserSlashCommandRegistry>>,
     auth_task: Option<Task<()>>,
     _subscriptions: [Subscription; 4],
     show_codex_windows_warning: bool,
@@ -507,11 +508,11 @@ impl AcpThreadView {
                 .visible_worktrees(cx)
                 .map(|worktree| worktree.read(cx).abs_path().to_path_buf())
                 .collect();
-            let registry = cx.new(|cx| SlashCommandRegistry::new(fs, worktree_roots, cx));
+            let registry = cx.new(|cx| UserSlashCommandRegistry::new(fs, worktree_roots, cx));
 
             // Subscribe to registry changes to update error display and cached commands
             cx.subscribe(&registry, move |this, registry, event, cx| match event {
-                SlashCommandRegistryEvent::CommandsChanged => {
+                UserSlashCommandRegistryEvent::CommandsChanged => {
                     this.refresh_cached_user_commands_from_registry(&registry, cx);
                 }
             })
@@ -1536,7 +1537,7 @@ impl AcpThreadView {
                 ThreadError::PaymentRequired => (
                     "payment_required",
                     None,
-                    "You reached your free usage limit. Upgrade to Zed Pro for more prompts."
+                    "You reached your free usage limit. Upgrade to zed-custom Pro for more prompts."
                         .into(),
                 ),
                 ThreadError::Refusal => {
@@ -1945,7 +1946,7 @@ impl AcpThreadView {
                         this,
                         AuthRequired {
                             description: Some(
-                                "GOOGLE_API_KEY must be set in the environment to use Vertex AI authentication for Gemini CLI. Please export it and restart Zed."
+                                "GOOGLE_API_KEY must be set in the environment to use Vertex AI authentication for Gemini CLI. Please export it and restart zed-custom."
                                     .to_owned(),
                             ),
                             provider_id: None,
@@ -2625,9 +2626,58 @@ impl AcpThreadView {
                             }
                         });
 
+                    let save_as_skill = ContextMenuEntry::new("Save This as a Skill").handler({
+                        let entity = entity.clone();
+                        move |window, cx| {
+                            entity.update(cx, |this, cx| {
+                                if let Some(active) = this.as_active_thread() {
+                                    let entries = active.thread.read(cx).entries();
+                                    if let Some(text) =
+                                        Self::get_agent_message_content(entries, entry_ix, cx)
+                                    {
+                                        let window_handle = window.window_handle();
+                                        cx.spawn(async move |this, cx| {
+                                            let store = cx.update(|cx| PromptStore::global(cx)).await.ok();
+                                            let Some(store) = store else { return };
+                                            let prompt_id = PromptId::new();
+                                            let save = store.update(cx, |store, cx| {
+                                                store.save(
+                                                    prompt_id.clone(),
+                                                    Some("New Skill".into()),
+                                                    false,
+                                                    text.into(),
+                                                    cx,
+                                                )
+                                            });
+                                            if save.await.is_ok() {
+                                                this.update(cx, |_, cx| {
+                                                    window_handle
+                                                        .update(cx, |_, window: &mut Window, cx| {
+                                                            window.dispatch_action(
+                                                                Box::new(OpenSkillLibrary {
+                                                                    prompt_to_select: prompt_id
+                                                                        .as_user()
+                                                                        .map(|u| u.0),
+                                                                }),
+                                                                cx,
+                                                            );
+                                                        })
+                                                        .ok();
+                                                })
+                                                .ok();
+                                            }
+                                        })
+                                        .detach();
+                                    }
+                                }
+                            });
+                        }
+                    });
+
                     menu.when_some(focus, |menu, focus| menu.context(focus))
                         .action("Copy Selection", Box::new(markdown::CopyAsMarkdown))
                         .item(copy_this_agent_response)
+                        .item(save_as_skill)
                         .separator()
                         .item(scroll_item)
                         .item(open_thread_as_markdown)
@@ -4961,10 +5011,10 @@ impl AcpThreadView {
                                     .truncate(),
                             )
                             .hover(|s| s.bg(cx.theme().colors().element_hover))
-                            .tooltip(Tooltip::text("View User Rules"))
+                            .tooltip(Tooltip::text("View Expert Skills"))
                             .on_click(move |_event, window, cx| {
                                 window.dispatch_action(
-                                    Box::new(OpenRulesLibrary {
+                                    Box::new(OpenSkillLibrary {
                                         prompt_to_select: first_user_rules_id,
                                     }),
                                     cx,
@@ -4990,7 +5040,7 @@ impl AcpThreadView {
                                     .color(Color::Muted),
                             )
                             .hover(|s| s.bg(cx.theme().colors().element_hover))
-                            .tooltip(Tooltip::text("View Project Rules"))
+                            .tooltip(Tooltip::text("View Project Skills"))
                             .on_click(cx.listener(Self::handle_open_rules)),
                     )
                 })
@@ -5285,7 +5335,7 @@ impl AcpThreadView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let (heading_label, description_label) = (
-            format!("Upgrade {} to work with Zed", self.agent.name()),
+            format!("Upgrade {} to work with zed-custom", self.agent.name()),
             if version.is_empty() {
                 format!(
                     "Currently using {}, which does not report a valid --version",
@@ -6975,13 +7025,13 @@ impl AcpThreadView {
         let following = self.is_following(cx);
 
         let tooltip_label = if following {
-            if self.agent.name() == "Zed Agent" {
+            if self.agent.name() == "zed-custom Agent" {
                 format!("Stop Following the {}", self.agent.name())
             } else {
                 format!("Stop Following {}", self.agent.name())
             }
         } else {
-            if self.agent.name() == "Zed Agent" {
+            if self.agent.name() == "zed-custom Agent" {
                 format!("Follow the {}", self.agent.name())
             } else {
                 format!("Follow {}", self.agent.name())
@@ -7106,26 +7156,18 @@ impl AcpThreadView {
         }
     }
 
-    fn render_native_agent_status(&self, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_native_agent_status(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(status) = &self.status else {
             return h_flex();
         };
 
-        let label = if status.is_indexing {
-            format!("Indexing ({} symbols)...", status.index_count)
-        } else {
-            format!("{} symbols indexed", status.index_count)
-        };
-
-        h_flex()
-            .gap_1()
-            .ml_1()
-            .child(
-                Label::new(label)
+        h_flex().when(status.is_indexing, |this| {
+            this.ml_1().child(
+                Label::new("Indexing...")
                     .size(LabelSize::XSmall)
-                    .color(Color::Muted),
+                    .color(Color::Accent),
             )
-            .when(status.is_indexing, |this| this.child(Label::new("Indexing...").size(LabelSize::XSmall).color(Color::Accent)))
+        })
     }
 
     fn show_teach_rule_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -7304,7 +7346,7 @@ impl AcpThreadView {
                         .handler({
                             move |window, cx| {
                                 window.dispatch_action(
-                                    zed_actions::agent::AddSelectionToThread.boxed_clone(),
+                                    zed_custom_actions::agent::AddSelectionToThread.boxed_clone(),
                                     cx,
                                 );
                             }
@@ -7442,7 +7484,7 @@ impl AcpThreadView {
                         return;
                     };
                     window.dispatch_action(
-                        Box::new(OpenRulesLibrary {
+                        Box::new(OpenSkillLibrary {
                             prompt_to_select: Some(uuid.0),
                         }),
                         cx,
@@ -8016,7 +8058,7 @@ impl AcpThreadView {
 
                 let tooltip_meta = || {
                     SharedString::new(
-                        "Rating the thread sends all of your current conversation to the Zed team.",
+                        "Rating the thread sends all of your current conversation to the zed-custom team.",
                     )
                 };
 
@@ -8313,7 +8355,7 @@ impl AcpThreadView {
                         move |_, _, _window, cx| {
                             #[cfg(windows)]
                             _window.dispatch_action(
-                                zed_actions::wsl_actions::OpenWsl::default().boxed_clone(),
+                                zed_custom_actions::wsl_actions::OpenWsl::default().boxed_clone(),
                                 cx,
                             );
                             cx.notify();
@@ -8370,7 +8412,7 @@ impl AcpThreadView {
 
     fn refresh_cached_user_commands_from_registry(
         &mut self,
-        registry: &Entity<SlashCommandRegistry>,
+        registry: &Entity<UserSlashCommandRegistry>,
         cx: &mut Context<Self>,
     ) {
         let Some(thread_state) = self.as_active_thread_mut() else {
@@ -8539,7 +8581,7 @@ impl AcpThreadView {
 
     fn render_payment_required_error(&self, cx: &mut Context<Self>) -> Callout {
         const ERROR_MESSAGE: &str =
-            "You reached your free usage limit. Upgrade to Zed Pro for more prompts.";
+            "You reached your free usage limit. Upgrade to zed-custom Pro for more prompts.";
 
         Callout::new()
             .severity(Severity::Error)
@@ -8739,7 +8781,7 @@ fn loading_contents_spinner(size: IconSize) -> AnyElement {
 }
 
 fn placeholder_text(agent_name: &str, has_commands: bool) -> String {
-    if agent_name == "Zed Agent" {
+    if agent_name == "zed-custom Agent" {
         format!("Message the {} — @ to include context", agent_name)
     } else if has_commands {
         format!(

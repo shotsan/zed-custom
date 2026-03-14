@@ -302,10 +302,10 @@ fn load_shell_from_passwd() -> Result<()> {
     Ok(())
 }
 
-/// Returns a shell escaped path for the current zed executable
+/// Returns a shell escaped path for the current zed_custom executable
 pub fn get_shell_safe_zed_path(shell_kind: shell::ShellKind) -> anyhow::Result<String> {
     let mut zed_path =
-        std::env::current_exe().context("Failed to determine current zed executable path.")?;
+        std::env::current_exe().context("Failed to determine current zed_custom executable path.")?;
     if cfg!(target_os = "linux")
         && !zed_path.is_file()
         && let Some(truncated) = zed_path
@@ -320,30 +320,30 @@ pub fn get_shell_safe_zed_path(shell_kind: shell::ShellKind) -> anyhow::Result<S
 
     zed_path
         .try_shell_safe(shell_kind)
-        .context("Failed to shell-escape Zed executable path.")
+        .context("Failed to shell-escape zed-custom executable path.")
 }
 
-/// Returns a path for the zed cli executable, this function
-/// should be called from the zed executable, not zed-cli.
+/// Returns a path for the zed-custom-cli executable, this function
+/// should be called from the zed-custom executable, not zed-custom-cli.
 pub fn get_zed_cli_path() -> Result<PathBuf> {
     let zed_path =
-        std::env::current_exe().context("Failed to determine current zed executable path.")?;
+        std::env::current_exe().context("Failed to determine current zed_custom executable path.")?;
     let parent = zed_path
         .parent()
-        .context("Failed to determine parent directory of zed executable path.")?;
+        .context("Failed to determine parent directory of zed_custom executable path.")?;
 
     let possible_locations: &[&str] = if cfg!(target_os = "macos") {
-        // On macOS, the zed executable and zed-cli are inside the app bundle,
-        // so here ./cli is for both installed and development builds.
-        &["./cli"]
+        // On macOS, the zed_custom executable and zed-custom-cli are inside the app bundle,
+        // so here ./zed-custom-cli is for both installed and development builds.
+        &["./zed-custom-cli"]
     } else if cfg!(target_os = "windows") {
-        // bin/zed.exe is for installed builds, ./cli.exe is for development builds.
-        &["bin/zed.exe", "./cli.exe"]
+        // bin/zed-custom.exe is for installed builds, ./zed-custom-cli.exe is for development builds.
+        &["bin/zed-custom.exe", "./zed-custom-cli.exe"]
     } else if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
-        // bin is the standard, ./cli is for the target directory in development builds.
-        &["../bin/zed", "./cli"]
+        // bin is the standard, ./zed-custom-cli is for the target directory in development builds.
+        &["../bin/zed-custom", "./zed-custom-cli"]
     } else {
-        anyhow::bail!("unsupported platform for determining zed-cli path");
+        anyhow::bail!("unsupported platform for determining zed-custom-cli path");
     };
 
     possible_locations
@@ -357,7 +357,7 @@ pub fn get_zed_cli_path() -> Result<PathBuf> {
         })
         .with_context(|| {
             format!(
-                "could not find zed-cli from any of: {}",
+                "could not find zed-custom-cli from any of: {}",
                 possible_locations.join(", ")
             )
         })

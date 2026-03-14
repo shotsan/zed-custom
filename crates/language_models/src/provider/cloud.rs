@@ -130,7 +130,7 @@ impl State {
                     anyhow::Ok(())
                 })
                 .await
-                .context("failed to fetch Zed models")
+                .context("failed to fetch zed-custom models")
                 .log_err();
             }),
             _settings_subscription: cx.observe_global::<SettingsStore>(|_, cx| {

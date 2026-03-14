@@ -8,6 +8,30 @@ Standard Anthropic providers in Zed often fail with `404 DeploymentNotFound` bec
 
 We modified `crates/anthropic/src/anthropic.rs` to intercept model resolution. When a custom `api_url` is detected, Zed automatically forwards the exact `serde_name` string you provided in settings, ensuring your Azure deployment name is matched perfectly.
 
+### Configuration Example
+
+To use your Azure Anthropic deployment, set your `settings.json` like this:
+
+```json
+{
+  "language_models": {
+    "anthropic": {
+      "api_url": "https://YOUR_RESOURCE_NAME.services.ai.azure.com/anthropic",
+      "available_models": [
+        {
+          "name": "YOUR_DEPLOYMENT_NAME",
+          "display_name": "Azure Claude 3.5 Sonnet",
+          "max_tokens": 200000
+        }
+      ]
+    }
+  }
+}
+```
+
+> [!TIP]
+> Zed will now correctly route requests to `.../bot/chat` (Azure's endpoint) and use your deployment name as the model ID without version suffixes.
+
 ## Prompt Caching UI
 
 For massive context windows (200k+ tokens), sending the entire codebase on every turn is slow and expensive. Anthropic's **Prompt Caching** stores prefixes on their servers for roughly 5 minutes.

@@ -1,8 +1,8 @@
-# Building Zed for macOS
+# Building zed-custom for macOS
 
 ## Repository
 
-Clone down the [Zed repository](https://github.com/zed-industries/zed).
+Clone down the [zed-custom repository](https://github.com/zed-industries/zed-custom).
 
 ## Dependencies
 
@@ -31,9 +31,9 @@ Clone down the [Zed repository](https://github.com/zed-industries/zed).
   brew install cmake
   ```
 
-## Building Zed from Source
+## Building zed-custom from Source
 
-Once you have the dependencies installed, you can build Zed using [Cargo](https://doc.rust-lang.org/cargo/).
+Once you have the dependencies installed, you can build zed-custom using [Cargo](https://doc.rust-lang.org/cargo/).
 
 For a debug build:
 
@@ -55,7 +55,7 @@ cargo test --workspace
 
 ## Visual Regression Tests
 
-Zed includes visual regression tests that capture screenshots of real Zed windows and compare them against baseline images. These tests require macOS with Screen Recording permission.
+zed-custom includes visual regression tests that capture screenshots of real zed-custom windows and compare them against baseline images. These tests require macOS with Screen Recording permission.
 
 ### Prerequisites
 
@@ -69,12 +69,12 @@ You must grant Screen Recording permission to your terminal:
 ### Running Visual Tests
 
 ```sh
-cargo run -p zed --bin zed_visual_test_runner --features visual-tests
+cargo run -p zed-custom --bin zed_visual_test_runner --features visual-tests
 ```
 
 ### Baseline Images
 
-Baseline images are stored in `crates/zed/test_fixtures/visual_tests/` but are
+Baseline images are stored in `crates/zed-custom/test_fixtures/visual_tests/` but are
 **gitignored** to avoid bloating the repository. You must generate them locally
 before running tests.
 
@@ -84,7 +84,7 @@ Before making any UI changes, generate baseline images from a known-good state:
 
 ```sh
 git checkout origin/main
-UPDATE_BASELINE=1 cargo run -p zed --bin visual_test_runner --features visual-tests
+UPDATE_BASELINE=1 cargo run -p zed-custom --bin visual_test_runner --features visual-tests
 git checkout -
 ```
 
@@ -95,7 +95,7 @@ This creates baselines that reflect the current expected UI.
 When UI changes are intentional, update the baseline images after your changes:
 
 ```sh
-UPDATE_BASELINE=1 cargo run -p zed --bin zed_visual_test_runner --features visual-tests
+UPDATE_BASELINE=1 cargo run -p zed-custom --bin zed_visual_test_runner --features visual-tests
 ```
 
 > **Note:** In the future, baselines may be stored externally. For now, they
@@ -106,7 +106,7 @@ UPDATE_BASELINE=1 cargo run -p zed --bin zed_visual_test_runner --features visua
 ### Error compiling metal shaders
 
 ```sh
-error: failed to run custom build command for gpui v0.1.0 (/Users/path/to/zed)`**
+error: failed to run custom build command for gpui v0.1.0 (/Users/path/to/zed-custom)`**
 
 xcrun: error: unable to find utility "metal", not a developer tool or in PATH
 ```
@@ -169,20 +169,20 @@ This error seems to be caused by OS resource constraints. Installing and running
 
 ### Avoiding continual rebuilds
 
-If you are finding that Zed is continually rebuilding root crates, it may be because
-you are pointing your development Zed at the codebase itself.
+If you are finding that zed-custom is continually rebuilding root crates, it may be because
+you are pointing your development zed-custom at the codebase itself.
 
 This causes problems because `cargo run` exports a bunch of environment
 variables which are picked up by the `rust-analyzer` that runs in the development
-build of Zed. These environment variables are in turn passed to `cargo check`, which
+build of zed-custom. These environment variables are in turn passed to `cargo check`, which
 invalidates the build cache of some of the crates we depend on.
 
-You can easily avoid running the built binary on the checked-out Zed codebase using `cargo run
+You can easily avoid running the built binary on the checked-out zed-custom codebase using `cargo run
 ~/path/to/other/project` to ensure that you don't hit this.
 
 ### Speeding up verification
 
-If you are building Zed a lot, you may find that macOS continually verifies new
+If you are building zed-custom a lot, you may find that macOS continually verifies new
 builds which can add a few seconds to your iteration cycles.
 
 To fix this, you can:

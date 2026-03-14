@@ -824,7 +824,7 @@ pub(super) struct ConfigureMode {
 impl ConfigureMode {
     pub(super) fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
         let program = cx.new(|cx| {
-            InputField::new(window, cx, "ENV=Zed ~/bin/program --option")
+            InputField::new(window, cx, "ENV=zed-custom ~/bin/program --option")
                 .label("Program")
                 .tab_stop(true)
                 .tab_index(1)
@@ -1064,7 +1064,7 @@ impl DebugDelegate {
                     };
 
                     match path.components().next_back() {
-                        Some(".zed") => {
+                        Some(".zed_custom") => {
                             path.push(RelPath::unix("debug.json").unwrap());
                         }
                         Some(".vscode") => {
@@ -1161,7 +1161,7 @@ impl DebugDelegate {
                         id: _,
                         directory_in_worktree: dir,
                         id_base: _,
-                    } => dir.ends_with(RelPath::unix(".zed").unwrap()),
+                    } => dir.ends_with(RelPath::unix(".zed_custom").unwrap()),
                     _ => false,
                 });
 
@@ -1485,7 +1485,7 @@ impl PickerDelegate for DebugDelegate {
                     Button::new("edit-debug-json", "Edit debug.json").on_click(cx.listener(
                         |_picker, _, window, cx| {
                             window.dispatch_action(
-                                zed_actions::OpenProjectDebugTasks.boxed_clone(),
+                                zed_custom_actions::OpenProjectDebugTasks.boxed_clone(),
                                 cx,
                             );
                             cx.emit(DismissEvent);

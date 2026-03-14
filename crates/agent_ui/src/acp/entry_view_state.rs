@@ -1,7 +1,7 @@
 use std::{cell::RefCell, ops::Range, rc::Rc};
 
 use super::thread_history::AcpThreadHistory;
-use crate::user_slash_command::{CommandLoadError, UserSlashCommand};
+use prompt_store::user_slash_command::{CommandLoadError, UserSlashCommand};
 use acp_thread::{AcpThread, AgentThreadEntry};
 use agent::ThreadStore;
 use agent_client_protocol::{self as acp, ToolCallId};

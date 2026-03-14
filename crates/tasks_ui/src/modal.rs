@@ -20,7 +20,7 @@ use ui::{
 
 use util::{ResultExt, truncate_and_trailoff};
 use workspace::{ModalView, Workspace};
-pub use zed_actions::{Rerun, Spawn};
+pub use zed_custom_actions::{Rerun, Spawn};
 
 /// A modal used to spawn new tasks.
 pub struct TasksModalDelegate {
@@ -189,7 +189,7 @@ impl TasksModal {
                 id: _,
                 directory_in_worktree: dir,
                 id_base: _,
-            } => dir.file_name().is_some_and(|name| name == ".zed"),
+            } => dir.file_name().is_some_and(|name| name == ".zed_custom"),
             _ => false,
         });
         // todo(debugger): We're always adding lsp tasks here even if prefer_lsp is false
@@ -767,7 +767,7 @@ mod tests {
         fs.insert_tree(
             path!("/dir"),
             json!({
-                ".zed": {
+                ".zed_custom": {
                     "tasks.json": r#"[
                         {
                             "label": "example task",
@@ -939,7 +939,7 @@ mod tests {
         fs.insert_tree(
             path!("/dir"),
             json!({
-                ".zed": {
+                ".zed_custom": {
                     "tasks.json": r#"[
                         {
                             "label": "hello from $ZED_FILE:$ZED_ROW:$ZED_COLUMN",

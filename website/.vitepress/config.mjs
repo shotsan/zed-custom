@@ -23,6 +23,7 @@ export default defineConfig({
             {
                 text: 'Core Features',
                 items: [
+                    { text: 'Skill Library', link: '/features/skill-library' },
                     { text: 'Long-Term Memory', link: '/features/memory' },
                     { text: 'Headless Web Search', link: '/features/search' },
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
