@@ -19,6 +19,8 @@ The Skill Library is your central dashboard for prompt engineering.
 
 ## 🛠 Creating and Editing Skills
 
+![Skill Creation](/skill-creation.gif)
+
 Each skill consists of a **Title** and a **Body**.
 
 - **Titles** define the command name. A title like "Tailwind Expert" will be available as `/tailwind-expert`.
@@ -36,6 +38,8 @@ In the header of every Skill, you'll find:
 ## 🏎️ Using Skills in Chat
 
 ### Slash Commands
+![Skill Invocation](/skill-invocation.gif)
+
 The fastest way to use a skill is via the slash command menu.
 1.  In any chat, type `/`.
 2.  Scroll or fuzzy-search for your skill.

@@ -8,8 +8,12 @@ The **Skill Library** is the foundational system that transforms a generic Large
 
 Zed Custom makes your expertise discoverable and reachable in seconds.
 
+### 1. Instant Invocation (Slash Commands)
+![Skill Invocation](/skill-invocation.gif)
+
+Every skill in your library is automatically registered as a **Slash Command**.
+Type `/rust` or `/tailwind` directly in the chat.
 -   **Command Palette**: Search for "Skill Library" or hit `cmd-shift-s`.
--   **Slash Commands**: Every skill in your library is automatically available as a top-level command. Type `/rust` or `/tailwind` directly in the chat.
 -   **Contextual UI**: Manage your skills in a dedicated tab with a full IDE-grade editor.
 
 ---
@@ -32,6 +36,8 @@ Zed Custom natively supports "File-based" skills that you can check into Git. Th
 ---
 
 ## 🛠️ Managing Your Skills
+
+![Skill Creation](/skill-creation.gif)
 
 <div class="features-grid">
   <div class="feature-card">
