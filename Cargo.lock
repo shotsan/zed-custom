@@ -13111,6 +13111,7 @@ dependencies = [
  "rope",
  "schemars",
  "serde",
+ "serde_json",
  "strum 0.27.2",
  "tempfile",
  "text",

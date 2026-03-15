@@ -81,12 +81,16 @@ impl PromptMetadata {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter)]
 pub enum BuiltInPrompt {
     CommitMessage,
+    RustSafetyAuditor,
+    TailwindExpert,
 }
 
 impl BuiltInPrompt {
     pub fn title(&self) -> &'static str {
         match self {
             Self::CommitMessage => "Commit message",
+            Self::RustSafetyAuditor => "Rust Safety Auditor",
+            Self::TailwindExpert => "Tailwind Expert",
         }
     }
 
@@ -94,6 +98,8 @@ impl BuiltInPrompt {
     pub fn default_content(&self) -> &'static str {
         match self {
             Self::CommitMessage => include_str!("../../git_ui/src/commit_message_prompt.txt"),
+            Self::RustSafetyAuditor => "You are a senior Rust security researcher.\nYour primary goal is to find 'unsafe' blocks and ensure they are sound.\n1. Check for possible pointer aliasing.\n2. Ensure FFI calls handle null pointers.\n3. Verify that manual memory management follows the 'Drop' trait strictly.\nAlways respond with a 'Safety Audit' section first.",
+            Self::TailwindExpert => "Exclude all generic CSS. Use only Tailwind utility classes.\nPrioritize 'glassmorphism' effects: `bg-white/10 backdrop-blur-md`.\nEnsure mobile-first responsiveness for every component.\nUse consistent spacing scales (multiples of 4).",
         }
     }
 }
@@ -102,6 +108,8 @@ impl std::fmt::Display for BuiltInPrompt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::CommitMessage => write!(f, "Commit message"),
+            Self::RustSafetyAuditor => write!(f, "Rust Safety Auditor"),
+            Self::TailwindExpert => write!(f, "Tailwind Expert"),
         }
     }
 }
@@ -164,7 +172,9 @@ impl PromptId {
         match self {
             Self::User { .. } => true,
             Self::BuiltIn(builtin) => match builtin {
-                BuiltInPrompt::CommitMessage => true,
+                BuiltInPrompt::CommitMessage
+                | BuiltInPrompt::RustSafetyAuditor
+                | BuiltInPrompt::TailwindExpert => true,
             },
             Self::File { .. } => true,
         }
@@ -663,13 +673,13 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("prompts-db");
 
-        let store = cx.update(|cx| PromptStore::new(db_path, cx)).await.unwrap();
+        let store = cx.update(|cx| PromptStore::new(db_path, Arc::new(fs::RealFs::new(None, cx.background_executor().clone())), cx)).await.unwrap();
         let store = cx.new(|_cx| store);
 
         let commit_message_id = PromptId::BuiltIn(BuiltInPrompt::CommitMessage);
 
         let loaded_content = store
-            .update(cx, |store, cx| store.load(commit_message_id, cx))
+            .update(cx, |store, cx| store.load(commit_message_id.clone(), cx))
             .await
             .unwrap();
 
@@ -681,7 +691,7 @@ mod tests {
             "Loading a built-in prompt not in DB should return default content"
         );
 
-        let metadata = store.read_with(cx, |store, _| store.metadata(commit_message_id));
+        let metadata = store.read_with(cx, |store, _| store.metadata(commit_message_id.clone()));
         assert!(
             metadata.is_some(),
             "Built-in prompt should always have metadata"
@@ -701,7 +711,7 @@ mod tests {
         store
             .update(cx, |store, cx| {
                 store.save(
-                    commit_message_id,
+                    commit_message_id.clone(),
                     Some("Commit message".into()),
                     false,
                     Rope::from(custom_content),
@@ -712,7 +722,7 @@ mod tests {
             .unwrap();
 
         let loaded_custom = store
-            .update(cx, |store, cx| store.load(commit_message_id, cx))
+            .update(cx, |store, cx| store.load(commit_message_id.clone(), cx))
             .await
             .unwrap();
         assert_eq!(
@@ -723,7 +733,7 @@ mod tests {
 
         assert!(
             store
-                .read_with(cx, |store, _| store.metadata(commit_message_id))
+                .read_with(cx, |store, _| store.metadata(commit_message_id.clone()))
                 .is_some(),
             "Built-in prompt should have metadata after customization"
         );
@@ -819,7 +829,7 @@ mod tests {
         // Now try to create a PromptStore from this DB.
         // With fail-open behavior, this should succeed and skip the bad record.
         // Without fail-open, this would return an error.
-        let store_result = cx.update(|cx| PromptStore::new(db_path, cx)).await;
+        let store_result = cx.update(|cx| PromptStore::new(db_path, Arc::new(fs::RealFs::new(None, cx.background_executor().clone())), cx)).await;
 
         assert!(
             store_result.is_ok(),
@@ -899,13 +909,13 @@ mod tests {
 
         // Migrate V1 to V2 by creating PromptStore
         let store = cx
-            .update(|cx| PromptStore::new(db_path.clone(), cx))
+            .update(|cx| PromptStore::new(db_path.clone(), Arc::new(fs::RealFs::new(None, cx.background_executor().clone())), cx))
             .await
             .unwrap();
         let store = cx.new(|_cx| store);
 
         // Verify the prompt was migrated
-        let metadata = store.read_with(cx, |store, _| store.metadata(prompt_id_v2));
+        let metadata = store.read_with(cx, |store, _| store.metadata(prompt_id_v2.clone()));
         assert!(metadata.is_some(), "V1 prompt should be migrated to V2");
         assert_eq!(
             metadata
@@ -917,12 +927,12 @@ mod tests {
 
         // Delete the prompt
         store
-            .update(cx, |store, cx| store.delete(prompt_id_v2, cx))
+            .update(cx, |store, cx| store.delete(prompt_id_v2.clone(), cx))
             .await
             .unwrap();
 
         // Verify prompt is deleted
-        let metadata_after_delete = store.read_with(cx, |store, _| store.metadata(prompt_id_v2));
+        let metadata_after_delete = store.read_with(cx, |store, _| store.metadata(prompt_id_v2.clone()));
         assert!(
             metadata_after_delete.is_none(),
             "Prompt should be deleted from V2"
@@ -931,7 +941,7 @@ mod tests {
         drop(store);
 
         // "Restart" by creating a new PromptStore from the same path
-        let store_after_restart = cx.update(|cx| PromptStore::new(db_path, cx)).await.unwrap();
+        let store_after_restart = cx.update(|cx| PromptStore::new(db_path, Arc::new(fs::RealFs::new(None, cx.background_executor().clone())), cx)).await.unwrap();
         let store_after_restart = cx.new(|_cx| store_after_restart);
 
         // Test the prompt does not reappear

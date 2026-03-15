@@ -276,6 +276,7 @@ impl PickerDelegate for SkillPickerDelegate {
                         .read(cx)
                         .commands()
                         .values()
+                        .filter(|cmd| !cmd.path.to_string_lossy().starts_with("db://"))
                         .cloned()
                         .collect::<Vec<_>>()
                 });
@@ -619,7 +620,20 @@ impl SkillLibrary {
             inline_assist_delegate,
             make_completion_provider,
             _user_slash_commands: user_slash_commands,
-            _subscriptions: vec![cx.subscribe_in(&picker, window, Self::handle_picker_event)],
+            _subscriptions: {
+                let mut subscriptions = vec![
+                    cx.subscribe_in(&picker, window, Self::handle_picker_event),
+                    cx.subscribe_in(&store, window, |this, _, _, window, cx| {
+                        this.picker.update(cx, |picker, cx| picker.refresh(window, cx));
+                    }),
+                ];
+                if let Some(registry) = &user_slash_commands {
+                    subscriptions.push(cx.subscribe_in(registry, window, |this, _, _, window, cx| {
+                        this.picker.update(cx, |picker, cx| picker.refresh(window, cx));
+                    }));
+                }
+                subscriptions
+            },
             picker,
         }
     }

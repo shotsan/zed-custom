@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use collections::{HashMap, HashSet};
 use fs::Fs;
 use futures::StreamExt;
-use gpui::{Context, EventEmitter, Task};
+use gpui::{AsyncApp, Context, Entity, EventEmitter, SharedString, Subscription, Task};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -173,10 +173,12 @@ pub enum UserSlashCommandRegistryEvent {
 #[allow(dead_code)]
 pub struct UserSlashCommandRegistry {
     fs: Arc<dyn Fs>,
+    store: Option<Entity<crate::PromptStore>>,
     commands: HashMap<String, UserSlashCommand>,
     errors: Vec<CommandLoadError>,
     worktree_roots: Vec<PathBuf>,
     _watch_task: Option<Task<()>>,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl EventEmitter<UserSlashCommandRegistryEvent> for UserSlashCommandRegistry {}
@@ -184,14 +186,27 @@ impl EventEmitter<UserSlashCommandRegistryEvent> for UserSlashCommandRegistry {}
 #[allow(dead_code)]
 impl UserSlashCommandRegistry {
     /// Creates a new registry and starts loading commands.
-    pub fn new(fs: Arc<dyn Fs>, worktree_roots: Vec<PathBuf>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        fs: Arc<dyn Fs>,
+        store: Option<Entity<crate::PromptStore>>,
+        worktree_roots: Vec<PathBuf>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let mut this = Self {
             fs,
+            store,
             commands: HashMap::default(),
             errors: Vec::new(),
             worktree_roots,
             _watch_task: None,
+            _subscriptions: Vec::new(),
         };
+
+        if let Some(store) = &this.store {
+            this._subscriptions.push(cx.subscribe(store, |this, _, _, cx| {
+                this.reload(cx);
+            }));
+        }
 
         this.start_watching(cx);
         this.reload(cx);
@@ -222,9 +237,56 @@ impl UserSlashCommandRegistry {
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         let fs = self.fs.clone();
         let worktree_roots = self.worktree_roots.clone();
+        let store = self.store.clone();
 
         cx.spawn(async move |this, cx| {
-            let result = load_all_commands_async(&fs, &worktree_roots).await;
+            let mut result = load_all_commands_async(&fs, &worktree_roots).await;
+
+            if let Some(store) = store {
+                let all_metadata = this
+                    .update(cx, |_, cx| {
+                        let store_ref = store.read(cx);
+                        Some(store_ref.all_prompt_metadata())
+                    })
+                    .ok()
+                    .flatten();
+
+                if let Some(all_metadata) = all_metadata {
+                    for metadata in all_metadata {
+                        if let Some(title) = metadata.title.as_ref() {
+                            let command_name = slugify_title(title);
+                            let path = match &metadata.id {
+                                crate::PromptId::File { path, .. } => path.clone(),
+                                _ => PathBuf::from(format!("db://{}", metadata.id)),
+                            };
+
+                            // Only add if not already present from files (filesystem has precedence)
+                            if !result.commands.iter().any(|c| c.name.as_ref() == command_name) {
+                                let template_task = this
+                                    .update(cx, |_, cx| {
+                                        let store_ref = store.read(cx);
+                                        Some(store_ref.load(metadata.id.clone(), cx))
+                                    })
+                                    .ok()
+                                    .flatten();
+
+                                if let Some(template_task) = template_task {
+                                    if let Ok(content) = template_task.await {
+                                        result.commands.push(UserSlashCommand {
+                                            name: Arc::from(command_name),
+                                            template: Arc::from(content),
+                                            namespace: Some(Arc::from("skill")),
+                                            path,
+                                            scope: CommandScope::User,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             this.update(cx, |this, cx| {
                 this.commands = commands_to_map(&result.commands);
                 this.errors = result.errors;
@@ -261,18 +323,25 @@ impl UserSlashCommandRegistry {
                 });
 
                 if should_reload {
-                    let result = load_all_commands_async(&fs, &worktree_roots).await;
-                    let _ = this.update(cx, |this, cx| {
-                        this.commands = commands_to_map(&result.commands);
-                        this.errors = result.errors;
-                        cx.emit(UserSlashCommandRegistryEvent::CommandsChanged);
-                    });
+                    this.update(cx, |this, cx| this.reload(cx)).ok();
                 }
             }
         });
 
         self._watch_task = Some(task);
     }
+}
+
+fn slugify_title(title: &str) -> String {
+    title
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 /// Loads all commands (both project and user) for given worktree roots asynchronously.
@@ -1633,15 +1702,15 @@ mod tests {
         let fs: Arc<dyn Fs> = fs;
 
         let registry = cx.new(|cx| {
-            UserSlashCommandRegistry::new(fs.clone(), vec![PathBuf::from(path!("/project"))], cx)
+            UserSlashCommandRegistry::new(fs.clone(), None, vec![PathBuf::from(path!("/project"))], cx)
         });
 
         // Wait for async load
         cx.run_until_parked();
 
-        registry.read_with(cx, |registry: &UserSlashCommandRegistry, _cx| {
-            assert!(registry.errors().is_empty());
-            assert!(registry.commands().contains_key("test"));
+        registry.read_with(cx, |this, _cx| {
+            assert!(this.errors().is_empty());
+            assert!(this.commands().contains_key("test"));
         });
     }
 
@@ -1673,14 +1742,14 @@ mod tests {
         let fs: Arc<dyn Fs> = fs;
 
         let registry = cx.new(|cx| {
-            UserSlashCommandRegistry::new(fs.clone(), vec![PathBuf::from(path!("/project1"))], cx)
+            UserSlashCommandRegistry::new(fs.clone(), None, vec![PathBuf::from(path!("/project1"))], cx)
         });
 
         cx.run_until_parked();
 
-        registry.read_with(cx, |registry: &UserSlashCommandRegistry, _cx| {
-            assert!(registry.commands().contains_key("cmd1"));
-            assert!(!registry.commands().contains_key("cmd2"));
+        registry.read_with(cx, |this, _cx| {
+            assert!(this.commands().contains_key("cmd1"));
+            assert!(!this.commands().contains_key("cmd2"));
         });
 
         // Update worktree roots
@@ -1696,9 +1765,9 @@ mod tests {
 
         cx.run_until_parked();
 
-        registry.read_with(cx, |registry: &UserSlashCommandRegistry, _cx| {
-            assert!(registry.commands().contains_key("cmd1"));
-            assert!(registry.commands().contains_key("cmd2"));
+        registry.read_with(cx, |this, _cx| {
+            assert!(this.commands().contains_key("cmd1"));
+            assert!(this.commands().contains_key("cmd2"));
         });
     }
 
@@ -1719,7 +1788,7 @@ mod tests {
         let fs: Arc<dyn Fs> = fs.clone();
 
         let registry = cx.new(|cx| {
-            UserSlashCommandRegistry::new(fs.clone(), vec![PathBuf::from(path!("/project"))], cx)
+            UserSlashCommandRegistry::new(fs.clone(), None, vec![PathBuf::from(path!("/project"))], cx)
         });
 
         // Wait for initial load
@@ -1749,12 +1818,11 @@ mod tests {
         });
 
         // Remove a command file
-        fs.remove_file(
+        let _: Result<()> = fs.remove_file(
             Path::new(path!("/project/.zed_custom/commands/original.md")),
             RemoveOptions::default(),
         )
-        .await
-        .unwrap();
+        .await;
 
         // Wait for watcher to process the change
         cx.run_until_parked();
@@ -1766,13 +1834,12 @@ mod tests {
         });
 
         // Modify an existing command
-        fs.save(
+        let _: Result<()> = fs.save(
             Path::new(path!("/project/.zed_custom/commands/new.md")),
             &Rope::from("Updated content"),
             text::LineEnding::Unix,
         )
-        .await
-        .unwrap();
+        .await;
 
         cx.run_until_parked();
 
@@ -1850,12 +1917,11 @@ mod tests {
 
         // Create a symlink from /commands to /actual_commands
         fs.insert_tree(path!("/"), json!({})).await;
-        fs.create_symlink(
+        let _: Result<()> = fs.create_symlink(
             Path::new(path!("/commands")),
             PathBuf::from(path!("/actual_commands")),
         )
-        .await
-        .unwrap();
+        .await;
 
         let fs: Arc<dyn Fs> = fs;
 
@@ -1883,12 +1949,11 @@ mod tests {
 
         // Create commands directory with a symlink to the file
         fs.insert_tree(path!("/commands"), json!({})).await;
-        fs.create_symlink(
+        let _: Result<()> = fs.create_symlink(
             Path::new(path!("/commands/review.md")),
             PathBuf::from(path!("/actual/real_review.md")),
         )
-        .await
-        .unwrap();
+        .await;
 
         let fs: Arc<dyn Fs> = fs;
 
@@ -1925,12 +1990,11 @@ mod tests {
         // Create Zed config dir with symlink to Claude's commands
         fs.insert_tree(path!("/home/user/.config/zed_custom"), json!({}))
             .await;
-        fs.create_symlink(
+        let _: Result<()> = fs.create_symlink(
             Path::new(path!("/home/user/.config/zed_custom/commands")),
             PathBuf::from(path!("/home/user/.claude/commands")),
         )
-        .await
-        .unwrap();
+        .await;
 
         let fs: Arc<dyn Fs> = fs;
 
@@ -1973,12 +2037,11 @@ mod tests {
         .await;
 
         // Create a symlink from /commands/external -> /other
-        fs.create_symlink(
+        let _: Result<()> = fs.create_symlink(
             Path::new(path!("/commands/external")),
             PathBuf::from(path!("/other")),
         )
-        .await
-        .unwrap();
+        .await;
 
         let fs: Arc<dyn Fs> = fs;
 
@@ -2009,9 +2072,8 @@ mod tests {
 
         // Try to load from a path that exists but isn't a directory
         // First create a file where we expect a directory
-        fs.create_file(Path::new(path!("/commands")), fs::CreateOptions::default())
-            .await
-            .unwrap();
+        let _: Result<()> = fs.create_file(Path::new(path!("/commands")), fs::CreateOptions::default())
+            .await;
 
         let result =
             load_commands_from_path_async(&fs, Path::new(path!("/commands")), CommandScope::User)

@@ -612,7 +612,12 @@ impl AgentPanel {
                 .map(|worktree| worktree.read(cx).abs_path().to_path_buf())
                 .collect();
             Some(cx.new(|cx| {
-                prompt_store::user_slash_command::UserSlashCommandRegistry::new(fs.clone(), worktree_roots, cx)
+                prompt_store::user_slash_command::UserSlashCommandRegistry::new(
+                    fs.clone(),
+                    prompt_store.clone(),
+                    worktree_roots,
+                    cx,
+                )
             }))
         } else {
             None

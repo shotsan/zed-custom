@@ -508,7 +508,7 @@ impl AcpThreadView {
                 .visible_worktrees(cx)
                 .map(|worktree| worktree.read(cx).abs_path().to_path_buf())
                 .collect();
-            let registry = cx.new(|cx| UserSlashCommandRegistry::new(fs, worktree_roots, cx));
+            let registry = cx.new(|cx| UserSlashCommandRegistry::new(fs, prompt_store.clone(), worktree_roots, cx));
 
             // Subscribe to registry changes to update error display and cached commands
             cx.subscribe(&registry, move |this, registry, event, cx| match event {

@@ -1,71 +1,46 @@
 # 📚 Skill Library
 
-The **Skill Library** is a centralized repository for managing AI "Expertise." It allows you to save, organize, and reuse modular system prompts that define specific coding styles, architectural patterns, or specialized knowledge.
+The **Skill Library** is a centralized repository for managing AI "Expertise." It allows you to save and organize modular system prompts that define specific coding styles or architectural patterns.
 
-Unlike a static system prompt, the Skill Library is dynamic—allowing you to attach specific expertise to a conversation on the fly.
-
-## Why use the Skill Library?
-
-Standard "Custom Rules" (`.rules` files) are great for project-wide standards, but often you need something more specific or temporary:
-- **Architectural Reference**: "Always use the Repository pattern with these specific traits."
-- **Testing Standards**: "Write tests using PropCheck and ensure 100% coverage of error branches."
-- **Library Expert**: "You are an expert in GPUI's element tree. Focus on performance and layout debugging."
+> [!NOTE]
+> **Current Status**: The management UI and database storage are fully functional. Direct invocation via custom slash commands (e.g., typing `/my-skill`) is currently in development.
 
 ## Skill Categories
 
-Skills are organized into four distinct tiers:
+Skills are currently organized into these tiers:
 
-1.  **Project Skills**: Defined in your workspace (via `.rules` or other config). These stay with the repository.
-2.  **Default Skills**: Personal skills you've flagged to be **auto-attached** to every new AI thread.
-3.  **My Skills**: Your personal library of reusable prompts stored globally across all your projects.
-4.  **Built-in Skills**: High-quality "Expert" prompts included out-of-the-box with Zed Custom.
+1.  **Project Skills**: Derived automatically from files in your workspace (e.g., `.rules`, `.cursorrules`, `AGENT.md`). These are "transient" and stay with the repository.
+2.  **Global Skills (My Skills)**: Your personal library stored in a local SQLite database (`prompts-library-db`). These persist across all your projects.
+3.  **Default Skills**: Any global skill you flag as "Default" will be automatically attached to every new AI thread.
+4.  **Built-in Skills**: High-quality templates bundled with Zed Custom (currently including "Commit Message").
+
+## How to use Skills (Current)
+
+### 1. Saving Expertise
+- Click the **"Save This as a Skill"** button in any chat thread to archive a particularly good prompt.
+- These are stored in your local library and can be edited later.
+
+### 2. Attaching to a Thread (The Paperclip)
+- Open the **Skill Library** window (`cmd-shift-s` or via the menu).
+- Use the **Paperclip icon** to "Pin" a skill to your current conversation.
+- **Permanent Attachment**: Once pinned, these instructions are appended to the system prompt for *every* message in that thread.
+
+### 3. One-off Insertion (The `/prompt` command)
+- If you don't want to permanently attach a skill, you can use the built-in `/prompt` command in the chat.
+- Type `/prompt` followed by the name of your skill to insert its contents directly into your message.
 
 ---
 
-## How to use Skills
+## Planned Features (v0.3.x)
 
-### 1. Saving a Conversation as a Skill
-If you've spent 10 minutes refining a prompt that works perfectly for a specific task, don't let it die with the thread:
-- Click the **"Save This as a Skill"** button in the chat interface.
-- Give it a name and a description.
-- It is now archived in your global library.
-
-### 2. Attaching Skills to a Thread
-- Open the **Skill Library** panel.
-- Browse or search for the expertise you need.
-- Click the **Paperclip** icon to "Pin" it to the current conversation.
-- The Agent instantly inherits all the instructions and constraints defined in that skill.
-
----
-
-## Examples
-
-### Example: "Rust Safety Auditor"
-**Title**: Rust Safety Auditor
-**Content**:
-```text
-You are a senior Rust security researcher.
-Your primary goal is to find 'unsafe' blocks and ensure they are sound.
-1. Check for possible pointer aliasing.
-2. Ensure FFI calls handle null pointers.
-3. Verify that manual memory management follows the 'Drop' trait strictly.
-Always respond with a 'Safety Audit' section first.
-```
-
-### Example: "Tailwind UI Expert"
-**Title**: Tailwind UI Expert
-**Content**:
-```text
-Exclude all generic CSS. Use only Tailwind utility classes.
-Prioritize 'glassmorphism' effects: `bg-white/10 backdrop-blur-md`.
-Ensure mobile-first responsiveness for every component.
-Use consistent spacing scales (multiples of 4).
-```
+- **Direct Slash Commands**: Registering every custom skill as a top-level command (e.g., `/rust-expert`) so you don't have to type `/prompt` first.
+- **Automatic Expert Library**: Expanding the "Built-in" section with specialized agents for Rust, UI design, and Security auditing.
 
 ---
 
 ## Technical Details
 
-- **Storage**: Skills are stored in a local SQLite database, ensuring low-latency access and privacy.
-- **Token Impact**: Skills are injected directly into the system prompt. Using **[Prompt Caching](./azure-anthropic)** is highly recommended when using multiple large skills simultaneously.
-- **Syncing**: Project-level skills are derived from `.rules`, `.cursorrules`, and other known config files in your repository, making them shareable with your team via Git.
+- **Storage**: Global skills are stored in a local Heed/SQLite database at `~/.config/zed-custom/prompts/prompts-library-db.0.mdb`.
+- **Precedence**: If a Project Skill and a Global Skill share the same name, the **Project Skill** takes precedence.
+- **Token Impact**: Skills are injected into the system prompt. Using multiple large skills will increase token usage per message.
+

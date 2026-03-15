@@ -1,13 +1,49 @@
-# Using Rules {#using-rules}
+# Using Skills {#using-skills}
 
-A rule is essentially a prompt that is inserted at the beginning of each interaction with the Agent.
-Currently, zed-custom supports adding rules through files inserted directly in the worktree or through the Rules Library, which allows you to store multiple rules for constant or on-demand usage.
+A skill is a prompt template that provides instructions or context to the AI agent. Skills can be automatically included in every conversation or invoked on-demand using slash commands.
 
-## `.rules` files
+Currently, zed-custom supports adding skills through files in your project or through the **Skills Library**, which stores skills globally for use across all projects.
 
-zed-custom supports including `.rules` files at the top level of worktrees, and they act as project-level instructions that are included in all of your interactions with the Agent Panel.
-Other names for this file are also supported for compatibility with other agents, but note that the first file which matches in this list will be used:
+## Skills Library {#skills-library}
 
+The Skills Library is a built-in interface for managing your AI instructions. It features a full editor with syntax highlighting and keyboard shortcuts.
+
+### Opening the Skills Library
+
+1. Open the **Agent Panel**.
+2. Click on the Agent menu (`...`) in the top right corner.
+3. Select **Skills...** from the dropdown.
+
+You can also reach it by running `agent: open skill library` in the command palette or through the `cmd-shift-R` keybinding.
+
+### Invoking Skills via Slash Commands {#slash-commands}
+
+You can invoke any skill from your library directly in the Agent Panel by typing `/` followed by the name of the skill. Skill titles are automatically converted to lowercase "slugs" (e.g., "Rust Safety Auditor" becomes `/rust-safety-auditor`).
+
+When you select a skill completion:
+1. The skill's content is expanded into your message editor.
+2. You can then add more text or context before sending.
+
+### Pinned Skills (Default Skills) {#pinning-skills}
+
+You can pin a skill using the **Paperclip** icon in the header of the skill editor. 
+
+- **Pinned skills** are automatically included in the context of every new thread.
+- **Unpinned skills** are only used when you explicitly invoke them via a slash command or reference them with the `@rule` mention.
+
+### Built-in Expert Skills {#built-in-experts}
+
+zed-custom includes several built-in expert templates that you can use or customize:
+
+- **Rust Safety Auditor**: Focused on identifying potential security issues in unsafe Rust code.
+- **Tailwind Expert**: Focused on modern Tailwind CSS best practices, responsiveness, and glassmorphism.
+- **Commit message**: A template designed to help generate high-quality git commit messages.
+
+## Project-Level Skills (`.rules`) {#project-rules}
+
+zed-custom also supports project-specific instructions using special files in your worktree. These are automatically included in all interactions within that project.
+
+The following filenames are supported (in order of precedence):
 - `.rules`
 - `.cursorrules`
 - `.windsurfrules`
@@ -18,58 +54,16 @@ Other names for this file are also supported for compatibility with other agents
 - `CLAUDE.md`
 - `GEMINI.md`
 
-## Rules Library {#rules-library}
+## Managing Skills {#managing-skills}
 
-The Rules Library is an interface for writing and managing rules. Like other text-driven UIs in zed-custom, it is a full editor with syntax highlighting, keyboard shortcuts, etc.
+Skills in the library can be:
+- **Created**: Click the `+` icon in the sidebar.
+- **Edited**: Change the content or title directly in the editor.
+- **Duplicated**: Click the **Duplicate** icon to create a copy of an existing skill.
+- **Deleted**: Click the **Trash** icon to remove a skill.
+- **Restored**: Built-in skills can be restored to their default content using the **Restore** icon.
 
-You can use the inline assistant right in the rules editor, allowing you to automate and rewrite rules.
+---
 
-### Opening the Rules Library
-
-1. Open the Agent Panel.
-2. Click on the Agent menu (`...`) in the top right corner.
-3. Select `Rules...` from the dropdown.
-
-You can also reach it by running {#action agent::OpenRulesLibrary} in the command palette or through the {#kb agent::OpenRulesLibrary} keybinding.
-
-### Managing Rules
-
-Once a rules file is selected, you can edit it directly in the built-in editor. Its title can be changed from the editor title bar as well.
-
-Rules can be duplicated, deleted, or added to the default rules using the buttons in the rules editor.
-
-### Creating Rules {#creating-rules}
-
-To create a rule file, simply open the `Rules Library` and click the `+` button. Rules files are stored locally and can be accessed from the library at any time.
-
-Having a series of rules files specifically tailored to prompt engineering can also help you write consistent and effective rules.
-
-Here are a couple of helpful resources for writing better rules:
-
-- [Anthropic: Prompt Engineering](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview)
-- [OpenAI: Prompt Engineering](https://platform.openai.com/docs/guides/prompt-engineering)
-
-### Editing the Default Rules {#default-rules}
-
-zed-custom allows you to customize the default rules used when interacting with LLMs.
-Or to be more precise, it uses a series of rules that are combined to form the default rules.
-
-Default rules are included in the context of every new thread automatically.
-You can also manually add other rules (that are not flagged as default) as context using the `@rule` command.
-
-## Migrating from Prompt Library
-
-Previously, the Rules Library was called the "Prompt Library".
-The new rules system replaces the Prompt Library except in a few specific cases, which are outlined below.
-
-### Slash Commands in Rules
-
-Previously, it was possible to use slash commands (now @-mentions) in custom prompts (now rules).
-There is currently no support for using @-mentions in rules files, however, slash commands are supported in rules files when used with text threads.
-See the documentation for using [slash commands in rules](./text-threads.md#slash-commands-in-rules) for more information.
-
-### Prompt templates
-
-zed-custom maintains backwards compatibility with its original template system, which allows you to customize prompts used throughout the application, including the inline assistant.
-While the Rules Library is now the primary way to manage prompts, you can still use these legacy templates to override default prompts.
-For more details, see the [Rules Templates](./text-threads.md#rule-templates) section under [Text Threads](./text-threads.md).
+> [!TIP]
+> You can use the **Inline Assistant** (`cmd-I`) directly within the skill editor to help you write or refine your instructions.
