@@ -1,46 +1,79 @@
-# 📚 Skill Library
+# 🧠 Skill Library: The AI's Expertise Engine
 
-The **Skill Library** is a centralized repository for managing AI "Expertise." It allows you to save and organize modular system prompts that define specific coding styles or architectural patterns.
-
-> [!NOTE]
-> **Current Status**: The management UI and database storage are fully functional. Direct invocation via custom slash commands (e.g., typing `/my-skill`) is currently in development.
-
-## Skill Categories
-
-Skills are currently organized into these tiers:
-
-1.  **Project Skills**: Derived automatically from files in your workspace (e.g., `.rules`, `.cursorrules`, `AGENT.md`). These are "transient" and stay with the repository.
-2.  **Global Skills (My Skills)**: Your personal library stored in a local SQLite database (`prompts-library-db`). These persist across all your projects.
-3.  **Default Skills**: Any global skill you flag as "Default" will be automatically attached to every new AI thread.
-4.  **Built-in Skills**: High-quality templates bundled with Zed Custom (currently including "Commit Message").
-
-## How to use Skills (Current)
-
-### 1. Saving Expertise
-- Click the **"Save This as a Skill"** button in any chat thread to archive a particularly good prompt.
-- These are stored in your local library and can be edited later.
-
-### 2. Attaching to a Thread (The Paperclip)
-- Open the **Skill Library** window (`cmd-shift-s` or via the menu).
-- Use the **Paperclip icon** to "Pin" a skill to your current conversation.
-- **Permanent Attachment**: Once pinned, these instructions are appended to the system prompt for *every* message in that thread.
-
-### 3. One-off Insertion (The `/prompt` command)
-- If you don't want to permanently attach a skill, you can use the built-in `/prompt` command in the chat.
-- Type `/prompt` followed by the name of your skill to insert its contents directly into your message.
+The **Skill Library** is the foundational system that transforms a generic Large Language Model into a **specialized software engineer** tailored to your specific stack, architecture, and team conventions.
 
 ---
 
-## Planned Features (v0.3.x)
+## 🚀 Instant Discovery
 
-- **Direct Slash Commands**: Registering every custom skill as a top-level command (e.g., `/rust-expert`) so you don't have to type `/prompt` first.
-- **Automatic Expert Library**: Expanding the "Built-in" section with specialized agents for Rust, UI design, and Security auditing.
+Zed Custom makes your expertise discoverable and reachable in seconds.
+
+-   **Command Palette**: Search for "Skill Library" or hit `cmd-shift-s`.
+-   **Slash Commands**: Every skill in your library is automatically available as a top-level command. Type `/rust` or `/tailwind` directly in the chat.
+-   **Contextual UI**: Manage your skills in a dedicated tab with a full IDE-grade editor.
 
 ---
 
-## Technical Details
+## 📂 Hybrid Expertise System
 
-- **Storage**: Global skills are stored in a local Heed/SQLite database at `~/.config/zed-custom/prompts/prompts-library-db.0.mdb`.
-- **Precedence**: If a Project Skill and a Global Skill share the same name, the **Project Skill** takes precedence.
-- **Token Impact**: Skills are injected into the system prompt. Using multiple large skills will increase token usage per message.
+Skills are managed through two parallel systems, giving you the best of both world: **Shared Team Standards** and **Personal Library expertise**.
 
+### 1. Global Skill Library (Personal)
+Stored in a local high-performance database, these skills follow you across all your projects.
+- **Pinned Skills**: Toggle the **Paperclip icon** to include a skill in the permanent system prompt of every conversation.
+- **Expert Templates**: Comes pre-loaded with experts for Rust Security, Tailwind CSS, and Commit Message generation.
+
+### 2. Project-Specific Skills (Team)
+Zed Custom natively supports "File-based" skills that you can check into Git. These are automatically detected and prioritized:
+- **`.rules` / `.cursorrules`**: Global project instructions.
+- **`AGENT.md`**: Best for high-level architectural constraints.
+- **`.python_rules` / `.cpp_rules`**: Language-specific expertise injected only when relevant.
+
+---
+
+## 🛠️ Managing Your Skills
+
+<div class="features-grid">
+  <div class="feature-card">
+    <h3>📝 Rich Editor</h3>
+    <p>Edit your prompts with full syntax highlighting, auto-indentation, and Markdown support.</p>
+  </div>
+  <div class="feature-card">
+    <h3>🪄 Inline Refinement</h3>
+    <p>Highlight any part of your skill and use <code>cmd-i</code> to have the AI help you rewrite or clear up your instructions.</p>
+  </div>
+  <div class="feature-card">
+    <h3>🔗 Pinned Persistence</h3>
+    <p>Pinned skills benefit from "Recency Bias" injection, ensuring your most important constraints are never forgotten by the model.</p>
+  </div>
+</div>
+
+---
+
+## ⚡ Real-World Example
+
+If you have a **"Performance Expert"** skill pinned with these instructions:
+> "Always optimize for zero-allocation paths. Prefer `SmallVec` over `Vec` for small lists."
+
+The agent will automatically align its code suggestions without you ever mentioning performance in the chat:
+
+<div class="zed-chat-mockup">
+  <div class="user-msg">"Write a function to collect 4 string IDs."</div>
+  <div class="assistant-msg">
+    <small>Consulting <b>Performance Expert</b> skill...</small><br/>
+    "Using <code>SmallVec&lt;[String; 4]&gt;</code> to ensure zero heap allocations for this fixed-size list."
+  </div>
+</div>
+
+---
+
+## 💎 Pro-Tips for High-Quality Docs
+
+-   **Precedence**: Project files always overwrite Library skills of the same name.
+-   **Scoping**: Use directory-level `.rules` files to give sub-modules their own specialized logic.
+-   **Slugification**: A skill named "Rust Security Auditor" will always be available as `/rust-security-auditor`.
+
+---
+
+> [!TIP]
+> **Getting Started**: Create a new skill called "My Preferences." Add instructions like "I prefer explicit error handling over <code>.unwrap()</code>" and pin it with the paperclip. Your AI will immediate feel like it has been working with you for years.

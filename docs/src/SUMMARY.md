@@ -17,7 +17,7 @@
 - [Inline Assistant](./ai/inline-assistant.md)
 - [Edit Prediction](./ai/edit-prediction.md)
 - [Text Threads](./ai/text-threads.md)
-- [Skills](./ai/rules.md)
+- [Skills](./ai/skills.md)
 - [Model Context Protocol](./ai/mcp.md)
 - [Configuration](./ai/configuration.md)
   - [LLM Providers](./ai/llm-providers.md)

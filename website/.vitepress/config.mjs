@@ -29,7 +29,6 @@ export default defineConfig({
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
                     { text: 'Prompt Caching Logic', link: '/features/prompt-caching' },
                     { text: 'LSP Symbol Search', link: '/features/lsp' },
-                    { text: 'Custom Rules (.rules)', link: '/features/rules' },
                     { text: 'System Prompts & Persona', link: '/features/system-prompts' },
                     { text: 'Full Message Interception', link: '/features/message-interception' }
                 ]

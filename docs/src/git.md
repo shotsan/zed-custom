@@ -234,7 +234,7 @@ From there, you can modify the prompt to match your desired format.
 
 <!-- Add media -->
 
-Any specific instructions for commit messages added to [Rules files](./ai/rules.md) are also picked up by the model tasked with writing your commit message.
+Any specific instructions for commit messages added to [Skill Library](./ai/skills.md) are also picked up by the model tasked with writing your commit message.
 
 ## Git Integrations
 
