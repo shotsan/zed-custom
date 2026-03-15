@@ -741,7 +741,7 @@ mod tests {
         store
             .update(cx, |store, cx| {
                 store.save(
-                    commit_message_id,
+                    commit_message_id.clone(),
                     Some("Commit message".into()),
                     false,
                     Rope::from(BuiltInPrompt::CommitMessage.default_content()),
@@ -752,7 +752,7 @@ mod tests {
             .unwrap();
 
         let metadata_after_reset =
-            store.read_with(cx, |store, _| store.metadata(commit_message_id));
+            store.read_with(cx, |store, _| store.metadata(commit_message_id.clone()));
         assert!(
             metadata_after_reset.is_some(),
             "Built-in prompt should still have metadata after reset"

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use collections::{HashMap, HashSet};
 use fs::Fs;
 use futures::StreamExt;
-use gpui::{AsyncApp, Context, Entity, EventEmitter, SharedString, Subscription, Task};
+use gpui::{Context, Entity, EventEmitter, Subscription, Task};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

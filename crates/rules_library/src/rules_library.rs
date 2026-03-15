@@ -252,9 +252,9 @@ impl PickerDelegate for SkillPickerDelegate {
         cx: &mut Context<Picker<Self>>,
     ) -> Task<()> {
         let cancellation_flag = Arc::new(AtomicBool::default());
-        let search = self.store.read(cx).search(query.clone(), cancellation_flag.clone(), cx);
+        let search = self.store.read(cx).search(query.clone(), cancellation_flag, cx);
         let user_slash_commands = self.user_slash_commands.clone();
-        let query_for_capture = query.clone();
+        let query_for_capture = query;
 
         let prev_prompt_id = self
             .filtered_entries
@@ -612,14 +612,6 @@ impl SkillLibrary {
             } else {
                 None
             },
-            store,
-            language_registry,
-            skill_editors: HashMap::default(),
-            active_skill_id: None,
-            pending_load: Task::ready(()),
-            inline_assist_delegate,
-            make_completion_provider,
-            _user_slash_commands: user_slash_commands,
             _subscriptions: {
                 let mut subscriptions = vec![
                     cx.subscribe_in(&picker, window, Self::handle_picker_event),
@@ -634,6 +626,14 @@ impl SkillLibrary {
                 }
                 subscriptions
             },
+            store,
+            language_registry,
+            skill_editors: HashMap::default(),
+            active_skill_id: None,
+            pending_load: Task::ready(()),
+            inline_assist_delegate,
+            make_completion_provider,
+            _user_slash_commands: user_slash_commands,
             picker,
         }
     }
@@ -667,7 +667,7 @@ impl SkillLibrary {
         if let Some(metadata) = self.store.read(cx).first()
             && metadata.title.is_none()
         {
-            self.load_skill(metadata.id.clone(), true, window, cx);
+            self.load_skill(metadata.id, true, window, cx);
             return;
         }
 
