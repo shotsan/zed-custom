@@ -111,7 +111,7 @@ fn cron_unit_evals() -> NamedJob {
         .add_with(("token", vars::SLACK_APP_ZED_UNIT_EVALS_BOT_TOKEN))
         .add_with(("payload", indoc::indoc!{r#"
             channel: C04UDRNNJFQ
-            text: "Unit Evals Failed: https://github.com/shotsan/zed-custom/actions/runs/${{ github.run_id }}"
+            text: "Unit Evals Failed: https://github.com/zed_custom-industries/zed_custom/actions/runs/${{ github.run_id }}"
         "#}))
     }
 

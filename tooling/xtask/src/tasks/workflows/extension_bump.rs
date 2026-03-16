@@ -15,7 +15,7 @@ use crate::tasks::workflows::{
 
 const VERSION_CHECK: &str = r#"sed -n 's/version = \"\(.*\)\"/\1/p' < extension.toml"#;
 
-// This is used by various extensions repos in the zed-custom-extensions org to bump extension versions.
+// This is used by various extensions repos in the zed_custom-extensions org to bump extension versions.
 pub(crate) fn extension_bump() -> Workflow {
     let bump_type = WorkflowInput::string("bump-type", Some("patch".to_owned()));
     // TODO: Ideally, this would have a default of `false`, but this is currently not
@@ -148,7 +148,7 @@ fn compare_versions() -> (Step<Run>, StepOutput, StepOutput) {
 
         if [[ -n "$PR_PARENT_SHA" ]]; then
             git checkout "$PR_PARENT_SHA"
-        elif BRANCH_PARENT_SHA="$(git merge-base origin/main origin/zed-custom-zippy-autobump)"; then
+        elif BRANCH_PARENT_SHA="$(git merge-base origin/main origin/zed_custom-zippy-autobump)"; then
             git checkout "$BRANCH_PARENT_SHA"
         else
             git checkout "$(git log -1 --format=%H)"~1
@@ -303,10 +303,10 @@ fn create_pull_request(new_version: StepOutput, generated_token: StepOutput) -> 
                 "commit-message",
                 format!("Bump version to {}", formatted_version),
             )
-            .add("branch", "zed-custom-zippy-autobump")
+            .add("branch", "zed_custom-zippy-autobump")
             .add(
                 "committer",
-                "zed-custom-zippy[bot] <234243425+zed-custom-zippy[bot]@users.noreply.github.com>",
+                "zed_custom-zippy[bot] <234243425+zed_custom-zippy[bot]@users.noreply.github.com>",
             )
             .add("base", "main")
             .add("delete-branch", true)

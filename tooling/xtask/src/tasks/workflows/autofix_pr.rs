@@ -148,12 +148,12 @@ fn commit_changes(pr_number: &WorkflowInput, autofix_job: &NamedJob) -> NamedJob
         .add_env(("GIT_COMMITTER_NAME", "zed-custom Zippy"))
         .add_env((
             "GIT_COMMITTER_EMAIL",
-            "234243425+zed-custom-zippy[bot]@users.noreply.github.com",
+            "234243425+zed_custom-zippy[bot]@users.noreply.github.com",
         ))
         .add_env(("GIT_AUTHOR_NAME", "zed-custom Zippy"))
         .add_env((
             "GIT_AUTHOR_EMAIL",
-            "234243425+zed-custom-zippy[bot]@users.noreply.github.com",
+            "234243425+zed_custom-zippy[bot]@users.noreply.github.com",
         ))
         .add_env(("GITHUB_TOKEN", token))
     }

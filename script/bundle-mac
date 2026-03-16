@@ -58,7 +58,7 @@ export ZED_BUNDLE=true
 
 cargo_bundle_version=$(cargo -q bundle --help 2>&1 | head -n 1 || echo "")
 if [ "$cargo_bundle_version" != "cargo-bundle v0.6.1-zed-custom" ]; then
-    cargo install cargo-bundle --git https://github.com/zed-custom/cargo-bundle.git --branch zed-custom-deploy
+    cargo install cargo-bundle --git https://github.com/zed-custom-industries/cargo-bundle.git --branch zed-custom-deploy
 fi
 
 # Deal with versions of macOS that don't include libstdc++ headers, and pin to c++17 to avoid webrtc-sys C++20 compilation errors on Apple Clang 15
@@ -422,7 +422,7 @@ function upload_debug_symbols() {
 upload_debug_symbols
 
 cp target/${target_triple}/${target_dir}/zed-custom "${app_path}/Contents/MacOS/zed-custom"
-cp target/${target_triple}/${target_dir}/zed-custom-cli "${app_path}/Contents/MacOS/cli"
+cp target/${target_triple}/${target_dir}/cli "${app_path}/Contents/MacOS/cli"
 sign_app_binaries
 
 sign_binary "target/$target_triple/release/remote_server"

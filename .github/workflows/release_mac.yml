@@ -10,7 +10,7 @@ on:
     - v*
 jobs:
   run_tests_mac:
-    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions')
     runs-on: namespace-profile-mac-large
     steps:
     - name: steps::checkout_repo
@@ -42,7 +42,7 @@ jobs:
         rm -rf ./../.cargo
     timeout-minutes: 60
   clippy_mac:
-    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions')
     runs-on: namespace-profile-mac-large
     steps:
     - name: steps::checkout_repo
@@ -62,7 +62,7 @@ jobs:
       run: ./script/clippy
     timeout-minutes: 60
   check_scripts:
-    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -87,7 +87,7 @@ jobs:
         fi
     timeout-minutes: 60
   create_draft_release:
-    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -218,8 +218,8 @@ jobs:
         mv ./artifacts/zed-custom-x86_64.dmg/zed-custom-x86_64.dmg release-artifacts/zed-custom-x86_64.dmg
         mv ./artifacts/zed-custom-remote-server-macos-aarch64.gz/zed-custom-remote-server-macos-aarch64.gz release-artifacts/zed-custom-remote-server-macos-aarch64.gz
         mv ./artifacts/zed-custom-remote-server-macos-x86_64.gz/zed-custom-remote-server-macos-x86_64.gz release-artifacts/zed-custom-remote-server-macos-x86_64.gz
-    - name: gh release upload "$GITHUB_REF_NAME" --repo=${{ github.repository }} release-artifacts/*
-      run: gh release upload "$GITHUB_REF_NAME" --repo=${{ github.repository }} release-artifacts/*
+    - name: gh release upload "$GITHUB_REF_NAME" --repo=zed_custom-industries/zed_custom release-artifacts/*
+      run: gh release upload "$GITHUB_REF_NAME" --repo=zed_custom-industries/zed_custom release-artifacts/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   validate_release_assets_split:
@@ -232,7 +232,7 @@ jobs:
         EXPECTED_ASSETS='["zed-custom-aarch64.dmg", "zed-custom-x86_64.dmg", "zed-custom-remote-server-macos-aarch64.gz", "zed-custom-remote-server-macos-x86_64.gz"]'
         TAG="$GITHUB_REF_NAME"
 
-        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=${ github.repository } --json assets -q '[.assets[].name]')
+        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=zed_custom-industries/zed_custom --json assets -q '[.assets[].name]')
 
         MISSING_ASSETS=$(echo "$EXPECTED_ASSETS" | jq -r --argjson actual "$ACTUAL_ASSETS" '. - $actual | .[]')
 
@@ -257,8 +257,8 @@ jobs:
       with:
         app-id: ${{ secrets.ZED_ZIPPY_APP_ID }}
         private-key: ${{ secrets.ZED_ZIPPY_APP_PRIVATE_KEY }}
-    - name: gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false
-      run: gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false
+    - name: gh release edit "$GITHUB_REF_NAME" --repo=zed_custom-industries/zed_custom --draft=false
+      run: gh release edit "$GITHUB_REF_NAME" --repo=zed_custom-industries/zed_custom --draft=false
       env:
         GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
   push_release_update_notification_split:
@@ -288,7 +288,7 @@ jobs:
         if [ "$DRAFT_RESULT" == "failure" ]; then
             echo "❌ Draft release creation failed for $TAG: $RUN_URL"
         else
-            RELEASE_URL=$(gh release view "$TAG" --repo=${ github.repository } --json url -q '.url')
+            RELEASE_URL=$(gh release view "$TAG" --repo=zed_custom-industries/zed_custom --json url -q '.url')
             if [ "$UPLOAD_RESULT" == "failure" ]; then
                 echo "❌ Mac Release asset upload failed for $TAG: $RELEASE_URL"
             elif [ "$UPLOAD_RESULT" == "cancelled" ] || [ "$UPLOAD_RESULT" == "skipped" ]; then

@@ -28,7 +28,7 @@ fn run_bump_patch_version(branch: &WorkflowInput) -> steps::NamedJob {
 
     fn bump_patch_version(token: &StepOutput) -> Step<Run> {
         named::bash(indoc::indoc! {r#"
-            channel="$(cat crates/zed-custom/RELEASE_CHANNEL)"
+            channel="$(cat crates/zed_custom/RELEASE_CHANNEL)"
 
             tag_suffix=""
             case $channel in
@@ -43,7 +43,7 @@ fn run_bump_patch_version(branch: &WorkflowInput) -> steps::NamedJob {
                 ;;
             esac
             which cargo-set-version > /dev/null || cargo install cargo-edit -f --no-default-features --features "set-version"
-            output="$(cargo set-version -p zed-custom --bump patch 2>&1 | sed 's/.* //')"
+            output="$(cargo set-version -p zed_custom --bump patch 2>&1 | sed 's/.* //')"
             git commit -am "Bump to $output for @$GITHUB_ACTOR"
             git tag "v${output}${tag_suffix}"
             git push origin HEAD "v${output}${tag_suffix}"
@@ -51,12 +51,12 @@ fn run_bump_patch_version(branch: &WorkflowInput) -> steps::NamedJob {
         .add_env(("GIT_COMMITTER_NAME", "zed-custom Zippy"))
         .add_env((
             "GIT_COMMITTER_EMAIL",
-            "234243425+zed-custom-zippy[bot]@users.noreply.github.com",
+            "234243425+zed_custom-zippy[bot]@users.noreply.github.com",
         ))
         .add_env(("GIT_AUTHOR_NAME", "zed-custom Zippy"))
         .add_env((
             "GIT_AUTHOR_EMAIL",
-            "234243425+zed-custom-zippy[bot]@users.noreply.github.com",
+            "234243425+zed_custom-zippy[bot]@users.noreply.github.com",
         ))
         .add_env(("GITHUB_TOKEN", token))
     }
@@ -66,7 +66,7 @@ fn run_bump_patch_version(branch: &WorkflowInput) -> steps::NamedJob {
     named::job(
         Job::default()
             .cond(Expression::new(
-                "github.repository_owner == 'shotsan'",
+                "github.repository_owner == 'zed_custom-industries'",
             ))
             .runs_on(runners::LINUX_XL)
             .add_step(authenticate)

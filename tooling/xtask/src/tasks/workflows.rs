@@ -107,7 +107,7 @@ impl WorkflowType {
             ),
             workflow_name,
             (*self != WorkflowType::Zed)
-                .then_some(" within the zed_custom repository.")
+                .then_some(" within the zed-custom repository.")
                 .unwrap_or_default(),
         )
     }

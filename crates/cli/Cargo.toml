@@ -13,7 +13,7 @@ path = "src/cli.rs"
 doctest = false
 
 [[bin]]
-name = "zed-custom-cli"
+name = "cli"
 path = "src/main.rs"
 
 [features]

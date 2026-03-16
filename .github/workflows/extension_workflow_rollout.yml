@@ -15,7 +15,7 @@ jobs:
       with:
         script: |
           const repos = await github.paginate(github.rest.repos.listForOrg, {
-              org: 'zed-custom-extensions',
+              org: 'zed_custom-extensions',
               type: 'public',
               per_page: 100,
           });
@@ -47,7 +47,7 @@ jobs:
       with:
         app-id: ${{ secrets.ZED_ZIPPY_APP_ID }}
         private-key: ${{ secrets.ZED_ZIPPY_APP_PRIVATE_KEY }}
-        owner: zed-custom-extensions
+        owner: zed_custom-extensions
         repositories: ${{ matrix.repo }}
         permission-pull-requests: write
         permission-contents: write
@@ -56,14 +56,14 @@ jobs:
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         clean: false
-        path: zed-custom
+        path: zed_custom
         fetch-depth: '0'
     - name: steps::checkout_repo_with_token
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         clean: false
         token: ${{ steps.generate-token.outputs.token }}
-        repository: zed-custom-extensions/${{ matrix.repo }}
+        repository: zed_custom-extensions/${{ matrix.repo }}
         path: extension
     - id: prev-tag
       name: extension_workflow_rollout::rollout_workflows_to_extension::get_previous_tag_commit
@@ -75,7 +75,7 @@ jobs:
         fi
         echo "Found previous rollout at commit: $PREV_COMMIT"
         echo "prev_commit=$PREV_COMMIT" >> "$GITHUB_OUTPUT"
-      working-directory: zed-custom
+      working-directory: zed_custom
     - id: calc-changes
       name: extension_workflow_rollout::rollout_workflows_to_extension::get_removed_files
       run: |
@@ -100,7 +100,7 @@ jobs:
 
         echo "Files to remove: $REMOVED_FILES"
         echo "removed_files=$REMOVED_FILES" >> "$GITHUB_OUTPUT"
-      working-directory: zed-custom
+      working-directory: zed_custom
     - name: extension_workflow_rollout::rollout_workflows_to_extension::sync_workflow_files
       run: |
         REMOVED_FILES="${{ steps.calc-changes.outputs.removed_files }}"
@@ -119,28 +119,28 @@ jobs:
         cd - > /dev/null
 
         if [ "${{ matrix.repo }}" = "workflows" ]; then
-            cp zed-custom/extensions/workflows/*.yml extension/.github/workflows/
+            cp zed_custom/extensions/workflows/*.yml extension/.github/workflows/
         else
-            cp zed-custom/extensions/workflows/shared/*.yml extension/.github/workflows/
+            cp zed_custom/extensions/workflows/shared/*.yml extension/.github/workflows/
         fi
     - id: short-sha
       name: extension_workflow_rollout::rollout_workflows_to_extension::get_short_sha
       run: |
         echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-      working-directory: zed-custom
+      working-directory: zed_custom
     - id: create-pr
       name: extension_workflow_rollout::rollout_workflows_to_extension::create_pull_request
       uses: peter-evans/create-pull-request@v7
       with:
         path: extension
-        title: Update CI workflows to `zed-custom@${{ steps.short-sha.outputs.sha_short }}`
+        title: Update CI workflows to `zed_custom@${{ steps.short-sha.outputs.sha_short }}`
         body: |
           This PR updates the CI workflow files from the main Zed repository
-          based on the commit shotsan/zed-custom@${{ github.sha }}
-        commit-message: Update CI workflows to `zed-custom@${{ steps.short-sha.outputs.sha_short }}`
+          based on the commit zed_custom-industries/zed_custom@${{ github.sha }}
+        commit-message: Update CI workflows to `zed_custom@${{ steps.short-sha.outputs.sha_short }}`
         branch: update-workflows
-        committer: zed-custom-zippy[bot] <234243425+zed-custom-zippy[bot]@users.noreply.github.com>
-        author: zed-custom-zippy[bot] <234243425+zed-custom-zippy[bot]@users.noreply.github.com>
+        committer: zed_custom-zippy[bot] <234243425+zed_custom-zippy[bot]@users.noreply.github.com>
+        author: zed_custom-zippy[bot] <234243425+zed_custom-zippy[bot]@users.noreply.github.com>
         base: main
         delete-branch: true
         token: ${{ steps.generate-token.outputs.token }}
@@ -175,8 +175,8 @@ jobs:
         fetch-depth: '0'
     - name: extension_workflow_rollout::create_rollout_tag::configure_git
       run: |
-        git config user.name "zed-custom-zippy[bot]"
-        git config user.email "234243425+zed-custom-zippy[bot]@users.noreply.github.com"
+        git config user.name "zed_custom-zippy[bot]"
+        git config user.email "234243425+zed_custom-zippy[bot]@users.noreply.github.com"
     - name: extension_workflow_rollout::create_rollout_tag::update_rollout_tag
       run: |
         if git rev-parse "extension-workflows" >/dev/null 2>&1; then

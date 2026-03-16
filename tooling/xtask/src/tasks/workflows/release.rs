@@ -157,8 +157,8 @@ pub(crate) fn create_sentry_release() -> Step<Use> {
         "action-release",
         "526942b68292201ac6bbb99b9a0747d4abee354c", // v3
     )
-    .add_env(("SENTRY_ORG", "zed-custom-dev"))
-    .add_env(("SENTRY_PROJECT", "zed-custom"))
+    .add_env(("SENTRY_ORG", "zed_custom-dev"))
+    .add_env(("SENTRY_PROJECT", "zed_custom"))
     .add_env(("SENTRY_AUTH_TOKEN", vars::SENTRY_AUTH_TOKEN))
     .add_with(("environment", "production"))
 }
@@ -175,7 +175,7 @@ fn validate_release_assets_split(deps: &[&NamedJob], assert_assets: Vec<&'static
         EXPECTED_ASSETS='{expected_assets_json}'
         TAG="$GITHUB_REF_NAME"
 
-        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=${{ github.repository }} --json assets -q '[.assets[].name]')
+        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=zed_custom-industries/zed_custom --json assets -q '[.assets[].name]')
 
         MISSING_ASSETS=$(echo "$EXPECTED_ASSETS" | jq -r --argjson actual "$ACTUAL_ASSETS" '. - $actual | .[]')
 
@@ -208,7 +208,7 @@ fn auto_release_preview(deps: &[&NamedJob]) -> NamedJob {
             .add_step(authenticate)
             .add_step(
                 steps::script(
-                    r#"gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false"#,
+                    r#"gh release edit "$GITHUB_REF_NAME" --repo=zed_custom-industries/zed_custom --draft=false"#,
                 )
                 .add_env(("GITHUB_TOKEN", &token)),
             )
@@ -249,7 +249,7 @@ pub(crate) fn upload_release_assets_split(deps: &[&NamedJob], bundle: &[NamedJob
             .add_step(steps::script("ls -lR ./artifacts"))
             .add_step(prep_release_artifacts_split(target_assets))
             .add_step(
-                steps::script("gh release upload \"$GITHUB_REF_NAME\" --repo=${{ github.repository }} release-artifacts/*")
+                steps::script("gh release upload \"$GITHUB_REF_NAME\" --repo=zed_custom-industries/zed_custom release-artifacts/*")
                     .add_env(("GITHUB_TOKEN", vars::GITHUB_TOKEN)),
             ),
     )
@@ -266,7 +266,7 @@ pub(crate) fn upload_release_assets(deps: &[&NamedJob], bundle: &ReleaseBundleJo
             .add_step(steps::script("ls -lR ./artifacts"))
             .add_step(prep_release_artifacts())
             .add_step(
-                steps::script("gh release upload \"$GITHUB_REF_NAME\" --repo=${{ github.repository }} release-artifacts/*")
+                steps::script("gh release upload \"$GITHUB_REF_NAME\" --repo=zed_custom-industries/zed_custom release-artifacts/*")
                     .add_env(("GITHUB_TOKEN", vars::GITHUB_TOKEN)),
             ),
     )
@@ -329,7 +329,7 @@ pub(crate) fn push_release_update_notification_split(
         if [ "$DRAFT_RESULT" == "failure" ]; then
             echo "❌ Draft release creation failed for $TAG: $RUN_URL"
         else
-            RELEASE_URL=$(gh release view "$TAG" --repo=${{ github.repository }} --json url -q '.url')
+            RELEASE_URL=$(gh release view "$TAG" --repo=zed_custom-industries/zed_custom --json url -q '.url')
             if [ "$UPLOAD_RESULT" == "failure" ]; then
                 echo "❌ {platform_name} Release asset upload failed for $TAG: $RELEASE_URL"
             elif [ "$UPLOAD_RESULT" == "cancelled" ] || [ "$UPLOAD_RESULT" == "skipped" ]; then
@@ -419,7 +419,7 @@ pub(crate) fn push_release_update_notification(
         if [ "$DRAFT_RESULT" == "failure" ]; then
             echo "❌ Draft release creation failed for $TAG: $RUN_URL"
         else
-            RELEASE_URL=$(gh release view "$TAG" --repo=${{ github.repository }} --json url -q '.url')
+            RELEASE_URL=$(gh release view "$TAG" --repo=zed_custom-industries/zed_custom --json url -q '.url')
             if [ "$UPLOAD_RESULT" == "failure" ]; then
                 echo "❌ Release asset upload failed for $TAG: $RELEASE_URL"
             elif [ "$UPLOAD_RESULT" == "cancelled" ] || [ "$UPLOAD_RESULT" == "skipped" ]; then

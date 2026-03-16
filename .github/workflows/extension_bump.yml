@@ -26,7 +26,7 @@ on:
         required: true
 jobs:
   check_bump_needed:
-    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -42,7 +42,7 @@ jobs:
 
         if [[ -n "$PR_PARENT_SHA" ]]; then
             git checkout "$PR_PARENT_SHA"
-        elif BRANCH_PARENT_SHA="$(git merge-base origin/main origin/zed-custom-zippy-autobump)"; then
+        elif BRANCH_PARENT_SHA="$(git merge-base origin/main origin/zed_custom-zippy-autobump)"; then
             git checkout "$BRANCH_PARENT_SHA"
         else
             git checkout "$(git log -1 --format=%H)"~1
@@ -63,7 +63,7 @@ jobs:
     needs:
     - check_bump_needed
     if: |-
-      (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan') &&
+      (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions') &&
       (inputs.force-bump == 'true' || needs.check_bump_needed.outputs.needs_bump == 'true')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
@@ -108,8 +108,8 @@ jobs:
         title: Bump version to ${{ steps.bump-version.outputs.new_version }}
         body: This PR bumps the version of this extension to v${{ steps.bump-version.outputs.new_version }}
         commit-message: Bump version to v${{ steps.bump-version.outputs.new_version }}
-        branch: zed-custom-zippy-autobump
-        committer: zed-custom-zippy[bot] <234243425+zed-custom-zippy[bot]@users.noreply.github.com>
+        branch: zed_custom-zippy-autobump
+        committer: zed_custom-zippy[bot] <234243425+zed_custom-zippy[bot]@users.noreply.github.com>
         base: main
         delete-branch: true
         token: ${{ steps.generate-token.outputs.token }}
@@ -119,7 +119,7 @@ jobs:
   create_version_label:
     needs:
     - check_bump_needed
-    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan') && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check_bump_needed.outputs.needs_bump == 'false'
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'zed_custom-industries' || github.repository_owner == 'zed_custom-extensions') && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check_bump_needed.outputs.needs_bump == 'false'
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - id: generate-token

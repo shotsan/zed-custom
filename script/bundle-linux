@@ -113,7 +113,7 @@ fi
 
 # Strip debug symbols and save them for upload to DigitalOcean
 objcopy --strip-debug "${target_dir}/${target_triple}/release/zed-custom"
-objcopy --strip-debug "${target_dir}/${target_triple}/release/zed-custom-cli"
+objcopy --strip-debug "${target_dir}/${target_triple}/release/cli"
 objcopy --strip-debug "${target_dir}/${remote_server_triple}/release/remote_server"
 
 # Ensure that remote_server does not depend on libssl nor libcrypto, as we got rid of these deps.
@@ -138,7 +138,7 @@ zed_dir="${temp_dir}/zed-custom$suffix.app"
 # Binary
 mkdir -p "${zed_dir}/bin" "${zed_dir}/libexec"
 cp "${target_dir}/${target_triple}/release/zed-custom" "${zed_dir}/libexec/zed-custom-editor"
-cp "${target_dir}/${target_triple}/release/zed-custom-cli" "${zed_dir}/bin/zed-custom"
+cp "${target_dir}/${target_triple}/release/cli" "${zed_dir}/bin/zed-custom"
 
 # Libs
 find_libs() {

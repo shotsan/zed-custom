@@ -26,7 +26,7 @@ pub(crate) fn extension_release() -> Workflow {
 }
 
 fn create_release(app_id: &WorkflowSecret, app_secret: &WorkflowSecret) -> NamedJob {
-    let extension_registry = RepositoryTarget::new("shotsan", &["extensions"]);
+    let extension_registry = RepositoryTarget::new("zed_custom-industries", &["extensions"]);
     let (generate_token, generated_token) = generate_token(
         &app_id.to_string(),
         &app_secret.to_string(),
@@ -60,9 +60,9 @@ fn get_extension_id() -> (Step<Run>, StepOutput) {
 }
 
 fn release_action(extension_id: StepOutput, generated_token: StepOutput) -> Step<Use> {
-    named::uses("huacnlee", "zed-custom-extension-action", "v2")
+    named::uses("huacnlee", "zed_custom-extension-action", "v2")
         .add_with(("extension-name", extension_id.to_string()))
-        .add_with(("push-to", "shotsan/extensions"))
+        .add_with(("push-to", "zed_custom-industries/extensions"))
         .add_env(("COMMITTER_TOKEN", generated_token.to_string()))
 }
 
