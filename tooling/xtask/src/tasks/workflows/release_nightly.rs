@@ -51,6 +51,7 @@ pub fn release_nightly() -> Workflow {
         .on(Event::default()
             // Fire every day at 7:00am UTC (Roughly before EU workday and after US workday)
             .schedule([Schedule::new("0 7 * * *")])
+            .workflow_dispatch(WorkflowDispatch::default())
             .push(Push::default().add_tag("nightly")))
         .add_env(("CARGO_TERM_COLOR", "always"))
         .add_env(("RUST_BACKTRACE", "1"))
