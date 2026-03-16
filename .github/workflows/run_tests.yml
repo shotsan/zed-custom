@@ -15,7 +15,7 @@ on:
     - v[0-9]+.[0-9]+.x
 jobs:
   orchestrate:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -58,7 +58,7 @@ jobs:
       run_nix: ${{ steps.filter.outputs.run_nix }}
       run_tests: ${{ steps.filter.outputs.run_tests }}
   check_style:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-4x8-ubuntu-2204
     steps:
     - name: steps::checkout_repo
@@ -485,10 +485,10 @@ jobs:
     - name: nix_build::build_nix::cachix_action
       uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad
       with:
-        name: zed
+        name: zed-custom
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         cachixArgs: -v
-        pushFilter: -zed-editor-[0-9.]*-nightly
+        pushFilter: -zed-custom-editor-[0-9.]*-nightly
     - name: nix_build::build_nix::build
       run: nix build .#debug -L --accept-flake-config
     timeout-minutes: 60
@@ -515,10 +515,10 @@ jobs:
     - name: nix_build::build_nix::cachix_action
       uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad
       with:
-        name: zed
+        name: zed-custom
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         cachixArgs: -v
-        pushFilter: -zed-editor-[0-9.]*-nightly
+        pushFilter: -zed-custom-editor-[0-9.]*-nightly
     - name: nix_build::build_nix::build
       run: nix build .#debug -L --accept-flake-config
     timeout-minutes: 60
@@ -579,7 +579,7 @@ jobs:
     - check_scripts
     - build_nix_linux_x86_64
     - build_nix_mac_aarch64
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions') && always()
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan') && always()
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: run_tests::tests_pass

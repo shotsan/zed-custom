@@ -66,7 +66,7 @@ pub(crate) fn run_tests() -> Workflow {
             Arch::X86_64,
             "debug",
             // *don't* cache the built output
-            Some("-zed_custom-editor-[0-9.]*-nightly"),
+            Some("-zed-custom-editor-[0-9.]*-nightly"),
             &[],
         )),
         should_build_nix.guard(build_nix(
@@ -74,7 +74,7 @@ pub(crate) fn run_tests() -> Workflow {
             Arch::AARCH64,
             "debug",
             // *don't* cache the built output
-            Some("-zed_custom-editor-[0-9.]*-nightly"),
+            Some("-zed-custom-editor-[0-9.]*-nightly"),
             &[],
         )),
     ];

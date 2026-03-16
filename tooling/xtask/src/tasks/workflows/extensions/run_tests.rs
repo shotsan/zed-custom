@@ -19,8 +19,8 @@ pub(crate) fn call_extension_tests() -> NamedJob<UsesJob> {
     let job = Job::default()
         .permissions(Permissions::default().contents(Level::Read))
         .uses(
-            "zed_custom-industries",
-            "zed_custom",
+            "shotsan",
+            "zed-custom",
             ".github/workflows/extension_tests.yml",
             "main",
         );

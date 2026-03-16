@@ -28,7 +28,7 @@ pub(crate) fn build_nix(
             "cachix-action",
             "0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad", // v16
         )
-        .add_with(("name", "zed_custom"))
+        .add_with(("name", "zed-custom"))
         .add_with(("authToken", vars::CACHIX_AUTH_TOKEN))
         .add_with(("cachixArgs", "-v"));
         if let Some(cachix_filter) = cachix_filter {

@@ -107,7 +107,7 @@ impl WorkflowType {
             ),
             workflow_name,
             (*self != WorkflowType::Zed)
-                .then_some(" within the zed-custom repository.")
+                .then_some(" within the zed_custom repository.")
                 .unwrap_or_default(),
         )
     }
@@ -122,7 +122,7 @@ impl WorkflowType {
 }
 
 pub fn run_workflows(_: GenerateWorkflowArgs) -> Result<()> {
-    if !Path::new("crates/zed_custom/").is_dir() {
+    if !Path::new("crates/zed-custom/").is_dir() {
         anyhow::bail!("xtask workflows must be ran from the project root");
     }
 

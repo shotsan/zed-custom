@@ -10,7 +10,7 @@ on:
     - v*
 jobs:
   run_tests_mac:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-mac-large
     steps:
     - name: steps::checkout_repo
@@ -42,7 +42,7 @@ jobs:
         rm -rf ./../.cargo
     timeout-minutes: 60
   clippy_mac:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-mac-large
     steps:
     - name: steps::checkout_repo
@@ -62,7 +62,7 @@ jobs:
       run: ./script/clippy
     timeout-minutes: 60
   check_scripts:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -87,7 +87,7 @@ jobs:
         fi
     timeout-minutes: 60
   create_draft_release:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -139,17 +139,17 @@ jobs:
       run: ./script/clear-target-dir-if-larger-than 300
     - name: run_bundling::bundle_mac::bundle_mac
       run: ./script/bundle-mac aarch64-apple-darwin
-    - name: '@actions/upload-artifact Zed-aarch64.dmg'
+    - name: '@actions/upload-artifact zed-custom-aarch64.dmg'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: Zed-aarch64.dmg
-        path: target/aarch64-apple-darwin/release/Zed-aarch64.dmg
+        name: zed-custom-aarch64.dmg
+        path: target/aarch64-apple-darwin/release/zed-custom-aarch64.dmg
         if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-macos-aarch64.gz'
+    - name: '@actions/upload-artifact zed-custom-remote-server-macos-aarch64.gz'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: zed-remote-server-macos-aarch64.gz
-        path: target/zed-remote-server-macos-aarch64.gz
+        name: zed-custom-remote-server-macos-aarch64.gz
+        path: target/zed-custom-remote-server-macos-aarch64.gz
         if-no-files-found: error
     timeout-minutes: 60
   bundle_mac_x86_64:
@@ -184,17 +184,17 @@ jobs:
       run: ./script/clear-target-dir-if-larger-than 300
     - name: run_bundling::bundle_mac::bundle_mac
       run: ./script/bundle-mac x86_64-apple-darwin
-    - name: '@actions/upload-artifact Zed-x86_64.dmg'
+    - name: '@actions/upload-artifact zed-custom-x86_64.dmg'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: Zed-x86_64.dmg
-        path: target/x86_64-apple-darwin/release/Zed-x86_64.dmg
+        name: zed-custom-x86_64.dmg
+        path: target/x86_64-apple-darwin/release/zed-custom-x86_64.dmg
         if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-macos-x86_64.gz'
+    - name: '@actions/upload-artifact zed-custom-remote-server-macos-x86_64.gz'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: zed-remote-server-macos-x86_64.gz
-        path: target/zed-remote-server-macos-x86_64.gz
+        name: zed-custom-remote-server-macos-x86_64.gz
+        path: target/zed-custom-remote-server-macos-x86_64.gz
         if-no-files-found: error
     timeout-minutes: 60
   upload_release_assets_split:
@@ -214,12 +214,12 @@ jobs:
       run: |-
         mkdir -p release-artifacts/
 
-        mv ./artifacts/Zed-aarch64.dmg/Zed-aarch64.dmg release-artifacts/Zed-aarch64.dmg
-        mv ./artifacts/Zed-x86_64.dmg/Zed-x86_64.dmg release-artifacts/Zed-x86_64.dmg
-        mv ./artifacts/zed-remote-server-macos-aarch64.gz/zed-remote-server-macos-aarch64.gz release-artifacts/zed-remote-server-macos-aarch64.gz
-        mv ./artifacts/zed-remote-server-macos-x86_64.gz/zed-remote-server-macos-x86_64.gz release-artifacts/zed-remote-server-macos-x86_64.gz
-    - name: gh release upload "$GITHUB_REF_NAME" --repo=zed-industries/zed release-artifacts/*
-      run: gh release upload "$GITHUB_REF_NAME" --repo=zed-industries/zed release-artifacts/*
+        mv ./artifacts/zed-custom-aarch64.dmg/zed-custom-aarch64.dmg release-artifacts/zed-custom-aarch64.dmg
+        mv ./artifacts/zed-custom-x86_64.dmg/zed-custom-x86_64.dmg release-artifacts/zed-custom-x86_64.dmg
+        mv ./artifacts/zed-custom-remote-server-macos-aarch64.gz/zed-custom-remote-server-macos-aarch64.gz release-artifacts/zed-custom-remote-server-macos-aarch64.gz
+        mv ./artifacts/zed-custom-remote-server-macos-x86_64.gz/zed-custom-remote-server-macos-x86_64.gz release-artifacts/zed-custom-remote-server-macos-x86_64.gz
+    - name: gh release upload "$GITHUB_REF_NAME" --repo=${{ github.repository }} release-artifacts/*
+      run: gh release upload "$GITHUB_REF_NAME" --repo=${{ github.repository }} release-artifacts/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   validate_release_assets_split:
@@ -229,10 +229,10 @@ jobs:
     steps:
     - name: release::validate_release_assets_split
       run: |
-        EXPECTED_ASSETS='["Zed-aarch64.dmg", "Zed-x86_64.dmg", "zed-remote-server-macos-aarch64.gz", "zed-remote-server-macos-x86_64.gz"]'
+        EXPECTED_ASSETS='["zed-custom-aarch64.dmg", "zed-custom-x86_64.dmg", "zed-custom-remote-server-macos-aarch64.gz", "zed-custom-remote-server-macos-x86_64.gz"]'
         TAG="$GITHUB_REF_NAME"
 
-        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=zed-industries/zed --json assets -q '[.assets[].name]')
+        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=${ github.repository } --json assets -q '[.assets[].name]')
 
         MISSING_ASSETS=$(echo "$EXPECTED_ASSETS" | jq -r --argjson actual "$ACTUAL_ASSETS" '. - $actual | .[]')
 
@@ -257,8 +257,8 @@ jobs:
       with:
         app-id: ${{ secrets.ZED_ZIPPY_APP_ID }}
         private-key: ${{ secrets.ZED_ZIPPY_APP_PRIVATE_KEY }}
-    - name: gh release edit "$GITHUB_REF_NAME" --repo=zed-industries/zed --draft=false
-      run: gh release edit "$GITHUB_REF_NAME" --repo=zed-industries/zed --draft=false
+    - name: gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false
+      run: gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false
       env:
         GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
   push_release_update_notification_split:
@@ -288,7 +288,7 @@ jobs:
         if [ "$DRAFT_RESULT" == "failure" ]; then
             echo "❌ Draft release creation failed for $TAG: $RUN_URL"
         else
-            RELEASE_URL=$(gh release view "$TAG" --repo=zed-industries/zed --json url -q '.url')
+            RELEASE_URL=$(gh release view "$TAG" --repo=${ github.repository } --json url -q '.url')
             if [ "$UPLOAD_RESULT" == "failure" ]; then
                 echo "❌ Mac Release asset upload failed for $TAG: $RELEASE_URL"
             elif [ "$UPLOAD_RESULT" == "cancelled" ] || [ "$UPLOAD_RESULT" == "skipped" ]; then

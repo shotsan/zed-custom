@@ -63,7 +63,7 @@ jobs:
         token: ${{ secrets.SLACK_APP_ZED_UNIT_EVALS_BOT_TOKEN }}
         payload: |
           channel: C04UDRNNJFQ
-          text: "Unit Evals Failed: https://github.com/zed-industries/zed/actions/runs/${{ github.run_id }}"
+          text: "Unit Evals Failed: https://github.com/shotsan/zed-custom/actions/runs/${{ github.run_id }}"
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.ref_name == 'main' && github.sha || 'anysha' }}
   cancel-in-progress: true

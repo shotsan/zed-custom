@@ -132,7 +132,7 @@ function BuildZedAndItsFriends {
     # Build zed-custom.exe, cli.exe and auto_update_helper.exe
     cargo build --release --package zed-custom --package cli --package auto_update_helper --target $target
     Copy-Item -Path ".\$CargoOutDir\zed-custom.exe" -Destination "$innoDir\zed-custom.exe" -Force
-    Copy-Item -Path ".\$CargoOutDir\cli.exe" -Destination "$innoDir\cli.exe" -Force
+    Copy-Item -Path ".\$CargoOutDir\zed-custom-cli.exe" -Destination "$innoDir\cli.exe" -Force
     Copy-Item -Path ".\$CargoOutDir\auto_update_helper.exe" -Destination "$innoDir\auto_update_helper.exe" -Force
     # Build explorer_command_injector.dll
     switch ($channel) {
@@ -171,7 +171,7 @@ function BuildRemoteServer {
 function ZipZedAndItsFriendsDebug {
     $items = @(
         ".\$CargoOutDir\zed-custom.pdb",
-        ".\$CargoOutDir\cli.pdb",
+        ".\$CargoOutDir\zed-custom-cli.pdb",
         ".\$CargoOutDir\auto_update_helper.pdb",
         ".\$CargoOutDir\explorer_command_injector.pdb",
         ".\$CargoOutDir\remote_server.pdb"

@@ -10,7 +10,7 @@ on:
     - v*
 jobs:
   run_tests_linux:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-16x32-ubuntu-2204
     steps:
     - name: steps::checkout_repo
@@ -56,7 +56,7 @@ jobs:
         - 5432:5432
         options: --health-cmd pg_isready --health-interval 500ms --health-timeout 5s --health-retries 10
   clippy_linux:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-16x32-ubuntu-2204
     steps:
     - name: steps::checkout_repo
@@ -82,7 +82,7 @@ jobs:
       run: ./script/clippy
     timeout-minutes: 60
   check_scripts:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -107,7 +107,7 @@ jobs:
         fi
     timeout-minutes: 60
   create_draft_release:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -154,17 +154,17 @@ jobs:
       run: ./script/download-wasi-sdk
     - name: ./script/bundle-linux
       run: ./script/bundle-linux
-    - name: '@actions/upload-artifact zed-linux-aarch64.tar.gz'
+    - name: '@actions/upload-artifact zed-custom-linux-aarch64.tar.gz'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: zed-linux-aarch64.tar.gz
-        path: target/release/zed-linux-aarch64.tar.gz
+        name: zed-custom-linux-aarch64.tar.gz
+        path: target/release/zed-custom-linux-aarch64.tar.gz
         if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-linux-aarch64.gz'
+    - name: '@actions/upload-artifact zed-custom-remote-server-linux-aarch64.gz'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: zed-remote-server-linux-aarch64.gz
-        path: target/zed-remote-server-linux-aarch64.gz
+        name: zed-custom-remote-server-linux-aarch64.gz
+        path: target/zed-custom-remote-server-linux-aarch64.gz
         if-no-files-found: error
     timeout-minutes: 60
   bundle_linux_x86_64:
@@ -194,17 +194,17 @@ jobs:
       run: ./script/download-wasi-sdk
     - name: ./script/bundle-linux
       run: ./script/bundle-linux
-    - name: '@actions/upload-artifact zed-linux-x86_64.tar.gz'
+    - name: '@actions/upload-artifact zed-custom-linux-x86_64.tar.gz'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: zed-linux-x86_64.tar.gz
-        path: target/release/zed-linux-x86_64.tar.gz
+        name: zed-custom-linux-x86_64.tar.gz
+        path: target/release/zed-custom-linux-x86_64.tar.gz
         if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-linux-x86_64.gz'
+    - name: '@actions/upload-artifact zed-custom-remote-server-linux-x86_64.gz'
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
-        name: zed-remote-server-linux-x86_64.gz
-        path: target/zed-remote-server-linux-x86_64.gz
+        name: zed-custom-remote-server-linux-x86_64.gz
+        path: target/zed-custom-remote-server-linux-x86_64.gz
         if-no-files-found: error
     timeout-minutes: 60
   upload_release_assets_split:
@@ -224,12 +224,12 @@ jobs:
       run: |-
         mkdir -p release-artifacts/
 
-        mv ./artifacts/zed-linux-aarch64.tar.gz/zed-linux-aarch64.tar.gz release-artifacts/zed-linux-aarch64.tar.gz
-        mv ./artifacts/zed-linux-x86_64.tar.gz/zed-linux-x86_64.tar.gz release-artifacts/zed-linux-x86_64.tar.gz
-        mv ./artifacts/zed-remote-server-linux-aarch64.gz/zed-remote-server-linux-aarch64.gz release-artifacts/zed-remote-server-linux-aarch64.gz
-        mv ./artifacts/zed-remote-server-linux-x86_64.gz/zed-remote-server-linux-x86_64.gz release-artifacts/zed-remote-server-linux-x86_64.gz
-    - name: gh release upload "$GITHUB_REF_NAME" --repo=zed-industries/zed release-artifacts/*
-      run: gh release upload "$GITHUB_REF_NAME" --repo=zed-industries/zed release-artifacts/*
+        mv ./artifacts/zed-custom-linux-aarch64.tar.gz/zed-custom-linux-aarch64.tar.gz release-artifacts/zed-custom-linux-aarch64.tar.gz
+        mv ./artifacts/zed-custom-linux-x86_64.tar.gz/zed-custom-linux-x86_64.tar.gz release-artifacts/zed-custom-linux-x86_64.tar.gz
+        mv ./artifacts/zed-custom-remote-server-linux-aarch64.gz/zed-custom-remote-server-linux-aarch64.gz release-artifacts/zed-custom-remote-server-linux-aarch64.gz
+        mv ./artifacts/zed-custom-remote-server-linux-x86_64.gz/zed-custom-remote-server-linux-x86_64.gz release-artifacts/zed-custom-remote-server-linux-x86_64.gz
+    - name: gh release upload "$GITHUB_REF_NAME" --repo=${{ github.repository }} release-artifacts/*
+      run: gh release upload "$GITHUB_REF_NAME" --repo=${{ github.repository }} release-artifacts/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   validate_release_assets_split:
@@ -239,10 +239,10 @@ jobs:
     steps:
     - name: release::validate_release_assets_split
       run: |
-        EXPECTED_ASSETS='["zed-linux-aarch64.tar.gz", "zed-linux-x86_64.tar.gz", "zed-remote-server-linux-aarch64.gz", "zed-remote-server-linux-x86_64.gz"]'
+        EXPECTED_ASSETS='["zed-custom-linux-aarch64.tar.gz", "zed-custom-linux-x86_64.tar.gz", "zed-custom-remote-server-linux-aarch64.gz", "zed-custom-remote-server-linux-x86_64.gz"]'
         TAG="$GITHUB_REF_NAME"
 
-        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=zed-industries/zed --json assets -q '[.assets[].name]')
+        ACTUAL_ASSETS=$(gh release view "$TAG" --repo=${ github.repository } --json assets -q '[.assets[].name]')
 
         MISSING_ASSETS=$(echo "$EXPECTED_ASSETS" | jq -r --argjson actual "$ACTUAL_ASSETS" '. - $actual | .[]')
 
@@ -267,8 +267,8 @@ jobs:
       with:
         app-id: ${{ secrets.ZED_ZIPPY_APP_ID }}
         private-key: ${{ secrets.ZED_ZIPPY_APP_PRIVATE_KEY }}
-    - name: gh release edit "$GITHUB_REF_NAME" --repo=zed-industries/zed --draft=false
-      run: gh release edit "$GITHUB_REF_NAME" --repo=zed-industries/zed --draft=false
+    - name: gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false
+      run: gh release edit "$GITHUB_REF_NAME" --repo=${{ github.repository }} --draft=false
       env:
         GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
   push_release_update_notification_split:
@@ -298,7 +298,7 @@ jobs:
         if [ "$DRAFT_RESULT" == "failure" ]; then
             echo "❌ Draft release creation failed for $TAG: $RUN_URL"
         else
-            RELEASE_URL=$(gh release view "$TAG" --repo=zed-industries/zed --json url -q '.url')
+            RELEASE_URL=$(gh release view "$TAG" --repo=${ github.repository } --json url -q '.url')
             if [ "$UPLOAD_RESULT" == "failure" ]; then
                 echo "❌ Linux Release asset upload failed for $TAG: $RELEASE_URL"
             elif [ "$UPLOAD_RESULT" == "cancelled" ] || [ "$UPLOAD_RESULT" == "skipped" ]; then

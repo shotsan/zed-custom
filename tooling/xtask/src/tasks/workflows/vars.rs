@@ -328,17 +328,17 @@ pub mod assets {
     // NOTE: these asset names also exist in the zed.dev codebase.
     pub const MAC_AARCH64: &str = "zed-custom-aarch64.dmg";
     pub const MAC_X86_64: &str = "zed-custom-x86_64.dmg";
-    pub const LINUX_AARCH64: &str = "zed_custom-linux-aarch64.tar.gz";
-    pub const LINUX_X86_64: &str = "zed_custom-linux-x86_64.tar.gz";
+    pub const LINUX_AARCH64: &str = "zed-custom-linux-aarch64.tar.gz";
+    pub const LINUX_X86_64: &str = "zed-custom-linux-x86_64.tar.gz";
     pub const WINDOWS_X86_64: &str = "zed-custom-x86_64.exe";
     pub const WINDOWS_AARCH64: &str = "zed-custom-aarch64.exe";
 
-    pub const REMOTE_SERVER_MAC_AARCH64: &str = "zed_custom-remote-server-macos-aarch64.gz";
-    pub const REMOTE_SERVER_MAC_X86_64: &str = "zed_custom-remote-server-macos-x86_64.gz";
-    pub const REMOTE_SERVER_LINUX_AARCH64: &str = "zed_custom-remote-server-linux-aarch64.gz";
-    pub const REMOTE_SERVER_LINUX_X86_64: &str = "zed_custom-remote-server-linux-x86_64.gz";
-    pub const REMOTE_SERVER_WINDOWS_AARCH64: &str = "zed_custom-remote-server-windows-aarch64.zip";
-    pub const REMOTE_SERVER_WINDOWS_X86_64: &str = "zed_custom-remote-server-windows-x86_64.zip";
+    pub const REMOTE_SERVER_MAC_AARCH64: &str = "zed-custom-remote-server-macos-aarch64.gz";
+    pub const REMOTE_SERVER_MAC_X86_64: &str = "zed-custom-remote-server-macos-x86_64.gz";
+    pub const REMOTE_SERVER_LINUX_AARCH64: &str = "zed-custom-remote-server-linux-aarch64.gz";
+    pub const REMOTE_SERVER_LINUX_X86_64: &str = "zed-custom-remote-server-linux-x86_64.gz";
+    pub const REMOTE_SERVER_WINDOWS_AARCH64: &str = "zed-custom-remote-server-windows-aarch64.zip";
+    pub const REMOTE_SERVER_WINDOWS_X86_64: &str = "zed-custom-remote-server-windows-x86_64.zip";
 
     pub fn all() -> Vec<&'static str> {
         let mut all = mac();

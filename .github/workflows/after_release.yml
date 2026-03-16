@@ -21,7 +21,7 @@ on:
         default: ''
 jobs:
   rebuild_releases_page:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: after_release::rebuild_releases_page::refresh_cloud_releases
@@ -37,7 +37,7 @@ jobs:
   post_to_discord:
     needs:
     - rebuild_releases_page
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - id: get-release-url
@@ -55,7 +55,7 @@ jobs:
       uses: 2428392/gh-truncate-string-action@b3ff790d21cf42af3ca7579146eedb93c8fb0757
       with:
         stringToTruncate: |
-          📣 Zed [${{ github.event.release.tag_name || inputs.tag_name }}](<${{ steps.get-release-url.outputs.URL }}>)  was just released!
+          📣 zed-custom [${{ github.event.release.tag_name || inputs.tag_name }}](<${{ steps.get-release-url.outputs.URL }}>)  was just released!
 
           ${{ github.event.release.body || inputs.body }}
         maxLength: 2000
@@ -91,9 +91,9 @@ jobs:
       name: after_release::publish_winget::set_package_name
       run: |
         if ("${{ github.event.release.prerelease || inputs.prerelease }}" -eq "true") {
-            $PACKAGE_NAME = "ZedIndustries.Zed.Preview"
+            $PACKAGE_NAME = "ZedIndustries.zed-custom.Preview"
         } else {
-            $PACKAGE_NAME = "ZedIndustries.Zed"
+            $PACKAGE_NAME = "ZedIndustries.zed-custom"
         }
 
         echo "PACKAGE_NAME=$PACKAGE_NAME" >> $env:GITHUB_OUTPUT
@@ -106,7 +106,7 @@ jobs:
         max-versions-to-keep: 5
         token: ${{ secrets.WINGET_TOKEN }}
   create_sentry_release:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'shotsan' || github.repository_owner == 'zed-custom' || github.repository_owner == 'shotsan')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
     - name: steps::checkout_repo
@@ -118,8 +118,8 @@ jobs:
       with:
         environment: production
       env:
-        SENTRY_ORG: zed-dev
-        SENTRY_PROJECT: zed
+        SENTRY_ORG: zed-custom-dev
+        SENTRY_PROJECT: zed-custom
         SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
   notify_on_failure:
     needs:

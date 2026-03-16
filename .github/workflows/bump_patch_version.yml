@@ -10,7 +10,7 @@ on:
         type: string
 jobs:
   run_bump_patch_version:
-    if: github.repository_owner == 'zed-industries'
+    if: github.repository_owner == 'shotsan'
     runs-on: namespace-profile-16x32-ubuntu-2204
     steps:
     - id: get-app-token
@@ -27,7 +27,7 @@ jobs:
         ref: ${{ inputs.branch }}
     - name: bump_patch_version::run_bump_patch_version::bump_patch_version
       run: |
-        channel="$(cat crates/zed/RELEASE_CHANNEL)"
+        channel="$(cat crates/zed-custom/RELEASE_CHANNEL)"
 
         tag_suffix=""
         case $channel in
@@ -42,15 +42,15 @@ jobs:
             ;;
         esac
         which cargo-set-version > /dev/null || cargo install cargo-edit -f --no-default-features --features "set-version"
-        output="$(cargo set-version -p zed --bump patch 2>&1 | sed 's/.* //')"
+        output="$(cargo set-version -p zed-custom --bump patch 2>&1 | sed 's/.* //')"
         git commit -am "Bump to $output for @$GITHUB_ACTOR"
         git tag "v${output}${tag_suffix}"
         git push origin HEAD "v${output}${tag_suffix}"
       env:
-        GIT_COMMITTER_NAME: Zed Zippy
-        GIT_COMMITTER_EMAIL: 234243425+zed-zippy[bot]@users.noreply.github.com
-        GIT_AUTHOR_NAME: Zed Zippy
-        GIT_AUTHOR_EMAIL: 234243425+zed-zippy[bot]@users.noreply.github.com
+        GIT_COMMITTER_NAME: zed-custom Zippy
+        GIT_COMMITTER_EMAIL: 234243425+zed-custom-zippy[bot]@users.noreply.github.com
+        GIT_AUTHOR_NAME: zed-custom Zippy
+        GIT_AUTHOR_EMAIL: 234243425+zed-custom-zippy[bot]@users.noreply.github.com
         GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.branch }}

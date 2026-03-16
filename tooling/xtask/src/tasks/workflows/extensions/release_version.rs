@@ -20,8 +20,8 @@ pub(crate) fn call_release_version() -> NamedJob<UsesJob> {
                 .pull_requests(Level::Write),
         )
         .uses(
-            "zed_custom-industries",
-            "zed_custom",
+            "shotsan",
+            "zed-custom",
             ".github/workflows/extension_release.yml",
             "main",
         )
