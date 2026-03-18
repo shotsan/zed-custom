@@ -23,8 +23,10 @@ export default defineConfig({
             {
                 text: 'Core Features',
                 items: [
+                    { text: 'Agent Profiles', link: '/features/agent-profiles' },
                     { text: 'Skill Library', link: '/features/skill-library' },
                     { text: 'Long-Term Memory', link: '/features/memory' },
+                    { text: 'Auto Context Compression', link: '/features/context-compression' },
                     { text: 'Headless Web Search', link: '/features/search' },
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
                     { text: 'Prompt Caching Logic', link: '/features/prompt-caching' },
@@ -41,7 +43,7 @@ export default defineConfig({
                     { text: 'Web: search', link: '/features/tools/search' },
                     { text: 'Web: fetch', link: '/features/tools/fetch' },
                     { text: 'LSP: context', link: '/features/tools/context' },
-                    { text: 'Elasticsearch: elastic_search + /elastic', link: '/features/tools/elastic-search' }
+                    { text: 'Custom Search: custom_search + /custom-search', link: '/features/tools/custom-search' }
                 ]
             },
             {

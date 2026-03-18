@@ -20,8 +20,14 @@ hero:
 features:
   - title: 📚 Skill Library
     details: A modular prompt management system. Save refined prompts as "Skills" and hot-swap AI expertise (expert coding, auditing, architecture) instantly.
+  - title: 👤 Agent Profiles
+    details: Configure specialized capabilities, Context (MCP) Servers, tools, and default LLM bindings directly from the GUI.
+    link: /features/agent-profiles
   - title: 🧠 Long-Term Memory
     details: Persistent SQLite database that stores project context across restarts. No more context amnesia.
+  - title: 📉 Auto Context Compression
+    details: Automatically condenses your long-running conversation tasks to keep your requests well under 200k model limits.
+    link: /features/context-compression
   - title: ⚡ LSP Symbol Search
     details: Native Language Server Protocol integration for 100% accurate, type-aware code context.
   - title: 🌐 Headless Chromium
@@ -30,9 +36,9 @@ features:
     details: Native support for Azure deployments and real-time Token Caching (Prompt Caching) visualization.
   - title: 📝 Hybrid Skill System
     details: Merge project-scoped `.rules` files with your personal Global Skill Library. Instant expertise (security, performance, styling) at the tip of a slash command.
-  - title: 🔍 Elasticsearch Integration
-    details: Query your Elasticsearch indices directly from the agent or via the <code>/elastic</code> slash command. The AI can autonomously search logs, documents, and records as part of any task.
-    link: /features/tools/elastic-search
+  - title: 🔍 Custom Search Endpoint
+    details: Query your custom search endpoint (e.g. Elasticsearch, Algolia) directly from the agent or via the <code>/custom-search</code> slash command. The AI can autonomously search logs, documents, and internal knowledge as part of any task.
+    link: /features/tools/custom-search
   - title: 🕵️ Full Message Privacy
     details: Audit every outgoing request to the LLM. No hidden telemetry. Total transparency on what data leaves your machine.
 
