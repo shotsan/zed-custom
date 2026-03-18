@@ -28,7 +28,7 @@ Stored in a local high-performance database, these skills follow you across all 
 - **Expert Templates**: Comes pre-loaded with experts for Rust Security, Tailwind CSS, and Commit Message generation.
 
 ### 2. Project-Specific Skills (Team)
-Zed Custom natively supports "File-based" skills that you can check into Git. These are automatically detected by the AI and prioritized whenever you are working within that specific project folder. 
+Zed Custom natively supports "File-based" skills that you can check into Git. These files are automatically detected by **Zed's Assistant Panel** and prioritized whenever you are working within that specific project folder. 
 
 This is incredibly useful for enforcing team-wide coding standards, architectural patterns, or API keys directly within your repository.
 
@@ -38,21 +38,21 @@ This is incredibly useful for enforcing team-wide coding standards, architectura
 - **`.python_rules` / `.cpp_rules`**: Language-specific expertise injected only when relevant.
 
 #### 🍼 Step-by-Step: Creating a Team Rule File
-These are just plain text files that the AI reads automatically. Here is how to create one:
+These are just plain text files that the Zed Assistant reads automatically. Here is how to create one:
 
 1. **Open your project** in Zed Custom.
-2. **Create a new file** in the absolute root folder of your project (next to your `package.json`, `Cargo.toml`, or `README.md`).
+2. **Create a new file** in the root folder of your project.
 3. **Name the file** `.cursorrules` (make sure it starts with a dot!).
 4. **Paste instructions** into the file. For example:
    ```markdown
-   # My React Rules
-   - Always use Functional Components instead of Class Components.
-   - Do NOT use Tailwind CSS. We use Vanilla CSS modules `import styles from './styles.module.css'`.
-   - Never use `any` in TypeScript.
+   # My Coding Rules
+   - Always use explicit error handling.
+   - Never use `unwrap()` or similar panicking functions.
+   - Document every public function.
    ```
 5. **Save the file.** 
 
-That's it! The AI will immediately detect this file, read those instructions, and strictly enforce them over the entire repository going forward. You can even check this file into Git so your entire team's AI acts the exact same way.
+That's it! Zed's Assistant will immediately detect this file and automatically include those specific instructions in the system prompt for every new chat you start in this project. You can even check this file into Git so your entire team's Assistant acts the exact same way.
 
 ---
 
