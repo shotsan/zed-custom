@@ -42,14 +42,9 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p dist
-          # The bundle script outputs the DMG to target/<target>/release/
-          # and the gz straight to target/. We just copy what's actually there.
-          if [ -f "target/${{ matrix.target }}/release/Zed-"*.dmg ]; then
-            cp target/${{ matrix.target }}/release/Zed-*.dmg dist/
-          fi
-          if [ -f "target/zed-remote-server-"*".gz" ]; then
-            cp target/zed-remote-server-*.gz dist/
-          fi
+          cp target/${{ matrix.target }}/release/zed-custom-*.dmg dist/ || true
+          cp target/zed-custom-remote-server-*.gz dist/ || true
+          ls -la dist/
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -89,12 +84,9 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p dist
-          if [ -f "target/release/zed-linux-x86_64.tar.gz" ]; then
-            cp target/release/zed-linux-x86_64.tar.gz dist/
-          fi
-          if [ -f "target/zed-remote-server-linux-x86_64.gz" ]; then
-            cp target/zed-remote-server-linux-x86_64.gz dist/
-          fi
+          cp target/release/zed-custom-linux-*.tar.gz dist/ || true
+          cp target/zed-custom-remote-server-linux-*.gz dist/ || true
+          ls -la dist/
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
