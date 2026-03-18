@@ -1,16 +1,18 @@
 # 🔍 Custom Search Endpoint
 
-Zed Custom has **two separate but complementary** ways to interact with your configured Custom Search Endpoint (e.g., Elasticsearch, Algolia, or any generic HTTP POST search API). Understanding both is important — they serve different purposes and operate in different parts of the UI.
+Registering a Custom Search Endpoint transforms your internal APIs (e.g., Elasticsearch, Algolia, or any generic HTTP POST search API) into a **native tool call** directly exposed to your configured LLM model. 
+
+This enables you to interact with your data in two ways:
 
 ---
 
 ## Feature 1: Agent Tool (`custom_search`)
 
-The agent tool gives the **AI model itself** the ability to query your custom search endpoint. The model decides autonomously when to call it based on the conversation context.
+By saving your endpoint, the `custom_search` tool is automatically registered in your LLM's system prompt. This gives the **configured AI model** the ability to autonomously execute searches against your logs, docs, and internal systems without you having to manually query them.
 
 ### How it works
 
-When the agent is working on a task that requires searching your data (e.g. finding logs, documents, or internal records), it will call the `custom_search` tool automatically. You will see the tool call appear in the Agent Panel as a collapsible card, just like any other tool use (`read_file`, `terminal`, etc.).
+When the agent is working on a task that requires context you haven't provided yet, the model will dynamically invoke the `custom_search` tool call. You will see the tool execution appear in the Agent Panel as a collapsible card, just like any other native Zed tool (`read_file`, `terminal`, etc.).
 
 ### When the model uses it
 

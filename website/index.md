@@ -43,7 +43,7 @@ features:
     details: Merge project-scoped `.rules` files with your personal Global Skill Library. Instant expertise (security, performance, styling) at the tip of a slash command.
     link: /features/skill-library
   - title: 🔍 Custom Search Endpoint
-    details: Query your custom search endpoint (e.g. Elasticsearch, Algolia) directly from the agent or via the <code>/custom-search</code> slash command. The AI can autonomously search logs, documents, and internal knowledge as part of any task.
+    details: Register your own search APIs (e.g., Elasticsearch, Algolia) as native tool calls directly exposed to your configured LLM. The model can autonomously execute HTTP search queries against your internal knowledge, logs, and documentation, or you can trigger it manually anytime via the <code>/custom-search</code> slash command.
     link: /features/tools/custom-search
   - title: 🕵️ Full Message Privacy
     details: Audit every outgoing request to the LLM. No hidden telemetry. Total transparency on what data leaves your machine.
