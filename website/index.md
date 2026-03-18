@@ -20,27 +20,34 @@ hero:
 features:
   - title: 📚 Skill Library
     details: A modular prompt management system. Save refined prompts as "Skills" and hot-swap AI expertise (expert coding, auditing, architecture) instantly.
+    link: /features/skill-library
   - title: 👤 Agent Profiles
     details: Configure specialized capabilities, Context (MCP) Servers, tools, and default LLM bindings directly from the GUI.
     link: /features/agent-profiles
   - title: 🧠 Long-Term Memory
     details: Persistent SQLite database that stores project context across restarts. No more context amnesia.
+    link: /features/memory
   - title: 📉 Auto Context Compression
     details: Automatically condenses your long-running conversation tasks to keep your requests well under 200k model limits.
     link: /features/context-compression
   - title: ⚡ LSP Symbol Search
     details: Native Language Server Protocol integration for 100% accurate, type-aware code context.
+    link: /features/lsp
   - title: 🌐 Headless Chromium
     details: Built-in chromiumoxide engine for real-time web search and JavaScript-heavy documentation.
+    link: /features/search
   - title: ☁️ Azure Anthropic
     details: Native support for Azure deployments and real-time Token Caching (Prompt Caching) visualization.
+    link: /features/azure-anthropic
   - title: 📝 Hybrid Skill System
     details: Merge project-scoped `.rules` files with your personal Global Skill Library. Instant expertise (security, performance, styling) at the tip of a slash command.
+    link: /features/skill-library
   - title: 🔍 Custom Search Endpoint
     details: Query your custom search endpoint (e.g. Elasticsearch, Algolia) directly from the agent or via the <code>/custom-search</code> slash command. The AI can autonomously search logs, documents, and internal knowledge as part of any task.
     link: /features/tools/custom-search
   - title: 🕵️ Full Message Privacy
     details: Audit every outgoing request to the LLM. No hidden telemetry. Total transparency on what data leaves your machine.
+    link: /features/message-interception
 
 ---
 
