@@ -266,7 +266,7 @@ function CollectFiles {
     Move-Item -Path "$innoDir\zed_explorer_command_injector.appx" -Destination "$innoDir\appx\zed_explorer_command_injector.appx" -Force
     Move-Item -Path "$innoDir\zed_explorer_command_injector.dll" -Destination "$innoDir\appx\zed_explorer_command_injector.dll" -Force
     Move-Item -Path "$innoDir\cli.exe" -Destination "$innoDir\bin\zed-custom.exe" -Force
-    Move-Item -Path "$innoDir\zed-custom.sh" -Destination "$innoDir\bin\zed-custom" -Force
+    Move-Item -Path "$innoDir\zed.sh" -Destination "$innoDir\bin\zed-custom" -Force
     Move-Item -Path "$innoDir\auto_update_helper.exe" -Destination "$innoDir\tools\auto_update_helper.exe" -Force
     if($Architecture -eq "aarch64") {
         New-Item -Type Directory -Path "$innoDir\arm64" -Force
@@ -284,7 +284,7 @@ function CollectFiles {
 }
 
 function BuildInstaller {
-    $issFilePath = "$innoDir\zed-custom.iss"
+    $issFilePath = "$innoDir\zed.iss"
     switch ($channel) {
         "stable" {
             $appId = "{{2DB0DA96-CA55-49BB-AF4F-64AF36A86712}"
