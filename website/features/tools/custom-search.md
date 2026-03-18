@@ -1,6 +1,6 @@
 # 🔍 Custom Search Endpoint
 
-Registering a Custom Search Endpoint transforms your internal APIs (e.g., Elasticsearch, Algolia, or any generic HTTP POST search API) into a **native tool call** directly exposed to your configured LLM model. 
+Registering a Custom Search Endpoint transforms your internal APIs (e.g., Elasticsearch, Algolia, or any generic HTTPS POST search API) into a **native tool call** directly exposed to your configured LLM model. 
 
 This enables you to interact with your data in two ways:
 
