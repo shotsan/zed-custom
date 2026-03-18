@@ -3,7 +3,7 @@ name: Windows Binaries
 on:
   push:
     tags:
-      - 'v*'
+      - 'zc-*'
   workflow_dispatch:
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
       - name: Build and Bundle
         timeout-minutes: 240
         run: |
-          $version = if ("${{ github.ref_name }}" -match "^v(\d+\.\d+\.\d+)") { $matches[1] } else { "0.0.0" }
+          $version = if ("${{ github.ref_name }}" -match "^zc-(\d+\.\d+\.\d+)") { $matches[1] } else { "0.0.0" }
           $env:RELEASE_VERSION = $version
           $env:ZED_RELEASE_CHANNEL = "stable"
           $env:ZED_WORKSPACE = (Get-Location).Path
