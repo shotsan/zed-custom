@@ -17,7 +17,7 @@ Here is the exact step-by-step workflow of the compression feature:
    - Core architectural decisions made
    - Current blockers and known bugs
    - The user's ultimate goal
-4. **System Prompt Injection**: The resulting summary is appended to your thread's `archive_summary` state and is injected directly into the overarching `# System Prompt` via handlebars (`<span v-pre>{{{archive_summary}}}</span>`) on all future requests.
+4. **System Prompt Injection**: The resulting summary is appended to your thread's `archive_summary` state and is injected directly into the overarching `# System Prompt` via handlebars (`\{\{\{archive_summary\}\}\}`) on all future requests.
 
 ## Why this matters
 
