@@ -38,6 +38,20 @@ impl Connection {
             // Turn on extended error codes
             sqlite3_extended_result_codes(connection.sqlite3, 1);
 
+            // Set a busy timeout so we don't immediately fail when another instance is open.
+            // 10 seconds is a standard generous timeout for GUI applications.
+            sqlite3_busy_timeout(connection.sqlite3, 10000);
+
+            // Enable WAL mode to allow multiple readers and one writer simultaneously.
+            let wal_query = CString::new("PRAGMA journal_mode=WAL;")?;
+            sqlite3_exec(
+                connection.sqlite3,
+                wal_query.as_ptr(),
+                None,
+                ptr::null_mut(),
+                ptr::null_mut(),
+            );
+
             connection.last_error()?;
         }
 

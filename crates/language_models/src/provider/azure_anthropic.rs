@@ -1151,7 +1151,6 @@ impl ConfigurationView {
 
         if !api_key.is_empty() {
             let state = self.state.clone();
-            let api_key = api_key.clone();
             cx.spawn_in(window, async move |_, cx| {
                 state
                     .update(cx, |state, cx| state.set_api_key(Some(api_key), cx))

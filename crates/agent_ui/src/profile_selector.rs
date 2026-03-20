@@ -669,6 +669,15 @@ impl PickerDelegate for ProfilePickerDelegate {
                 .border_t_1()
                 .border_color(cx.theme().colors().border_variant)
                 .p_1p5()
+                .gap_1p5()
+                .child(
+                    Button::new("new-profile", "New Profile")
+                        .full_width()
+                        .style(ButtonStyle::Outlined)
+                        .on_click(|_, window, cx| {
+                            window.dispatch_action(crate::NewProfile.boxed_clone(), cx);
+                        }),
+                )
                 .child(
                     Button::new("configure", "Configure")
                         .full_width()

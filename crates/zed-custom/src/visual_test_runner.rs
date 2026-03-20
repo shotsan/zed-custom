@@ -77,7 +77,7 @@ mod constants {
     use std::time::Duration;
 
     /// Baseline images are stored relative to this file
-    pub const BASELINE_DIR: &str = "crates/zed_custom/test_fixtures/visual_tests";
+    pub const BASELINE_DIR: &str = "crates/zed-custom/test_fixtures/visual_tests";
 
     /// Embedded test image (Zed app icon) for visual tests.
     pub const EMBEDDED_TEST_IMAGE: &[u8] = include_bytes!("../resources/app-icon.png");
@@ -179,7 +179,7 @@ fn run_visual_tests(project_path: PathBuf, update_baseline: bool) -> Result<()> 
         terminal_view::init(cx);
         image_viewer::init(cx);
         search::init(cx);
-        prompt_store::init(cx);
+        prompt_store::init(app_state.fs.clone(), cx);
         language_model::init(app_state.client.clone(), cx);
         language_models::init(app_state.user_store.clone(), app_state.client.clone(), cx);
         git_ui::init(cx);

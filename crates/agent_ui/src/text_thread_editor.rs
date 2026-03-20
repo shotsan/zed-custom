@@ -3477,9 +3477,8 @@ mod tests {
         Entity<TextThreadEditor>,
         VisualTestContext,
     ) {
-        cx.update(init_test);
-
         let fs = FakeFs::new(cx.executor());
+        cx.update(|cx| init_test(fs.clone(), cx));
         let text_thread = create_text_thread_with_messages(messages, cx);
 
         let project = Project::test(fs.clone(), [path!("/test").as_ref()], cx).await;
@@ -3592,9 +3591,9 @@ mod tests {
         })
     }
 
-    fn init_test(cx: &mut App) {
+    fn init_test(fs: Arc<dyn Fs>, cx: &mut App) {
         let settings_store = SettingsStore::test(cx);
-        prompt_store::init(cx);
+        prompt_store::init(fs, cx);
         editor::init(cx);
         LanguageModelRegistry::test(cx);
         cx.set_global(settings_store);

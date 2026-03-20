@@ -1,6 +1,6 @@
 use crate::{
     BrowserTool, ContextServerRegistry, ContextTool, CopyPathTool, CreateDirectoryTool, DbLanguageModel,
-    DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, ElasticSearchTool, FetchTool, FindPathTool, GrepTool,
+    DbThread, DeletePathTool, DiagnosticsTool, EditFileTool, CustomSearchTool, FetchTool, FindPathTool, GrepTool,
     ListDirectoryTool, LspFindReferencesTool, LspGetDefinitionTool, LspGetImplementationsTool,
     MemoryStore, MovePathTool, NowTool, OpenTool, ProjectSnapshot, RecallTool,
     ReadFileTool, RememberTool, RestoreFileFromDiskTool, SaveFileTool, SaveReflectionTool,
@@ -818,6 +818,8 @@ pub struct Thread {
     running_subagents: Vec<WeakEntity<Thread>>,
     /// Optional custom Handlebars template to use for the system prompt instead of the default.
     custom_system_prompt_template: Option<String>,
+    /// Optional summary of pruned history to carry forward context
+    pub archive_summary: Option<String>,
 }
 
 impl Thread {
@@ -843,6 +845,10 @@ impl Thread {
     ) {
         self.custom_system_prompt_template = template;
         cx.notify();
+    }
+
+    pub fn profile_id(&self) -> &AgentProfileId {
+        &self.profile_id
     }
 
     pub fn new(
@@ -899,6 +905,7 @@ impl Thread {
             subagent_context: None,
             running_subagents: Vec::new(),
             custom_system_prompt_template: None,
+            archive_summary: None,
         }
     }
 
@@ -966,6 +973,7 @@ impl Thread {
             subagent_context: Some(subagent_context),
             running_subagents: Vec::new(),
             custom_system_prompt_template: None,
+            archive_summary: None,
         }
     }
 
@@ -1259,6 +1267,7 @@ impl Thread {
             subagent_context: None,
             running_subagents: Vec::new(),
             custom_system_prompt_template: None,
+            archive_summary: db_thread.archive_summary,
         }
     }
 
@@ -1278,6 +1287,7 @@ impl Thread {
             }),
             profile: Some(self.profile_id.clone()),
             imported: self.imported,
+            archive_summary: self.archive_summary.clone(),
         };
 
         cx.background_spawn(async move {
@@ -1423,7 +1433,7 @@ impl Thread {
             Templates::new(),
         ));
         self.add_tool(FetchTool::new(self.project.read(cx).client().http_client()));
-        self.add_tool(ElasticSearchTool::new(self.project.read(cx).client().http_client()));
+        self.add_tool(CustomSearchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(SearchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(BrowserTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(FindPathTool::new(self.project.clone()));
@@ -1553,6 +1563,146 @@ impl Thread {
         cx.emit(TokenUsageUpdated(self.latest_token_usage()));
         cx.notify();
     }
+    pub fn calculate_word_count(&self) -> u64 {
+        let mut word_count = 0;
+        for message in &self.messages {
+            match message {
+                Message::User(u) => {
+                    for content in &u.content {
+                        match content {
+                            UserMessageContent::Text(text) => {
+                                word_count += text.split_whitespace().count() as u64;
+                            }
+                            UserMessageContent::Mention { content, .. } => {
+                                word_count += content.split_whitespace().count() as u64;
+                            }
+                            UserMessageContent::Image(_) => {}
+                        }
+                    }
+                }
+                Message::Agent(a) => {
+                    for content in &a.content {
+                        match content {
+                            AgentMessageContent::Text(text) => {
+                                word_count += text.split_whitespace().count() as u64;
+                            }
+                            AgentMessageContent::Thinking { text, .. } => {
+                                word_count += text.split_whitespace().count() as u64;
+                            }
+                            AgentMessageContent::RedactedThinking(_) => {}
+                            AgentMessageContent::ToolUse(tool_use) => {
+                                word_count += tool_use.raw_input.split_whitespace().count() as u64;
+                            }
+                        }
+                    }
+                    for result in a.tool_results.values() {
+                        if let LanguageModelToolResultContent::Text(text) = &result.content {
+                            word_count += text.split_whitespace().count() as u64;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        word_count
+    }
+
+    pub fn auto_prune(&mut self, cx: &mut Context<Self>) {
+        if self.calculate_word_count() < 70000 {
+            return;
+        }
+
+        let model = self.model.clone()
+            .or_else(|| self.summarization_model.clone());
+
+        let Some(model) = model else {
+            return;
+        };
+
+        log::info!("Thread word count exceeded 70k. Initiating deep silent memory condensation.");
+
+        // Keep only the most recent 2 messages to maximize space recovery
+        let keep_count = 2;
+        if self.messages.len() <= keep_count {
+            return;
+        }
+
+        let archive_count = self.messages.len() - keep_count;
+        let archive_messages = self.messages.drain(0..archive_count).collect::<Vec<_>>();
+
+        let mut request = LanguageModelRequest {
+            intent: Some(CompletionIntent::ThreadContextSummarization),
+            temperature: Some(0.1),
+            ..Default::default()
+        };
+
+        if let Some(archive) = &self.archive_summary {
+            request.messages.push(LanguageModelRequestMessage {
+                role: Role::System,
+                content: vec![format!("Existing technical summary of earlier parts of the conversation:\n\n{}", archive).into()],
+                cache: false,
+                reasoning_details: None,
+            });
+        }
+
+        for msg in &archive_messages {
+            request.messages.extend(msg.to_request());
+        }
+
+        let prompt = "Provide a SINGLE consolidated technical summary of the entire conversation state so far (both the existing summary and the new messages). \
+        Include: 1) Files modified and nature of changes, 2) Core architectural decisions, \
+        3) Current blockers/bugs, 4) The user's ultimate goal. \
+        This summary will replace the previous archive. Output ONLY a dense, technical summary.";
+
+        request.messages.push(LanguageModelRequestMessage {
+            role: Role::User,
+            content: vec![prompt.into()],
+            cache: false,
+            reasoning_details: None,
+        });
+
+        cx.spawn(async move |this, cx| {
+            let mut summary = String::new();
+            let mut error_occurred = false;
+
+            match model.stream_completion(request, cx).await {
+                Ok(mut stream) => {
+                    while let Some(event) = stream.next().await {
+                        match event {
+                            Ok(LanguageModelCompletionEvent::Text(text)) => {
+                                summary.push_str(&text);
+                            }
+                            Err(e) => {
+                                log::error!("Summarization stream error: {:?}", e);
+                                error_occurred = true;
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to start summarization request: {:?}", e);
+                    error_occurred = true;
+                }
+            }
+
+            this.update(cx, |this, cx| {
+                if error_occurred || summary.trim().is_empty() {
+                    // Try to restore if the summary failed or was completely empty
+                    log::warn!("Restoring {} archived messages due to summarization failure", archive_messages.len());
+                    let mut restored = archive_messages;
+                    restored.append(&mut this.messages);
+                    this.messages = restored;
+                } else {
+                    this.archive_summary = Some(summary);
+                }
+                cx.notify();
+            }).ok();
+            Some(())
+        }).detach();
+    }
+
 
     pub fn truncate(&mut self, message_id: UserMessageId, cx: &mut Context<Self>) -> Result<()> {
         self.cancel(cx).detach();
@@ -1750,6 +1900,7 @@ impl Thread {
         // turn's pending message instead of the old one.
         self.flush_pending_message(cx);
         self.cancel(cx).detach();
+        self.auto_prune(cx);
 
         let model = self.model.clone().context("No language model configured")?;
         let profile = AgentSettings::get_global(cx)
@@ -1832,8 +1983,10 @@ impl Thread {
         let mut attempt = 0;
         let mut intent = CompletionIntent::UserPrompt;
         loop {
-            let request =
-                this.update(cx, |this, cx| this.build_completion_request(intent, cx))??;
+            let request = this.update(cx, |this, cx| {
+                this.auto_prune(cx);
+                this.build_completion_request(intent, cx)
+            })??;
 
             this.update(cx, |this, cx| {
                 let formatted = Self::format_request(&request);
@@ -2744,18 +2897,31 @@ impl Thread {
                 .collect(),
             custom_instructions,
             custom_system_prompt,
+            archive_summary: self.archive_summary.clone(),
         };
 
         let system_prompt = if let Some(custom_template) = context.custom_system_prompt.as_ref() {
-            self.templates
-                .render_custom(custom_template, &context)
-                .context("failed to render custom system prompt template")
-                .expect("Invalid custom template")
+            match self.templates.render_custom(custom_template, &context) {
+                Ok(prompt) => prompt,
+                Err(error) => {
+                    log::error!("failed to render custom system prompt template: {error:#}");
+                    context
+                        .render(&self.templates)
+                        .context("failed to build system prompt")
+                        .expect("Invalid template")
+                }
+            }
         } else if let Some(custom_template) = self.custom_system_prompt_template.as_ref() {
-            self.templates
-                .render_custom(custom_template, &context)
-                .context("failed to render custom system prompt template")
-                .expect("Invalid custom template")
+            match self.templates.render_custom(custom_template, &context) {
+                Ok(prompt) => prompt,
+                Err(error) => {
+                    log::error!("failed to render custom system prompt template: {error:#}");
+                    context
+                        .render(&self.templates)
+                        .context("failed to build system prompt")
+                        .expect("Invalid template")
+                }
+            }
         } else {
             context
                 .render(&self.templates)
@@ -2768,6 +2934,15 @@ impl Thread {
             cache: AgentSettings::get_global(cx).enable_prompt_caching,
             reasoning_details: None,
         }];
+
+        if let Some(archive) = &self.archive_summary {
+            messages.push(LanguageModelRequestMessage {
+                role: Role::System,
+                content: vec![format!("Archive of previous conversation context and technical state:\n\n{}", archive).into()],
+                cache: false,
+                reasoning_details: None,
+            });
+        }
 
         let enable_caching = AgentSettings::get_global(cx).enable_prompt_caching;
         let total_messages = self.messages.len();

@@ -155,6 +155,7 @@ mod tests {
             request_token_usage: HashMap::default(),
             model: None,
             profile: None,
+            archive_summary: None,
             imported: false,
         }
     }

@@ -1735,10 +1735,11 @@ mod tests {
 
     #[gpui::test]
     async fn test_multibuffer_agent_diff(cx: &mut TestAppContext) {
+        let fs = FakeFs::new(cx.executor());
         cx.update(|cx| {
             let settings_store = SettingsStore::test(cx);
             cx.set_global(settings_store);
-            prompt_store::init(cx);
+            prompt_store::init(fs.clone(), cx);
             theme::init(theme::LoadThemes::JustBase, cx);
             language_model::init_settings(cx);
         });
@@ -1889,10 +1890,11 @@ mod tests {
 
     #[gpui::test]
     async fn test_singleton_agent_diff(cx: &mut TestAppContext) {
+        let fs = FakeFs::new(cx.executor());
         cx.update(|cx| {
             let settings_store = SettingsStore::test(cx);
             cx.set_global(settings_store);
-            prompt_store::init(cx);
+            prompt_store::init(fs.clone(), cx);
             theme::init(theme::LoadThemes::JustBase, cx);
             language_model::init_settings(cx);
             workspace::register_project_item::<Editor>(cx);

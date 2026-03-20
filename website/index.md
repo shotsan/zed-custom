@@ -3,12 +3,12 @@
 layout: home
 
 hero:
-  name: "Zed Custom"
+  name: "R-D Code"
   text: "The High-Performance AI Agent Fork"
   tagline: "Custom features for Zed including Long-Term Memory, LSP-based Context, and Headless Searching."
   image:
     src: /logo-animated.svg
-    alt: Zed Custom AI Logo
+    alt: R-D Code AI Logo
   actions:
     - theme: brand
       text: Features

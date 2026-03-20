@@ -127,7 +127,7 @@ pub fn init(cx: &mut App) -> EpAppState {
     language_model::init(client.clone(), cx);
     language_models::init(user_store.clone(), client.clone(), cx);
     languages::init(languages.clone(), fs.clone(), node_runtime.clone(), cx);
-    prompt_store::init(cx);
+    prompt_store::init(fs.clone(), cx);
     terminal_view::init(cx);
 
     let project_cache = ProjectCache::default();

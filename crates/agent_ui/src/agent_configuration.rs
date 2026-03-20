@@ -7,11 +7,13 @@ mod tool_picker;
 use std::{ops::Range, sync::Arc};
 
 use agent::ContextServerRegistry;
+use agent_settings::AgentSettings;
 use anyhow::Result;
 use client::zed_urls;
 use cloud_api_types::Plan;
-use collections::HashMap;
+use collections::{HashMap, IndexMap};
 use context_server::ContextServerId;
+use paths;
 use editor::{Editor, MultiBufferOffset, SelectionEffects, scroll::Autoscroll};
 use extension::ExtensionManifest;
 use extension_host::ExtensionStore;
@@ -34,11 +36,11 @@ use project::{
     },
     context_server_store::{ContextServerConfiguration, ContextServerStatus, ContextServerStore},
 };
-use settings::{Settings, SettingsStore, update_settings_file};
+use settings::{AgentProfileContent, Settings, SettingsStore, update_settings_file};
 use ui::{
     ButtonStyle, Chip, CommonAnimationExt, ContextMenu, ContextMenuEntry, Disclosure, Divider,
-    DividerColor, ElevationIndex, Indicator, LabelSize, PopoverMenu, Switch, Tooltip,
-    WithScrollbar, prelude::*,
+    DividerColor, ElevationIndex, Icon, IconName, Indicator, LabelSize, PopoverMenu, Switch,
+    Tooltip, WithScrollbar, prelude::*,
 };
 use util::ResultExt as _;
 use workspace::{Workspace, create_and_open_local_file};
@@ -1264,6 +1266,8 @@ impl Render for AgentConfiguration {
                             .size_full()
                             .overflow_y_scroll()
                             .child(self.render_agent_servers_section(cx))
+                            .child(self.render_profiles_section(cx))
+                            .child(self.render_custom_search_section(cx))
                             .child(self.render_context_servers_section(window, cx))
                             .child(self.render_provider_configuration_section(cx)),
                     )
@@ -1495,4 +1499,326 @@ fn is_removable_provider(provider_id: &LanguageModelProviderId, cx: &App) -> boo
     AllLanguageModelSettings::get_global(cx)
         .openai_compatible
         .contains_key(provider_id.0.as_ref())
+}
+
+impl AgentConfiguration {
+    fn render_profiles_section(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let settings = AgentSettings::get_global(cx);
+        let profiles = settings.profiles.iter().collect::<Vec<_>>();
+
+        let add_profile_popover = PopoverMenu::new("add-profile-popover")
+            .trigger(
+                Button::new("add-profile", "Add Profile")
+                    .style(ButtonStyle::Outlined)
+                    .icon_position(IconPosition::Start)
+                    .icon(IconName::Plus)
+                    .icon_size(IconSize::Small)
+                    .icon_color(Color::Muted)
+                    .label_size(LabelSize::Small),
+            )
+            .menu({
+                let workspace = self.workspace.clone();
+                move |window, cx| {
+                    Some(ContextMenu::build(window, cx, |menu, _window, _cx| {
+                        menu.entry("Configure in settings.json", None, {
+                            let workspace = workspace.clone();
+                            move |window, cx| {
+                                window
+                                    .spawn(cx, {
+                                        let workspace = workspace.clone();
+                                        async move |cx| {
+                                            open_new_profile_in_settings_editor(workspace, cx).await
+                                        }
+                                    })
+                                    .detach_and_log_err(cx);
+                            }
+                        })
+                        .entry("Manage Profiles...", None, {
+                            move |window, cx| {
+                                window.dispatch_action(crate::ManageProfiles::default().boxed_clone(), cx);
+                            }
+                        })
+                    }))
+                }
+            })
+            .anchor(gpui::Corner::TopRight)
+            .offset(gpui::Point {
+                x: px(0.0),
+                y: px(2.0),
+            });
+
+        v_flex()
+            .border_b_1()
+            .border_color(cx.theme().colors().border)
+            .child(self.render_section_title(
+                "Agent Profiles",
+                "Profiles define tools, context servers, and instructions for the agent.",
+                add_profile_popover.into_any_element(),
+            ))
+            .child(
+                v_flex()
+                    .pl_4()
+                    .pb_4()
+                    .pr_5()
+                    .w_full()
+                    .gap_1()
+                    .children(profiles.into_iter().enumerate().map(|(index, (id, profile))| {
+                        let id = id.clone();
+                        v_flex()
+                            .child(
+                                h_flex()
+                                    .justify_between()
+                                    .child(
+                                        h_flex()
+                                            .gap_2()
+                                            .child(
+                                                Icon::new(match id.as_str() {
+                                                    "write" => IconName::Pencil,
+                                                    "ask" => IconName::Chat,
+                                                    _ => IconName::UserRoundPen,
+                                                })
+                                                .size(IconSize::Small)
+                                                .color(Color::Muted),
+                                            )
+                                            .child(Label::new(profile.name.clone())),
+                                    )
+                                    .child(
+                                        IconButton::new(format!("edit-profile-{}", id), IconName::Settings)
+                                            .icon_color(Color::Muted)
+                                            .icon_size(IconSize::Small)
+                                            .on_click(cx.listener({
+                                                let id = id.clone();
+                                                move |_, _, window, cx| {
+                                                    window.dispatch_action(
+                                                        crate::ManageProfiles {
+                                                            customize_tools: Some(id.clone()),
+                                                        }
+                                                        .boxed_clone(),
+                                                        cx,
+                                                    );
+                                                }
+                                            })),
+                                    ),
+                            )
+                            .when(index < settings.profiles.len() - 1, |this| {
+                                this.child(Divider::horizontal().color(DividerColor::BorderFaded))
+                            })
+                    })),
+            )
+    }
+
+    fn render_custom_search_section(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let settings = AgentSettings::get_global(cx);
+        let endpoint_url = settings
+            .custom_search
+            .as_ref()
+            .map(|s| s.endpoint_url.clone())
+            .unwrap_or_else(|| "http://52.179.183.195:9200".to_string());
+
+        v_flex()
+            .border_b_1()
+            .border_color(cx.theme().colors().border)
+            .child(self.render_section_title(
+                "Custom Search",
+                "Configure your own search endpoint for agent tools.",
+                IconButton::new("edit-custom-search", IconName::ArrowUpRight)
+                    .icon_color(Color::Muted)
+                    .icon_size(IconSize::Small)
+                    .tooltip(Tooltip::text("Edit in settings.json"))
+                    .on_click({
+                        let workspace = self.workspace.clone();
+                        move |_, window, cx| {
+                            window
+                                .spawn(cx, {
+                                    let workspace = workspace.clone();
+                                    async move |cx| {
+                                        open_custom_search_in_settings_editor(workspace, cx).await
+                                    }
+                                })
+                                .detach_and_log_err(cx);
+                        }
+                    })
+                    .into_any_element(),
+            ))
+            .child(
+                v_flex()
+                    .pl_4()
+                    .pb_4()
+                    .pr_5()
+                    .w_full()
+                    .gap_2()
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(Label::new("Endpoint URL").size(LabelSize::Small))
+                            .child(
+                                Label::new(endpoint_url)
+                                    .size(LabelSize::Small)
+                                    .color(Color::Muted),
+                            ),
+                    ),
+            )
+    }
+}
+
+async fn open_custom_search_in_settings_editor(
+    workspace: WeakEntity<Workspace>,
+    cx: &mut AsyncWindowContext,
+) -> Result<()> {
+    let settings_editor = workspace
+        .update_in(cx, |_, window, cx| {
+            create_and_open_local_file(paths::settings_file(), window, cx, || {
+                settings::initial_user_settings_content().as_ref().into()
+            })
+        })?
+        .await?
+        .downcast::<Editor>()
+        .unwrap();
+
+    settings_editor
+        .downgrade()
+        .update_in(cx, |item, window, cx| {
+            let text = item.buffer().read(cx).snapshot(cx).text();
+            let settings = cx.global::<SettingsStore>();
+
+            let edits = settings.edits_for_update(&text, |s| {
+                let custom_search = s.agent.get_or_insert_default().custom_search.get_or_insert_default();
+                if custom_search.endpoint_url.is_none() {
+                    custom_search.endpoint_url = Some("http://52.179.183.195:9200".to_string());
+                }
+            });
+
+            if edits.is_empty() {
+                return;
+            }
+
+            let ranges = edits
+                .iter()
+                .map(|(range, _)| range.clone())
+                .collect::<Vec<_>>();
+
+            item.edit(
+                edits.into_iter().map(|(range, s)| {
+                    (
+                        MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                        s,
+                    )
+                }),
+                cx,
+            );
+
+            if let Some(buffer) = item.buffer().read(cx).as_singleton() {
+                let snapshot = buffer.read(cx).snapshot();
+                if let Some(range) = find_text_in_buffer("endpoint_url", ranges[0].start, &snapshot) {
+                    item.change_selections(
+                        SelectionEffects::scroll(Autoscroll::newest()),
+                        window,
+                        cx,
+                        |selections| {
+                            selections.select_ranges(vec![
+                                MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                            ]);
+                        },
+                    );
+                }
+            }
+        })
+}
+
+async fn open_new_profile_in_settings_editor(
+    workspace: WeakEntity<Workspace>,
+    cx: &mut AsyncWindowContext,
+) -> Result<()> {
+    let settings_editor = workspace
+        .update_in(cx, |_, window, cx| {
+            create_and_open_local_file(paths::settings_file(), window, cx, || {
+                settings::initial_user_settings_content().as_ref().into()
+            })
+        })?
+        .await?
+        .downcast::<Editor>()
+        .unwrap();
+
+    settings_editor
+        .downgrade()
+        .update_in(cx, |item, window, cx| {
+            let text = item.buffer().read(cx).snapshot(cx).text();
+            let settings = cx.global::<SettingsStore>();
+
+            let mut unique_profile_name = None;
+            let edits = settings.edits_for_update(&text, |s| {
+                let profile_name = (0..u8::MAX)
+                    .map(|i| {
+                        if i == 0 {
+                            "your_profile".to_string()
+                        } else {
+                            format!("your_profile_{}", i)
+                        }
+                    })
+                    .find(|name| {
+                        !s.agent.as_ref().is_some_and(|agent| {
+                            agent
+                                .profiles
+                                .as_ref()
+                                .is_some_and(|p| p.contains_key(name.as_str()))
+                        })
+                    });
+                if let Some(profile_name) = profile_name {
+                    unique_profile_name = Some(profile_name.clone());
+                    let agent_settings = s.agent.get_or_insert_default();
+                    let profiles = agent_settings.profiles.get_or_insert_default();
+                    profiles.insert(
+                        profile_name.into(),
+                        AgentProfileContent {
+                            name: "New Profile".into(),
+                            tools: IndexMap::default(),
+                            enable_all_context_servers: Some(false),
+                            context_servers: IndexMap::default(),
+                            default_model: None,
+                            instructions: None,
+                            system_prompt: None,
+                        },
+                    );
+                }
+            });
+
+            if edits.is_empty() {
+                return;
+            }
+
+            let ranges = edits
+                .iter()
+                .map(|(range, _)| range.clone())
+                .collect::<Vec<_>>();
+
+            item.edit(
+                edits.into_iter().map(|(range, s)| {
+                    (
+                        MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                        s,
+                    )
+                }),
+                cx,
+            );
+
+            if let Some((unique_profile_name, buffer)) =
+                unique_profile_name.zip(item.buffer().read(cx).as_singleton())
+            {
+                let snapshot = buffer.read(cx).snapshot();
+                if let Some(range) =
+                    find_text_in_buffer(&unique_profile_name, ranges[0].start, &snapshot)
+                {
+                    item.change_selections(
+                        SelectionEffects::scroll(Autoscroll::newest()),
+                        window,
+                        cx,
+                        |selections| {
+                            selections.select_ranges(vec![
+                                MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                            ]);
+                        },
+                    );
+                }
+            }
+        })
 }

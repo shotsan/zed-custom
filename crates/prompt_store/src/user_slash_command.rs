@@ -293,7 +293,7 @@ impl UserSlashCommandRegistry {
                 cx.emit(UserSlashCommandRegistryEvent::CommandsChanged);
             })
         })
-        .detach_and_log_err(cx);
+        .detach();
     }
 
     fn start_watching(&mut self, cx: &mut Context<Self>) {

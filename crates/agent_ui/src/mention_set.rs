@@ -573,7 +573,6 @@ mod tests {
         cx.update(|cx| {
             theme::init(theme::LoadThemes::JustBase, cx);
             release_channel::init(Version::new(0, 0, 0), cx);
-            prompt_store::init(cx);
         });
     }
 
@@ -582,6 +581,7 @@ mod tests {
         init_test(cx);
 
         let fs = FakeFs::new(cx.executor());
+        cx.update(|cx| prompt_store::init(fs.clone(), cx));
         fs.insert_tree("/project", json!({"file": ""})).await;
         let project = Project::test(fs, [Path::new(path!("/project"))], cx).await;
         let thread_store = None;

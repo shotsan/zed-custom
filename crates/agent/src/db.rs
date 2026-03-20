@@ -50,6 +50,8 @@ pub struct DbThread {
     pub profile: Option<AgentProfileId>,
     #[serde(default)]
     pub imported: bool,
+    #[serde(default)]
+    pub archive_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +89,7 @@ impl SharedThread {
             model: self.model,
             profile: None,
             imported: true,
+            archive_summary: None,
         }
     }
 
@@ -104,7 +107,7 @@ impl SharedThread {
 }
 
 impl DbThread {
-    pub const VERSION: &'static str = "0.3.0";
+    pub const VERSION: &'static str = "0.4.0";
 
     pub fn from_json(json: &[u8]) -> Result<Self> {
         let saved_thread_json = serde_json::from_slice::<serde_json::Value>(json)?;
@@ -260,6 +263,7 @@ impl DbThread {
             model: thread.model,
             profile: thread.profile,
             imported: false,
+            archive_summary: None,
         })
     }
 }
@@ -616,6 +620,7 @@ mod tests {
             model: None,
             profile: None,
             imported: false,
+            archive_summary: None,
         }
     }
 

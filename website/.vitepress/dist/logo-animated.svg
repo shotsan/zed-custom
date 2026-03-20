@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <!-- Sleek metallic/gray gradient for the code structure -->
+    <linearGradient id="codeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#94A3B8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+    
+    <!-- Vibrant blue/indigo gradient for the AI core -->
+    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+    
+    <!-- Sophisticated glow filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <style>
+    .orb {
+      transform-origin: 50px 50px;
+      animation: pulse 4s ease-in-out infinite;
+    }
+    .bracket-l {
+      animation: slideL 4s ease-in-out infinite;
+    }
+    .bracket-r {
+      animation: slideR 4s ease-in-out infinite;
+    }
+
+    /* The orb breathes smoothly with a soft blue drop shadow */
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.8; filter: drop-shadow(0 0 2px #818CF8); }
+      50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 10px #818CF8); }
+      100% { transform: scale(0.9); opacity: 0.8; filter: drop-shadow(0 0 2px #818CF8); }
+    }
+    
+    /* Code brackets expand outward to make room for the AI's impact */
+    @keyframes slideL {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(-5px); }
+    }
+    
+    @keyframes slideR {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(5px); }
+    }
+  </style>
+
+  <!-- Left Bracket (Code Context) -->
+  <path d="M 38 30 L 18 50 L 38 70" 
+        fill="none" 
+        stroke="url(#codeGrad)" 
+        stroke-width="8" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        class="bracket-l" />
+
+  <!-- Right Bracket (Code Context) -->
+  <path d="M 62 30 L 82 50 L 62 70" 
+        fill="none" 
+        stroke="url(#codeGrad)" 
+        stroke-width="8" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        class="bracket-r" />
+
+  <!-- Center AI Core (A perfectly smooth orb representing intelligence/positivity) -->
+  <circle cx="50" cy="50" r="14" fill="url(#aiGrad)" class="orb" filter="url(#glow)" />
+</svg>

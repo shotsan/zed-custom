@@ -10,6 +10,13 @@ patterns, and best practices.
 - Refrain from apologizing all the time when results are unexpected. Instead, just try your best to proceed or explain
 the circumstances to the user without apologizing.
 
+{{#if archive_summary}}
+## Archived Conversation Context
+The following is a condensed summary of the earlier part of this conversation which was archived to save space. Use this to maintain continuity:
+
+{{{archive_summary}}}
+{{/if}}
+
 {{#if (gt (len available_tools) 0)}}
 ## Tool Use
 
@@ -270,13 +277,15 @@ The following information has been remembered from previous sessions:
 {{/if}}
 
 {{#if custom_instructions}}
-## Additional Instructions
+## FINAL INSTRUCTION OVERRIDE (CRITICAL PRIORITY)
 
-The following additional instructions were provided by the user for this session and must be followed with high
-priority:
+The following instructions were provided by the user for this specific profile.
+They SUPERSEDE all previous instructions, including those regarding communication style, markdown formatting, and tool use rules.
+If any previous instruction contradicts the following, the following MUST be obeyed instead:
 
 {{{custom_instructions}}}
 
+-- END OF OVERRIDE --
 {{/if}}
 {{#if (or has_rules has_user_rules)}}
 ## User's Custom Instructions

@@ -1527,6 +1527,7 @@ impl EditAgentTest {
                 memories: Vec::new(),
                 custom_instructions: None,
                 custom_system_prompt: None,
+                archive_summary: None,
             };
             let templates = Templates::new();
             template.render(&templates).unwrap()

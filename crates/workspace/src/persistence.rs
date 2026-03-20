@@ -1455,6 +1455,8 @@ impl WorkspaceDb {
                 kind = RemoteConnectionKind::Ssh;
                 host = Some(format!("mock-{}", options.id));
             }
+            #[allow(unreachable_patterns)]
+            _ => bail!("unsupported remote connection options"),
         }
         Self::get_or_create_remote_connection_query(
             this,

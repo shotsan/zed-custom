@@ -571,7 +571,7 @@ impl MessageEditor {
             // Errors for commands that don't match the user's input are silently ignored here,
             // since the user will see them via the error callout in the thread view.
 
-            // Intercept built-in /search and /elastic commands
+            // Intercept built-in /search and /custom-search commands
             if let Some(parsed) = user_slash_command::try_parse_user_command(&text) {
                 if parsed.name == "search" && !parsed.raw_arguments.is_empty() {
                     if let Some(http_client) = http_client.clone() {
@@ -598,16 +598,16 @@ impl MessageEditor {
                     }
                 }
 
-                if parsed.name == "elastic" && !parsed.raw_arguments.is_empty() {
+                if parsed.name == "custom-search" && !parsed.raw_arguments.is_empty() {
                     let settings = agent_settings.clone();
-                    if let Some(elastic_config) = &settings.elastic_search {
-                        if !elastic_config.endpoint_url.is_empty() {
+                    if let Some(custom_config) = &settings.custom_search {
+                        if !custom_config.endpoint_url.is_empty() {
                             if let Some(http_client) = http_client.clone() {
-                                let text = assistant_slash_commands::ElasticSearchSlashCommand::elastic_search(
+                                let text = assistant_slash_commands::CustomSearchSlashCommand::custom_search(
                                     http_client,
                                     parsed.raw_arguments,
-                                    &elastic_config.endpoint_url,
-                                    elastic_config.api_key.as_deref(),
+                                    &custom_config.endpoint_url,
+                                    custom_config.api_key.as_deref(),
                                 )
                                 .await?;
                                 return Ok((

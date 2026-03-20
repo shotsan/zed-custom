@@ -42,7 +42,8 @@ use workspace::Workspace;
 
 #[gpui::test]
 fn test_inserting_and_removing_messages(cx: &mut App) {
-    init_test(cx);
+    let fs = FakeFs::new(cx.background_executor().clone());
+    init_test(fs.clone(), cx);
 
     let registry = Arc::new(LanguageRegistry::test(cx.background_executor().clone()));
     let prompt_builder = Arc::new(PromptBuilder::new(None).unwrap());
@@ -178,7 +179,8 @@ fn test_inserting_and_removing_messages(cx: &mut App) {
 
 #[gpui::test]
 fn test_message_splitting(cx: &mut App) {
-    init_test(cx);
+    let fs = FakeFs::new(cx.background_executor().clone());
+    init_test(fs, cx);
 
     let registry = Arc::new(LanguageRegistry::test(cx.background_executor().clone()));
 
@@ -282,7 +284,8 @@ fn test_message_splitting(cx: &mut App) {
 
 #[gpui::test]
 fn test_messages_for_offsets(cx: &mut App) {
-    init_test(cx);
+    let fs = FakeFs::new(cx.background_executor().clone());
+    init_test(fs, cx);
 
     let registry = Arc::new(LanguageRegistry::test(cx.background_executor().clone()));
     let prompt_builder = Arc::new(PromptBuilder::new(None).unwrap());
@@ -372,9 +375,8 @@ fn test_messages_for_offsets(cx: &mut App) {
 
 #[gpui::test]
 async fn test_slash_commands(cx: &mut TestAppContext) {
-    cx.update(init_test);
-
     let fs = FakeFs::new(cx.background_executor.clone());
+    cx.update(|cx| init_test(fs.clone(), cx));
 
     fs.insert_tree(
         "/test",
@@ -661,7 +663,8 @@ async fn test_slash_commands(cx: &mut TestAppContext) {
 
 #[gpui::test]
 async fn test_serialization(cx: &mut TestAppContext) {
-    cx.update(init_test);
+    let fs = FakeFs::new(cx.background_executor.clone());
+    cx.update(|cx| init_test(fs.clone(), cx));
 
     let registry = Arc::new(LanguageRegistry::test(cx.executor()));
     let prompt_builder = Arc::new(PromptBuilder::new(None).unwrap());
@@ -734,7 +737,8 @@ async fn test_serialization(cx: &mut TestAppContext) {
 
 #[gpui::test(iterations = 25)]
 async fn test_random_context_collaboration(cx: &mut TestAppContext, mut rng: StdRng) {
-    cx.update(init_test);
+    let fs = FakeFs::new(cx.background_executor.clone());
+    cx.update(|cx| init_test(fs.clone(), cx));
 
     let min_peers = env::var("MIN_PEERS")
         .map(|i| i.parse().expect("invalid `MIN_PEERS` variable"))
@@ -1019,7 +1023,8 @@ async fn test_random_context_collaboration(cx: &mut TestAppContext, mut rng: Std
 
 #[gpui::test]
 fn test_mark_cache_anchors(cx: &mut App) {
-    init_test(cx);
+    let fs = FakeFs::new(cx.executor());
+    init_test(fs.clone(), cx);
 
     let registry = Arc::new(LanguageRegistry::test(cx.background_executor().clone()));
     let prompt_builder = Arc::new(PromptBuilder::new(None).unwrap());
@@ -1336,7 +1341,8 @@ fn setup_context_editor_with_fake_model(
     let fake_model = Arc::new(fake_provider.test_model());
 
     cx.update(|cx| {
-        init_test(cx);
+        let fs = FakeFs::new(cx.background_executor().clone());
+        init_test(fs, cx);
         LanguageModelRegistry::global(cx).update(cx, |registry, cx| {
             let configured_model = ConfiguredModel {
                 provider: fake_provider.clone(),
@@ -1386,9 +1392,9 @@ fn messages_cache(
         .collect()
 }
 
-fn init_test(cx: &mut App) {
+fn init_test(fs: Arc<dyn fs::Fs>, cx: &mut App) {
     let settings_store = SettingsStore::test(cx);
-    prompt_store::init(cx);
+    prompt_store::init(fs, cx);
     LanguageModelRegistry::test(cx);
     cx.set_global(settings_store);
 }

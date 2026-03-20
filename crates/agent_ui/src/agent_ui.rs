@@ -149,6 +149,10 @@ actions!(
         TeachRule,
         /// Opens a modal to edit custom system prompt instructions for this session.
         EditSystemPrompt,
+        /// Creates a new profile with the given name.
+        NewProfile,
+        /// Creates a new profile by cloning the current one.
+        NewProfileFromCurrent,
     ]
 );
 
@@ -497,7 +501,7 @@ fn register_slash_commands(cx: &mut App) {
         .register_command(assistant_slash_commands::DiagnosticsSlashCommand, true);
     slash_command_registry.register_command(assistant_slash_commands::FetchSlashCommand, true);
     slash_command_registry.register_command(assistant_slash_commands::SearchSlashCommand, true);
-    slash_command_registry.register_command(assistant_slash_commands::ElasticSearchSlashCommand, true);
+    slash_command_registry.register_command(assistant_slash_commands::CustomSearchSlashCommand, true);
 
     cx.observe_flag::<assistant_slash_commands::StreamingExampleSlashCommandFeatureFlag, _>({
         move |is_enabled, _cx| {
@@ -569,7 +573,7 @@ mod tests {
             show_turn_stats: true,
             enable_prompt_caching: false,
             tool_permissions: Default::default(),
-            elastic_search: None,
+            custom_search: None,
         };
 
         cx.update(|cx| {

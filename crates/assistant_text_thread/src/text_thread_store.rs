@@ -973,10 +973,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
-    fn init_test(cx: &mut gpui::TestAppContext) {
+    fn init_test(fs: Arc<dyn Fs>, cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let settings_store = SettingsStore::test(cx);
-            prompt_store::init(cx);
+            prompt_store::init(fs, cx);
             LanguageModelRegistry::test(cx);
             cx.set_global(settings_store);
         });
@@ -984,9 +984,8 @@ mod tests {
 
     #[gpui::test]
     async fn ordered_text_threads_sort_by_mtime(cx: &mut gpui::TestAppContext) {
-        init_test(cx);
-
         let fs = FakeFs::new(cx.background_executor.clone());
+        init_test(fs.clone(), cx);
         fs.insert_tree("/root", json!({})).await;
 
         let project = Project::test(fs, [Path::new("/root")], cx).await;
@@ -1025,9 +1024,8 @@ mod tests {
 
     #[gpui::test]
     async fn has_saved_text_threads_reflects_metadata(cx: &mut gpui::TestAppContext) {
-        init_test(cx);
-
         let fs = FakeFs::new(cx.background_executor.clone());
+        init_test(fs.clone(), cx);
         fs.insert_tree("/root", json!({})).await;
 
         let project = Project::test(fs, [Path::new("/root")], cx).await;
@@ -1048,9 +1046,8 @@ mod tests {
 
     #[gpui::test]
     async fn delete_all_local_clears_metadata_and_files(cx: &mut gpui::TestAppContext) {
-        init_test(cx);
-
         let fs = FakeFs::new(cx.background_executor.clone());
+        init_test(fs.clone(), cx);
         fs.insert_tree("/root", json!({})).await;
 
         let thread_a = PathBuf::from("/root/thread-a.zed_custom.json");

@@ -14,31 +14,31 @@ use ui::SharedString;
 use crate::{AgentTool, ToolCallEventStream, ToolPermissionDecision, decide_permission_from_settings};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub struct ElasticSearchToolInput {
-    /// The Elasticsearch query string.
+pub struct CustomSearchToolInput {
+    /// The search query string.
     pub query: String,
 }
 
-pub struct ElasticSearchTool {
+pub struct CustomSearchTool {
     http_client: Arc<HttpClientWithUrl>,
 }
 
-impl ElasticSearchTool {
+impl CustomSearchTool {
     pub fn new(http_client: Arc<HttpClientWithUrl>) -> Self {
         Self { http_client }
     }
 }
 
-impl AgentTool for ElasticSearchTool {
-    type Input = ElasticSearchToolInput;
+impl AgentTool for CustomSearchTool {
+    type Input = CustomSearchToolInput;
     type Output = String;
 
     fn name() -> &'static str {
-        "elastic_search"
+        "custom_search"
     }
 
     fn description() -> SharedString {
-        "Executes a search query against the configured Elasticsearch endpoint and returns the JSON response.".into()
+        "Executes a search query against the configured custom search endpoint and returns the JSON response.".into()
     }
 
     fn kind() -> acp::ToolKind {
@@ -51,8 +51,8 @@ impl AgentTool for ElasticSearchTool {
         _cx: &mut App,
     ) -> SharedString {
         match input {
-            Ok(input) => format!("Search Elasticsearch for '{}'", input.query).into(),
-            Err(_) => "Search Elasticsearch".into(),
+            Ok(input) => format!("Search '{}'", input.query).into(),
+            Err(_) => "Search".into(),
         }
     }
 
@@ -62,11 +62,11 @@ impl AgentTool for ElasticSearchTool {
         event_stream: ToolCallEventStream,
         cx: &mut App,
     ) -> Task<Result<Self::Output>> {
-        let (decision, elastic_config) = {
+        let (decision, custom_search_config) = {
             let settings = AgentSettings::get_global(cx);
             (
                 decide_permission_from_settings(Self::name(), &input.query, settings),
-                settings.elastic_search.clone()
+                settings.custom_search.clone()
             )
         };
 
@@ -81,30 +81,30 @@ impl AgentTool for ElasticSearchTool {
                     input_value: input.query.clone(),
                 };
                 Some(event_stream.authorize(
-                    format!("Search Elasticsearch for '{}'", input.query),
+                    format!("Search for '{}'", input.query),
                     context,
                     cx,
                 ))
             }
         };
 
-        let Some(elastic_config) = elastic_config else {
-            return Task::ready(Err(anyhow!("Elasticsearch is not configured in settings.")));
+        let Some(custom_search_config) = custom_search_config else {
+            return Task::ready(Err(anyhow!("Search is not configured in settings.")));
         };
 
-        if elastic_config.endpoint_url.is_empty() {
-            return Task::ready(Err(anyhow!("Elasticsearch endpoint_url is empty in settings.")));
+        if custom_search_config.endpoint_url.is_empty() {
+            return Task::ready(Err(anyhow!("Search endpoint_url is empty in settings.")));
         }
 
         let search_url = {
-            let base = elastic_config.endpoint_url;
+            let base = custom_search_config.endpoint_url;
             if base.ends_with("/_search") {
                 base
             } else {
                 format!("{}/_search", base.trim_end_matches('/'))
             }
         };
-        let api_key = elastic_config.api_key;
+        let api_key = custom_search_config.api_key;
         let http_client = self.http_client.clone();
 
         let fetch_task = cx.background_spawn(async move {
@@ -130,14 +130,14 @@ impl AgentTool for ElasticSearchTool {
             }
 
             let req = request.body(AsyncBody::from(serde_json::to_vec(&body)?))?;
-            let mut response = http_client.send(req).await.map_err(|e| anyhow!("Failed to connect to Elasticsearch: {}", e))?;
+            let mut response = http_client.send(req).await.map_err(|e| anyhow!("Failed to connect to custom search: {}", e))?;
             
             let mut response_body = Vec::new();
             response.body_mut().read_to_end(&mut response_body).await?;
 
             if !response.status().is_success() {
                 let error_text = String::from_utf8_lossy(&response_body);
-                return Err(anyhow!("Elasticsearch error ({}): {}", response.status(), error_text));
+                return Err(anyhow!("Custom search error ({}): {}", response.status(), error_text));
             }
 
             let json: serde_json::Value = serde_json::from_slice(&response_body)?;

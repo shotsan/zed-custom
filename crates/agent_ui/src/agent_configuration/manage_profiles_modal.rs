@@ -185,7 +185,7 @@ impl ManageProfilesModal {
         self.focus_handle(cx).focus(window, cx);
     }
 
-    fn new_profile(
+    pub(crate) fn new_profile(
         &mut self,
         base_profile_id: Option<AgentProfileId>,
         window: &mut Window,

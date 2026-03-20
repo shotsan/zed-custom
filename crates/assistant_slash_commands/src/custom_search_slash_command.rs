@@ -13,10 +13,10 @@ use assistant_slash_command::{
     ArgumentCompletion, SlashCommand, SlashCommandOutputSection, SlashCommandResult,
 };
 
-pub struct ElasticSearchSlashCommand;
+pub struct CustomSearchSlashCommand;
 
-impl ElasticSearchSlashCommand {
-    pub async fn elastic_search(
+impl CustomSearchSlashCommand {
+    pub async fn custom_search(
         http_client: Arc<HttpClientWithUrl>,
         query: &str,
         endpoint_url: &str,
@@ -47,14 +47,14 @@ impl ElasticSearchSlashCommand {
         }
 
         let req = request.body(AsyncBody::from(serde_json::to_vec(&body)?))?;
-        let mut response = http_client.send(req).await.map_err(|e| anyhow::anyhow!("Failed to connect to Elasticsearch: {}", e))?;
+        let mut response = http_client.send(req).await.map_err(|e| anyhow::anyhow!("Failed to connect to custom search: {}", e))?;
         
         let mut response_body = Vec::new();
         futures::AsyncReadExt::read_to_end(response.body_mut(), &mut response_body).await?;
 
         if !response.status().is_success() {
             let error_text = String::from_utf8_lossy(&response_body);
-            return Err(anyhow::anyhow!("Elasticsearch error ({}): {}", response.status(), error_text));
+            return Err(anyhow::anyhow!("Custom search error ({}): {}", response.status(), error_text));
         }
 
         let json: serde_json::Value = serde_json::from_slice(&response_body)?;
@@ -62,17 +62,17 @@ impl ElasticSearchSlashCommand {
     }
 }
 
-impl SlashCommand for ElasticSearchSlashCommand {
+impl SlashCommand for CustomSearchSlashCommand {
     fn name(&self) -> String {
-        "elastic".into()
+        "custom-search".into()
     }
 
     fn description(&self) -> String {
-        "Search Elasticsearch".into()
+        "Search using custom endpoint".into()
     }
 
     fn menu_text(&self) -> String {
-        "Search Elasticsearch".into()
+        "Search using custom endpoint".into()
     }
 
     fn requires_argument(&self) -> bool {
@@ -106,24 +106,24 @@ impl SlashCommand for ElasticSearchSlashCommand {
         }
 
         let settings = agent_settings::AgentSettings::get_global(cx);
-        let Some(elastic_config) = &settings.elastic_search else {
-            return Task::ready(Err(anyhow::anyhow!("Elasticsearch is not configured in settings.")));
+        let Some(custom_config) = &settings.custom_search else {
+            return Task::ready(Err(anyhow::anyhow!("Custom search is not configured in settings.")));
         };
 
-        if elastic_config.endpoint_url.is_empty() {
-            return Task::ready(Err(anyhow::anyhow!("Elasticsearch endpoint_url is empty in settings.")));
+        if custom_config.endpoint_url.is_empty() {
+            return Task::ready(Err(anyhow::anyhow!("Custom search endpoint_url is empty in settings.")));
         }
 
         let Some(workspace) = workspace.upgrade() else {
             return Task::ready(Err(anyhow::anyhow!("workspace was dropped")));
         };
 
-        let endpoint_url = elastic_config.endpoint_url.clone();
-        let api_key = elastic_config.api_key.clone();
+        let endpoint_url = custom_config.endpoint_url.clone();
+        let api_key = custom_config.api_key.clone();
         let http_client = workspace.read(cx).client().http_client();
 
         cx.background_spawn(async move {
-            let text = Self::elastic_search(http_client, &query, &endpoint_url, api_key.as_deref()).await?;
+            let text = Self::custom_search(http_client, &query, &endpoint_url, api_key.as_deref()).await?;
 
             let event = assistant_slash_command::SlashCommandEvent::Content(assistant_slash_command::SlashCommandContent::Text {
                 text,

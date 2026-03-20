@@ -139,13 +139,13 @@ pub struct AgentSettingsContent {
     /// This setting only applies to the native Zed agent. External agent servers (Claude Code, Gemini CLI, etc.)
     /// have their own permission systems and are not affected by these settings.
     pub tool_permissions: Option<ToolPermissionsContent>,
-    /// Configuration for Elasticsearch search.
-    pub elastic_search: Option<ElasticSearchSettingsContent>,
+    /// Configuration for custom search.
+    pub custom_search: Option<CustomSearchSettingsContent>,
 }
 
 #[with_fallible_options]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom)]
-pub struct ElasticSearchSettingsContent {
+pub struct CustomSearchSettingsContent {
     pub endpoint_url: Option<String>,
     pub api_key: Option<String>,
 }

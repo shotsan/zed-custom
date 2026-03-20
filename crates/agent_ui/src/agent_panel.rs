@@ -2,7 +2,7 @@ use std::{ops::Range, path::Path, rc::Rc, sync::Arc, time::Duration};
 use feature_flags::FeatureFlagAppExt;
 
 use acp_thread::{AcpThread, AgentSessionInfo};
-use agent::{ContextServerRegistry, SharedThread, ThreadStore};
+use agent::{ContextServerRegistry, SharedThread, Thread, ThreadStore};
 use agent_client_protocol as acp;
 use agent_servers::AgentServer;
 use db::kvp::{Dismissable, KEY_VALUE_STORE};
@@ -21,9 +21,9 @@ use crate::{
     AddContextServer, AgentDiffPane, CopyThreadToClipboard, Follow, InlineAssistant,
     LoadThreadFromClipboard, NewTextThread, NewThread, OpenActiveThreadAsMarkdown, OpenAgentDiff,
     OpenHistory, ResetTrialEndUpsell, ResetTrialUpsell, ToggleNavigationMenu, ToggleNewThreadMenu,
-    ToggleOptionsMenu,
+    NewProfile, NewProfileFromCurrent, ToggleOptionsMenu,
     acp::AcpThreadView,
-    agent_configuration::{AgentConfiguration, AssistantConfigurationEvent},
+    agent_configuration::{AgentConfiguration, AssistantConfigurationEvent, ManageProfilesModal},
     slash_command::SlashCommandCompletionProvider,
     text_thread_editor::{AgentPanelDelegate, TextThreadEditor, make_lsp_adapter_delegate},
     ui::{AgentOnboardingModal, EndTrialUpsell},
@@ -220,6 +220,20 @@ pub fn init(cx: &mut App) {
                     if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
                         panel.update(cx, |panel, cx| {
                             panel.copy_thread_to_clipboard(window, cx);
+                        });
+                    }
+                })
+                .register_action(|workspace, _: &NewProfile, window, cx| {
+                    if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
+                        panel.update(cx, |panel, cx| {
+                            panel.new_profile(window, cx);
+                        });
+                    }
+                })
+                .register_action(|workspace, _: &NewProfileFromCurrent, window, cx| {
+                    if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
+                        panel.update(cx, |panel, cx| {
+                            panel.new_profile_from_current(window, cx);
                         });
                     }
                 })
@@ -1759,6 +1773,74 @@ impl AgentPanel {
             window,
             cx,
         );
+    }
+
+    fn new_profile(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(workspace) = self.workspace.upgrade() {
+            let fs = self.fs.clone();
+            let context_server_registry = self.context_server_registry.clone();
+            let active_model = self
+                .active_native_agent_thread(cx)
+                .and_then(|thread| thread.read(cx).model().cloned());
+
+            let window_handle = window.window_handle();
+            cx.defer(move |cx| {
+                window_handle
+                    .update(cx, |_, window, cx| {
+                        workspace.update(cx, |workspace, cx| {
+                            workspace.toggle_modal(window, cx, |window, cx| {
+                                let mut modal = ManageProfilesModal::new(
+                                    fs,
+                                    active_model,
+                                    context_server_registry,
+                                    window,
+                                    cx,
+                                );
+                                modal.new_profile(None, window, cx);
+                                modal
+                            });
+                        });
+                    })
+                    .log_err();
+            });
+        }
+    }
+
+    fn new_profile_from_current(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(workspace) = self.workspace.upgrade() {
+            let fs = self.fs.clone();
+            let context_server_registry = self.context_server_registry.clone();
+            let active_thread = self.active_native_agent_thread(cx);
+            let active_model = active_thread
+                .as_ref()
+                .and_then(|thread: &Entity<Thread>| thread.read(cx).model().cloned());
+
+            let profile_id = active_thread
+                .as_ref()
+                .map(|thread: &Entity<Thread>| thread.read(cx).profile_id().clone())
+                .unwrap_or_default();
+
+            let window_handle = window.window_handle();
+            cx.defer(move |cx| {
+                window_handle
+                    .update(cx, |_, window, cx| {
+                        workspace.update(cx, |workspace, cx| {
+                            workspace.toggle_modal(window, cx, |window, cx| {
+                                let mut modal = ManageProfilesModal::new(
+                                    fs,
+                                    active_model,
+                                    context_server_registry,
+                                    window,
+                                    cx,
+                                );
+                                modal.new_profile(Some(profile_id), window, cx);
+                                modal
+                            });
+                        });
+                    })
+                    .log_err();
+            });
+        }
     }
 }
 

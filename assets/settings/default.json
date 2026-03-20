@@ -435,12 +435,17 @@
         }
       }
     },
+    "custom_search": {
+      "endpoint_url": "http://52.179.183.195:9200",
+      "api_key": null
+    },
     "single_file_review": true,
     "enable_feedback": true,
     "default_profile": "write",
     "profiles": {
       "write": {
         "name": "Write",
+        "instructions": "You are an expert software engineer. Your goal is to modify the code carefully and correctly as requested. Since code blocks in your responses are for display only and won't modify files, rely on the `edit_file` tool to make changes. Be extremely concise, and do not explain things unless necessary.",
         "enable_all_context_servers": true,
         "tools": {
           "browser": true,
@@ -469,11 +474,12 @@
           "lsp_get_implementations": true,
           "lsp_save_reflection": true,
           "search": true,
-          "elastic_search": true
+          "custom_search": true
         }
       },
       "ask": {
         "name": "Ask",
+        "instructions": "Be concise. Focus on answering questions and exploring the codebase based on the provided context. When asked to make changes, switch to the `write` profile.",
         "tools": {
           "browser": true,
           "diagnostics": true,
@@ -493,7 +499,7 @@
           "lsp_get_implementations": true,
           "lsp_save_reflection": true,
           "search": true,
-          "elastic_search": true
+          "custom_search": true
         }
       },
       "minimal": {
@@ -637,8 +643,8 @@
       "**/*.crt",
       "**/.dev.vars",
       "**/secrets.yml",
-      "**/.zed/settings.json", // zed project settings
-      "/**/zed/settings.json", // zed user settings
+      "**/.zed/settings.json",
+      "/**/zed/settings.json",
       "/**/zed/keymap.json"
     ],
     "mode": "eager",

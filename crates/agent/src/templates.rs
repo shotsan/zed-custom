@@ -56,6 +56,7 @@ pub struct SystemPromptTemplate<'a> {
     pub memories: Vec<MemoryContext>,
     pub custom_instructions: Option<String>,
     pub custom_system_prompt: Option<String>,
+    pub archive_summary: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -109,6 +110,7 @@ mod tests {
             memories: Vec::new(),
             custom_instructions: None,
             custom_system_prompt: None,
+            archive_summary: None,
         };
         let templates = Templates::new();
         let rendered = template.render(&templates).unwrap();

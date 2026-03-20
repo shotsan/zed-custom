@@ -407,7 +407,7 @@ impl AcpThreadView {
         cx: &mut Context<Self>,
     ) -> Self {
         let prompt_capabilities = Rc::new(RefCell::new(acp::PromptCapabilities::default()));
-        let available_commands = Rc::new(RefCell::new(vec![acp::AvailableCommand::new("search", "Search the web"), acp::AvailableCommand::new("elastic", "Search Elasticsearch")]));
+        let available_commands = Rc::new(RefCell::new(vec![acp::AvailableCommand::new("search", "Search the web"), acp::AvailableCommand::new("custom-search", "Custom Search")]));
         let cached_user_commands = Rc::new(RefCell::new(collections::HashMap::default()));
         let cached_user_command_errors = Rc::new(RefCell::new(Vec::new()));
 
@@ -1746,7 +1746,7 @@ impl AcpThreadView {
                 }
 
                 available_commands.push(acp::AvailableCommand::new("search", "Search the web"));
-                available_commands.push(acp::AvailableCommand::new("elastic", "Search Elasticsearch"));
+                available_commands.push(acp::AvailableCommand::new("custom-search", "Custom Search"));
 
                 let has_commands = !available_commands.is_empty();
                 if let Some(active) = self.as_active_thread_mut() {
@@ -7156,7 +7156,7 @@ impl AcpThreadView {
         }
     }
 
-    fn render_native_agent_status(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_native_agent_status(&self, _cx: &mut Context<Self>) -> impl IntoElement {
         let Some(status) = &self.status else {
             return h_flex();
         };
@@ -9924,13 +9924,14 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn init_test(cx: &mut TestAppContext) {
+        let fs = FakeFs::new(cx.executor());
         cx.update(|cx| {
             let settings_store = SettingsStore::test(cx);
             cx.set_global(settings_store);
             theme::init(theme::LoadThemes::JustBase, cx);
             editor::init(cx);
             release_channel::init(semver::Version::new(0, 0, 0), cx);
-            prompt_store::init(cx)
+            prompt_store::init(fs, cx)
         });
     }
 
