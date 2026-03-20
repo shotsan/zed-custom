@@ -1424,7 +1424,10 @@ impl Thread {
         ));
         self.add_tool(FetchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(ElasticSearchTool::new(self.project.read(cx).client().http_client()));
-        self.add_tool(SearchTool::new(self.project.read(cx).client().http_client()));
+        self.add_tool(SearchTool::new(
+            self.project.read(cx).client().http_client(),
+            std::env::var("TAVILY_API_KEY").ok(),
+        ));
         self.add_tool(BrowserTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(FindPathTool::new(self.project.clone()));
         self.add_tool(GrepTool::new(self.project.clone()));
