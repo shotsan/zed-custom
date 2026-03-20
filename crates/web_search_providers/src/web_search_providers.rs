@@ -1,4 +1,5 @@
 mod cloud;
+mod tavily;
 
 use client::Client;
 use gpui::{App, Context, Entity};
@@ -34,6 +35,16 @@ fn register_web_search_providers(
         },
     )
     .detach();
+
+    if let Ok(api_key) = std::env::var("TAVILY_API_KEY") {
+        if !api_key.is_empty() {
+            let http_client = cx.http_client();
+            registry.register_provider(
+                tavily::TavilyWebSearchProvider::new(api_key, http_client),
+                cx,
+            );
+        }
+    }
 }
 
 fn register_zed_web_search_provider(
