@@ -15,6 +15,7 @@ use language_model::LanguageModelToolResultContent;
 use schemars::JsonSchema;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use settings::Settings;
 use ui::SharedString;
 use util::markdown::{MarkdownEscaped, MarkdownInlineCode};
@@ -246,6 +247,58 @@ impl BrowserTool {
         convert_html_to_markdown(html_body, &mut handlers)
     }
 
+    async fn search_with_tavily(
+        http_client: Arc<HttpClientWithUrl>,
+        query: &str,
+        api_key: &str,
+    ) -> Result<Vec<SearchResult>> {
+        let request_body = json!({
+            "api_key": api_key,
+            "query": query,
+            "max_results": 10,
+            "search_depth": "basic",
+        });
+
+        let body_bytes = serde_json::to_vec(&request_body)?;
+
+        let mut response = http_client
+            .post_json(
+                "https://api.tavily.com/search",
+                AsyncBody::from(body_bytes),
+            )
+            .await
+            .context("Failed to call Tavily Search API")?;
+
+        let mut response_body = Vec::new();
+        response
+            .body_mut()
+            .read_to_end(&mut response_body)
+            .await
+            .context("Failed to read Tavily response")?;
+
+        if response.status().is_client_error() || response.status().is_server_error() {
+            let text = String::from_utf8_lossy(&response_body);
+            bail!("Tavily API error {}: {}", response.status().as_u16(), text);
+        }
+
+        let tavily_response: TavilySearchResponse =
+            serde_json::from_slice(&response_body).context("Failed to parse Tavily response")?;
+
+        let results = tavily_response
+            .results
+            .into_iter()
+            .enumerate()
+            .map(|(index, result)| SearchResult {
+                index: index + 1,
+                title: result.title,
+                url: result.url,
+                snippet: result.content,
+            })
+            .collect();
+
+        Ok(results)
+    }
+
     pub async fn fetch_raw_html(
         http_client: Arc<HttpClientWithUrl>,
         url: &str,
@@ -342,13 +395,35 @@ impl AgentTool for BrowserTool {
         let action = input.action;
         let target = input.target;
 
-        let chrome_task = Tokio::spawn_result(cx, async move {
+        let chrome_task = Tokio::spawn_result(cx, {
+            let http_client = http_client.clone();
+            async move {
                 if let Some(authorize) = authorize {
                     authorize.await?;
                 }
 
                 match action.as_str() {
                     "search" => {
+                        // Try Tavily API first if TAVILY_API_KEY is set
+                        if let Ok(api_key) = std::env::var("TAVILY_API_KEY") {
+                            if !api_key.is_empty() {
+                                if let Ok(results) =
+                                    Self::search_with_tavily(http_client.clone(), &target, &api_key)
+                                        .await
+                                {
+                                    return Ok(FetchedContent {
+                                        action: "search".to_string(),
+                                        target,
+                                        html: None,
+                                        final_url: String::new(),
+                                        needs_http_fallback: false,
+                                        tavily_results: Some(results),
+                                    });
+                                }
+                            }
+                        }
+
+                        // Fall back to DuckDuckGo with Chrome/HTTP
                         let search_url = format!(
                             "https://html.duckduckgo.com/html/?q={}",
                             urlencoding(&target)
@@ -369,6 +444,7 @@ impl AgentTool for BrowserTool {
                             html,
                             final_url: search_url,
                             needs_http_fallback: true,
+                            tavily_results: None,
                         })
                     }
                     "navigate" => {
@@ -394,19 +470,33 @@ impl AgentTool for BrowserTool {
                             html,
                             final_url,
                             needs_http_fallback: true,
+                            tavily_results: None,
                         })
                     }
                     other => {
                         bail!("Unknown browser action: {other}. Use 'search' or 'navigate'.")
                     }
                 }
-            });
+            }
+        });
 
         let fetch_task = cx.background_spawn({
             let http_client = http_client;
             let event_stream = event_stream.clone();
             async move {
                 let fetched = chrome_task.await?;
+
+                // If Tavily already provided results, short-circuit
+                if fetched.tavily_results.is_some() {
+                    return Ok((
+                        fetched.action,
+                        fetched.target,
+                        Vec::new(),
+                        fetched.final_url,
+                        event_stream,
+                        fetched.tavily_results,
+                    ));
+                }
 
                 let (body, final_url) = if let Some(html) = fetched.html {
                     (html.into_bytes(), fetched.final_url)
@@ -418,12 +508,12 @@ impl AgentTool for BrowserTool {
                     bail!("Failed to fetch page content");
                 };
 
-                Ok((fetched.action, fetched.target, body, final_url, event_stream))
+                Ok((fetched.action, fetched.target, body, final_url, event_stream, None))
             }
         });
 
         cx.foreground_executor().spawn(async move {
-            let (action, target, body, final_url, event_stream) = futures::select! {
+            let (action, target, body, final_url, event_stream, tavily_results) = futures::select! {
                 result = fetch_task.fuse() => result?,
                 _ = event_stream.cancelled_by_user().fuse() => {
                     bail!("Browser action cancelled by user");
@@ -432,8 +522,12 @@ impl AgentTool for BrowserTool {
 
             match action.as_str() {
                 "search" => {
-                    let html_string = String::from_utf8_lossy(&body).to_string();
-                    let results = Self::parse_search_results(&html_string);
+                    let results = if let Some(results) = tavily_results {
+                        results
+                    } else {
+                        let html_string = String::from_utf8_lossy(&body).to_string();
+                        Self::parse_search_results(&html_string)
+                    };
 
                     if results.is_empty() {
                         bail!("No search results found for: {target}");
@@ -499,6 +593,19 @@ struct FetchedContent {
     html: Option<String>,
     final_url: String,
     needs_http_fallback: bool,
+    tavily_results: Option<Vec<SearchResult>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TavilySearchResponse {
+    results: Vec<TavilyResult>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TavilyResult {
+    title: String,
+    url: String,
+    content: String,
 }
 
 fn urlencoding(input: &str) -> String {
