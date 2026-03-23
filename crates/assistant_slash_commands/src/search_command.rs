@@ -8,9 +8,10 @@ use assistant_slash_command::{
 };
 use futures::AsyncReadExt;
 use gpui::{Task, WeakEntity};
-use http_client::{AsyncBody, HttpClientWithUrl};
+use http_client::{AsyncBody, HttpClient, HttpClientWithUrl, Method};
 use language::{BufferSnapshot, LspAdapterDelegate};
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use ui::prelude::*;
 use workspace::Workspace;
 
@@ -23,8 +24,72 @@ pub struct SearchResult {
 
 pub struct SearchSlashCommand;
 
+#[derive(Deserialize)]
+struct TavilySearchResponse {
+    results: Vec<TavilyResult>,
+}
+
+#[derive(Deserialize)]
+struct TavilyResult {
+    title: String,
+    url: String,
+    content: String,
+}
+
 impl SearchSlashCommand {
     pub async fn search(
+        http_client: Arc<HttpClientWithUrl>,
+        query: &str,
+    ) -> Result<Vec<SearchResult>> {
+        if let Ok(api_key) = std::env::var("TAVILY_API_KEY") {
+            return Self::search_tavily(http_client, query, &api_key).await;
+        }
+
+        Self::search_duckduckgo(http_client, query).await
+    }
+
+    async fn search_tavily(
+        http_client: Arc<HttpClientWithUrl>,
+        query: &str,
+        api_key: &str,
+    ) -> Result<Vec<SearchResult>> {
+        let request_body = serde_json::json!({
+            "query": query,
+            "max_results": 10,
+            "search_depth": "basic",
+        });
+
+        let request_bytes = serde_json::to_vec(&request_body)?;
+        let request = http_client::Request::builder()
+            .uri("https://api.tavily.com/search")
+            .method(Method::POST)
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {api_key}"))
+            .body(AsyncBody::from(request_bytes))?;
+
+        let mut response = http_client.send(request).await?;
+
+        let mut body = Vec::new();
+        response.body_mut().read_to_end(&mut body).await?;
+
+        if response.status().is_client_error() || response.status().is_server_error() {
+            let text = String::from_utf8_lossy(&body);
+            bail!("Tavily search failed (HTTP {}): {text}", response.status().as_u16());
+        }
+
+        let tavily_response: TavilySearchResponse = serde_json::from_slice(&body)?;
+        Ok(tavily_response
+            .results
+            .into_iter()
+            .map(|r| SearchResult {
+                title: r.title,
+                url: r.url,
+                snippet: r.content,
+            })
+            .collect())
+    }
+
+    async fn search_duckduckgo(
         http_client: Arc<HttpClientWithUrl>,
         query: &str,
     ) -> Result<Vec<SearchResult>> {
