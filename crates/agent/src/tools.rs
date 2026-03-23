@@ -7,6 +7,7 @@ mod delete_path_tool;
 mod diagnostics_tool;
 mod edit_file_tool;
 mod custom_search_tool;
+mod elastic_search_tool;
 mod fetch_tool;
 mod search_tool;
 mod find_path_tool;
@@ -40,6 +41,7 @@ pub use delete_path_tool::*;
 pub use diagnostics_tool::*;
 pub use edit_file_tool::*;
 pub use custom_search_tool::*;
+pub use elastic_search_tool::*;
 pub use fetch_tool::*;
 pub use search_tool::*;
 pub use find_path_tool::*;
@@ -111,6 +113,7 @@ tools! {
     DeletePathTool,
     DiagnosticsTool,
     EditFileTool,
+    ElasticSearchTool,
     SearchTool,
     FetchTool,
     CustomSearchTool,
