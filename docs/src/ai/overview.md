@@ -20,6 +20,8 @@ Learn how to get started using AI with zed-custom and all its capabilities.
 
 - [Tools](./tools.md): Explore the tools that power zed-custom's built-in agent.
 
+- [Deep Research](./deep-research.md): Discover the multi-stage autonomous research and browsing pipeline.
+
 - [Model Context Protocol](./mcp.md): Learn about how to configure and use MCP servers.
 
 - [Inline Assistant](./inline-assistant.md): Discover how to use AI to generate inline transformations directly within a file or terminal.

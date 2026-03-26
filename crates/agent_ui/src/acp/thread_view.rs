@@ -407,7 +407,11 @@ impl AcpThreadView {
         cx: &mut Context<Self>,
     ) -> Self {
         let prompt_capabilities = Rc::new(RefCell::new(acp::PromptCapabilities::default()));
-        let available_commands = Rc::new(RefCell::new(vec![acp::AvailableCommand::new("search", "Search the web"), acp::AvailableCommand::new("custom-search", "Custom Search")]));
+        let available_commands = Rc::new(RefCell::new(vec![
+            acp::AvailableCommand::new("search", "Search the web"),
+            acp::AvailableCommand::new("custom-search", "Custom Search"),
+            acp::AvailableCommand::new("deep-research", "Perform deep research"),
+        ]));
         let cached_user_commands = Rc::new(RefCell::new(collections::HashMap::default()));
         let cached_user_command_errors = Rc::new(RefCell::new(Vec::new()));
 
@@ -1747,6 +1751,7 @@ impl AcpThreadView {
 
                 available_commands.push(acp::AvailableCommand::new("search", "Search the web"));
                 available_commands.push(acp::AvailableCommand::new("custom-search", "Custom Search"));
+                available_commands.push(acp::AvailableCommand::new("deep-research", "Perform deep research"));
 
                 let has_commands = !available_commands.is_empty();
                 if let Some(active) = self.as_active_thread_mut() {

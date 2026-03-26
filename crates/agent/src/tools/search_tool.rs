@@ -16,7 +16,8 @@ use crate::{
     AgentTool, ToolCallEventStream, ToolPermissionDecision, decide_permission_from_settings,
 };
 
-/// Search DuckDuckGo for the given query and return the top results as text.
+/// Search DuckDuckGo using a lightweight static HTML scraper (no JavaScript). Fast and reliable for basic web searches.
+/// For JavaScript-heavy pages, prefer the 'browser' tool.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct SearchToolInput {
     /// The search query to look up on the web.
@@ -149,7 +150,7 @@ impl AgentTool for SearchTool {
     }
 
     fn description() -> SharedString {
-        "Search the web using DuckDuckGo and return the top results with titles, URLs, and snippets.".into()
+        "Search the web using a lightweight static DuckDuckGo scraper. Fast and reliable (no JavaScript).".into()
     }
 
     fn kind() -> acp::ToolKind {

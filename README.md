@@ -58,14 +58,15 @@ Agent: Uses the 'recall' tool to retrieve the microservices architecture memory 
 
 ---
 
-### 4. **Instant Web Search**
+### 4. **Instant Web Search & Deep Research**
 **Status:** ✅ Implemented
 
-Integrated a full headless Chrome engine (`chromiumoxide`) mapped to a user-invokable `/search` slash command. This allows the agent to pull real-time information from the web directly into your editor context.
+Integrated a full headless Chrome engine (`chromiumoxide`) for deep site analysis, while keeping a lightweight static scraper for quick searches.
 
 **Features:**
-- 🔍 **Web Search**: Type `/search <query>` to instantly fetch DuckDuckGo results.
-- 🔗 **Deep Dive**: The agent can navigate and extract rendered Markdown from websites (even JavaScript-heavy React SPAs).
+- 🔍 **Fast Search**: Type `/search <query>` to instantly fetch DuckDuckGo results using a lightweight, no-JS scraper.
+- 🧪 **Deep Research**: The `/deep-research` command uses **headless Chrome** to autonomously navigate, render, and extract Markdown from complex, JS-heavy websites (like React SPAs).
+- 🔄 **Smart Fallback**: Both tools feature an automated fallback to static HTTP if the headless browser is unavailable, ensuring 100% reliability.
 
 **Example Usage:**
 ```
@@ -177,7 +178,7 @@ Same as [Zed](https://github.com/zed-industries/zed) - see their LICENSE files.
 | Background Indexing | Heavy CPU usage | ✅ Disabled (uses LSP) |
 | Memory Categories | N/A | ✅ 5 categories |
 | Cross-Session Context | ❌ | ✅ Yes |
-| Web Search (/search) | ❌ | ✅ Instant DuckDuckGo |
+| Web Search (/search) | ❌ | ✅ Static DuckDuckGo |
 | JS-Heavy Browsing | ❌ | ✅ Headless Chrome |
 | Azure Anthropic | ❌ Needs proxy | ✅ Transparently |
 | Token Caching UI | ❌ Hidden | ✅ Enabled by Default |

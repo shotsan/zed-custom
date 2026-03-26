@@ -1777,6 +1777,7 @@ async fn open_new_profile_in_settings_editor(
                             default_model: None,
                             instructions: None,
                             system_prompt: None,
+                            deep_research: None,
                         },
                     );
                 }

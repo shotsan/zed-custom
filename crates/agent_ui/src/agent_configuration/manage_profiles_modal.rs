@@ -6,7 +6,7 @@ use agent::ContextServerRegistry;
 use agent_settings::{AgentProfile, AgentProfileId, AgentSettings, builtin_profiles};
 use editor::Editor;
 use fs::Fs;
-use gpui::{DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, Subscription, prelude::*};
+use gpui::{DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, Styled as _, Subscription, prelude::*};
 use language_model::{LanguageModel, LanguageModelRegistry};
 use settings::SettingsStore;
 use settings::{
@@ -42,6 +42,7 @@ enum Mode {
         _subscription: Subscription,
     },
     ConfigureInstructions(ConfigureInstructionsMode),
+    ConfigureDeepResearch(ConfigureDeepResearchMode),
 }
 
 impl Mode {
@@ -97,6 +98,7 @@ pub struct ViewProfileMode {
     configure_tools: NavigableEntry,
     configure_mcps: NavigableEntry,
     configure_instructions: NavigableEntry,
+    configure_deep_research: NavigableEntry,
     delete_profile: NavigableEntry,
     cancel_item: NavigableEntry,
 }
@@ -106,6 +108,15 @@ pub struct ConfigureInstructionsMode {
     profile_id: AgentProfileId,
     instructions_editor: Entity<Editor>,
     system_prompt_editor: Entity<Editor>,
+}
+
+#[derive(Clone)]
+pub struct ConfigureDeepResearchMode {
+    profile_id: AgentProfileId,
+    search_prompt_editor: Entity<Editor>,
+    condensation_prompt_editor: Entity<Editor>,
+    max_tabs_editor: Entity<Editor>,
+    max_depth_editor: Entity<Editor>,
 }
 
 #[derive(Clone)]
@@ -216,6 +227,7 @@ impl ManageProfilesModal {
             configure_tools: NavigableEntry::focusable(cx),
             configure_mcps: NavigableEntry::focusable(cx),
             configure_instructions: NavigableEntry::focusable(cx),
+            configure_deep_research: NavigableEntry::focusable(cx),
             delete_profile: NavigableEntry::focusable(cx),
             cancel_item: NavigableEntry::focusable(cx),
         });
@@ -433,6 +445,64 @@ impl ManageProfilesModal {
         self.focus_handle(cx).focus(window, cx);
     }
 
+    fn configure_deep_research(
+        &mut self,
+        profile_id: AgentProfileId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let settings = AgentSettings::get_global(cx);
+        let Some(profile) = settings.profiles.get(&profile_id) else {
+            return;
+        };
+
+        let search_prompt = profile
+            .deep_research
+            .search_system_prompt
+            .clone()
+            .unwrap_or_default();
+        let condensation_prompt = profile
+            .deep_research
+            .condensation_system_prompt
+            .clone()
+            .unwrap_or_default();
+        let max_tabs = profile.deep_research.max_concurrent_tabs.to_string();
+        let max_depth = profile.deep_research.max_depth.to_string();
+
+        let search_prompt_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_text(search_prompt, window, cx);
+            editor
+        });
+
+        let condensation_prompt_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_text(condensation_prompt, window, cx);
+            editor
+        });
+
+        let max_tabs_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_text(max_tabs, window, cx);
+            editor
+        });
+
+        let max_depth_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_text(max_depth, window, cx);
+            editor
+        });
+
+        self.mode = Mode::ConfigureDeepResearch(ConfigureDeepResearchMode {
+            profile_id,
+            search_prompt_editor,
+            condensation_prompt_editor,
+            max_tabs_editor,
+            max_depth_editor,
+        });
+        cx.notify();
+    }
+
     fn confirm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.mode {
             Mode::ChooseProfile { .. } => {}
@@ -468,6 +538,38 @@ impl ManageProfilesModal {
                             } else {
                                 Some(system_prompt.into())
                             };
+                        }
+                    }
+                });
+
+                self.view_profile(mode.profile_id.clone(), window, cx);
+            }
+            Mode::ConfigureDeepResearch(mode) => {
+                let search_prompt = mode.search_prompt_editor.read(cx).text(cx);
+                let condensation_prompt = mode.condensation_prompt_editor.read(cx).text(cx);
+                let max_tabs = mode.max_tabs_editor.read(cx).text(cx).parse::<usize>().unwrap_or(5);
+                let max_depth = mode.max_depth_editor.read(cx).text(cx).parse::<usize>().unwrap_or(3);
+
+                let fs = self.fs.clone();
+                let profile_id = mode.profile_id.clone();
+
+                update_settings_file(fs, cx, move |settings, _| {
+                    let agent_settings = settings.agent.get_or_insert_default();
+                    if let Some(profiles) = agent_settings.profiles.as_mut() {
+                        if let Some(profile) = profiles.get_mut(profile_id.0.as_ref()) {
+                            let deep_research = profile.deep_research.get_or_insert_default();
+                            deep_research.search_system_prompt = if search_prompt.is_empty() {
+                                None
+                            } else {
+                                Some(search_prompt)
+                            };
+                            deep_research.condensation_system_prompt = if condensation_prompt.is_empty() {
+                                None
+                            } else {
+                                Some(condensation_prompt)
+                            };
+                            deep_research.max_concurrent_tabs = Some(max_tabs);
+                            deep_research.max_depth = Some(max_depth);
                         }
                     }
                 });
@@ -536,6 +638,7 @@ impl ManageProfilesModal {
                 self.view_profile(profile_id.clone(), window, cx)
             }
             Mode::ConfigureInstructions(mode) => self.view_profile(mode.profile_id.clone(), window, cx),
+            Mode::ConfigureDeepResearch(mode) => self.view_profile(mode.profile_id.clone(), window, cx),
         }
     }
 }
@@ -552,6 +655,7 @@ impl Focusable for ManageProfilesModal {
             Mode::ConfigureMcps { tool_picker, .. } => tool_picker.focus_handle(cx),
             Mode::ConfigureDefaultModel { model_picker, .. } => model_picker.focus_handle(cx),
             Mode::ConfigureInstructions(mode) => mode.instructions_editor.focus_handle(cx),
+            Mode::ConfigureDeepResearch(mode) => mode.search_prompt_editor.focus_handle(cx),
         }
     }
 }
@@ -945,6 +1049,48 @@ impl ManageProfilesModal {
                         )
                         .child(
                             div()
+                                .id("configure-deep-research")
+                                .track_focus(&mode.configure_deep_research.focus_handle)
+                                .on_action({
+                                    let profile_id = mode.profile_id.clone();
+                                    cx.listener(move |this, _: &menu::Confirm, window, cx| {
+                                        this.configure_deep_research(
+                                            profile_id.clone(),
+                                            window,
+                                            cx,
+                                        );
+                                    })
+                                })
+                                .child(
+                                    ListItem::new("configure-deep-research-item")
+                                        .toggle_state(
+                                            mode.configure_deep_research
+                                                .focus_handle
+                                                .contains_focused(window, cx),
+                                        )
+                                        .inset(true)
+                                        .spacing(ListItemSpacing::Sparse)
+                                        .start_slot(
+                                            Icon::new(IconName::MagnifyingGlass)
+                                                .size(IconSize::Small)
+                                                .color(Color::Muted),
+                                        )
+                                        .child(Label::new("Configure Deep Research"))
+                                        .on_click({
+                                            let profile_id = mode.profile_id.clone();
+                                            cx.listener(move |this, _, window, cx| {
+                                                this.configure_deep_research(
+                                                    profile_id.clone(),
+                                                    window,
+                                                    cx,
+                                                );
+                                            })
+                                        }),
+                                ),
+                        )
+                        .child(ListSeparator)
+                        .child(
+                            div()
                                 .id("delete-profile")
                                 .track_focus(&mode.delete_profile.focus_handle)
                                 .on_action({
@@ -1103,6 +1249,105 @@ impl ManageProfilesModal {
                     ),
             )
     }
+
+    fn render_configure_deep_research(
+        &mut self,
+        mode: ConfigureDeepResearchMode,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let settings = AgentSettings::get_global(cx);
+        let profile_name = settings
+            .profiles
+            .get(&mode.profile_id)
+            .map(|profile| profile.name.clone())
+            .unwrap_or_else(|| "Unknown".into());
+
+        v_flex()
+            .track_focus(&self.focus_handle(cx))
+            .child(ProfileModalHeader::new(
+                format!("{profile_name} — Configure Deep Research"),
+                Some(IconName::MagnifyingGlass),
+            ))
+            .child(ListSeparator)
+            .child(
+                v_flex()
+                    .p_2()
+                    .gap_2()
+                    .max_h(rems(30.))
+                    .overflow_y_hidden()
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(Label::new("Search Optimization System Prompt"))
+                            .child(div()
+                                .h(rems(6.))
+                                .border_1()
+                                .border_color(cx.theme().colors().border)
+                                .child(mode.search_prompt_editor))
+                            .child(
+                                Label::new("Instructions for expanding the topic into search queries.")
+                                    .size(LabelSize::Small)
+                                    .color(Color::Muted),
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(Label::new("Report Condensation System Prompt"))
+                            .child(div()
+                                .h(rems(6.))
+                                .border_1()
+                                .border_color(cx.theme().colors().border)
+                                .child(mode.condensation_prompt_editor))
+                            .child(
+                                Label::new("Instructions for generating the final markdown report from research data.")
+                                    .size(LabelSize::Small)
+                                    .color(Color::Muted),
+                            ),
+                    )
+                    .child(
+                        h_flex()
+                            .gap_4()
+                            .child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(Label::new("Max Concurrent Tabs"))
+                                    .child(div()
+                                        .w(rems(5.))
+                                        .border_1()
+                                        .border_color(cx.theme().colors().border)
+                                        .child(mode.max_tabs_editor))
+                            )
+                            .child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(Label::new("Max Depth"))
+                                    .child(div()
+                                        .w(rems(5.))
+                                        .border_1()
+                                        .border_color(cx.theme().colors().border)
+                                        .child(mode.max_depth_editor))
+                            )
+                    )
+            )
+            .child(ListSeparator)
+            .child(
+                h_flex()
+                    .p_2()
+                    .justify_end()
+                    .gap_2()
+                    .child(
+                        Button::new("cancel", "Cancel")
+                            .on_click(cx.listener(|this, _, window, cx| this.cancel(window, cx))),
+                    )
+                    .child(
+                        Button::new("save", "Save")
+                            .on_click(cx.listener(|this, _, window, cx| this.confirm(window, cx)))
+                            .style(ButtonStyle::Filled),
+                    ),
+            )
+    }
 }
 
 impl Render for ManageProfilesModal {
@@ -1232,6 +1477,9 @@ impl Render for ManageProfilesModal {
                 }
                 Mode::ConfigureInstructions(mode) => self
                     .render_configure_instructions(mode.clone(), window, cx)
+                    .into_any_element(),
+                Mode::ConfigureDeepResearch(mode) => self
+                    .render_configure_deep_research(mode.clone(), window, cx)
                     .into_any_element(),
             })
     }

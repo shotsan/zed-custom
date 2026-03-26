@@ -528,7 +528,11 @@ impl MessageEditor {
         let supports_embedded_context = self.prompt_capabilities.borrow().embedded_context;
         let http_client = self.workspace.upgrade().map(|w| w.read(cx).client().http_client());
         let agent_settings = AgentSettings::get_global(cx).clone();
+        let active_model = language_model::LanguageModelRegistry::read_global(cx)
+            .default_model()
+            .map(|m| m.model);
 
+        let tokio_handle = gpui_tokio::Tokio::handle(cx);
         cx.spawn(async move |_, cx| {
             let (mut user_commands, mut user_command_errors) = match user_slash_commands {
                 UserSlashCommands::Cached { commands, errors } => (commands, errors),
@@ -616,6 +620,48 @@ impl MessageEditor {
                                 ));
                             }
                         }
+                    }
+                }
+
+                if parsed.name == "deep-research" && !parsed.raw_arguments.is_empty() {
+                    if let Some(http_client) = http_client.clone() {
+                        let topic = parsed.raw_arguments.to_string();
+                        let queries = agent::expand_topic(
+                            http_client.clone(),
+                            &topic,
+                            None,
+                            agent_settings.deep_research.search_system_prompt.as_ref().map(|s| s.as_ref()),
+                            active_model.clone(),
+                            &mut *cx
+                        ).await.unwrap_or_else(|_| vec![topic.clone()]);
+                        let active_model_clone = active_model.clone();
+                        let mut cx_clone = cx.clone();
+                        let tokio_handle_clone = tokio_handle.clone();
+                        let raw_report = cx.foreground_executor().spawn({
+                            let http_client = http_client.clone();
+                            let topic = topic.clone();
+                            let queries = queries.clone();
+                            let max_tabs = agent_settings.clone().deep_research.max_concurrent_tabs;
+                            let gap_analysis_prompt = agent_settings.clone().deep_research.gap_analysis_system_prompt.as_ref().map(|s| s.to_string());
+                            let tokio_handle = tokio_handle_clone;
+                            async move {
+                                 agent::run_deep_research_bg(http_client, topic, queries, None, max_tabs, None, active_model_clone, &mut cx_clone, tokio_handle, gap_analysis_prompt).await
+                            }
+                        }).await.map_err(|e| anyhow::anyhow!("Deep Research failed: {}", e))?;
+                        
+                        let text = agent::condense_report(
+                            http_client,
+                            &topic,
+                            &raw_report,
+                            agent_settings.deep_research.condensation_system_prompt.as_ref().map(|s| s.as_ref()),
+                            active_model,
+                            &mut *cx
+                        ).await.unwrap_or_else(|_| raw_report.clone());
+                        
+                        return Ok((
+                            vec![acp::ContentBlock::Text(acp::TextContent::new(text))],
+                            Vec::new(),
+                        ));
                     }
                 }
             }

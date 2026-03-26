@@ -1,5 +1,6 @@
 pub mod acp;
 mod agent_configuration;
+mod deep_research_command;
 mod agent_diff;
 mod agent_model_selector;
 mod agent_panel;
@@ -502,6 +503,7 @@ fn register_slash_commands(cx: &mut App) {
     slash_command_registry.register_command(assistant_slash_commands::FetchSlashCommand, true);
     slash_command_registry.register_command(assistant_slash_commands::SearchSlashCommand, true);
     slash_command_registry.register_command(assistant_slash_commands::CustomSearchSlashCommand, true);
+    slash_command_registry.register_command(deep_research_command::DeepResearchSlashCommand, true);
 
     cx.observe_flag::<assistant_slash_commands::StreamingExampleSlashCommandFeatureFlag, _>({
         move |is_enabled, _cx| {

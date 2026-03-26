@@ -141,6 +141,10 @@ pub struct AgentSettingsContent {
     pub tool_permissions: Option<ToolPermissionsContent>,
     /// Configuration for custom search.
     pub custom_search: Option<CustomSearchSettingsContent>,
+    /// Configuration for elastic search.
+    pub elastic_search: Option<ElasticSearchSettingsContent>,
+    /// Configuration for deep research.
+    pub deep_research: Option<DeepResearchSettingsContent>,
 }
 
 #[with_fallible_options]
@@ -149,6 +153,34 @@ pub struct CustomSearchSettingsContent {
     pub endpoint_url: Option<String>,
     pub api_key: Option<String>,
 }
+
+#[with_fallible_options]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom)]
+pub struct ElasticSearchSettingsContent {
+    pub endpoint_url: Option<String>,
+    pub api_key: Option<String>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, Default, MergeFrom)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchProviderContent {
+    #[default]
+    Duckduckgo,
+    Google,
+    Tavily,
+}
+
+#[with_fallible_options]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom)]
+pub struct DeepResearchSettingsContent {
+    pub max_concurrent_tabs: Option<usize>,
+    pub max_depth: Option<usize>,
+    pub search_provider: Option<SearchProviderContent>,
+    pub search_system_prompt: Option<String>,
+    pub gap_analysis_system_prompt: Option<String>,
+    pub condensation_system_prompt: Option<String>,
+}
+
 
 impl AgentSettingsContent {
     pub fn set_dock(&mut self, dock: DockPosition) {
@@ -275,6 +307,7 @@ pub struct AgentProfileContent {
     pub instructions: Option<Arc<str>>,
     /// A custom system prompt for this profile that overrides the entire default prompt.
     pub system_prompt: Option<Arc<str>>,
+    pub deep_research: Option<DeepResearchSettingsContent>,
 }
 
 #[with_fallible_options]

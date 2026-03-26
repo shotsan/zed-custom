@@ -439,6 +439,14 @@
       "endpoint_url": "http://52.179.183.195:9200",
       "api_key": null
     },
+    "deep_research": {
+      "max_concurrent_tabs": 10,
+      "max_depth": 3,
+      "search_provider": "duckduckgo",
+      "search_system_prompt": "You are a world-class investigative research analyst. Your task is to expand the provided topic into 6 highly specific and diverse search queries.\nEnsure you target a broad spectrum of data sources:\n1. Official Company Statements (Investor Relations, Annual Reports, SEC filings).\n2. Technical Specifications or GitHub repositories.\n3. Financial and Market Analysis (diverse providers).\n4. Recent Press Releases and News.\n5. Expert critiques or technical white papers.\n\nAvoid duplicate queries. Each query must target a distinct 'angle' of the topic.\nProvide ONLY the queries, one per line, with no extra text or formatting.",
+      "gap_analysis_system_prompt": "You are a world-class investigative researcher. You have been researching '{{topic}}'.\nIdentify 3 critical information gaps or missing specific data points (e.g., hard numbers, specific projections, competitive nuances) that were NOT found in the content so far.\nGenerate 3 highly specific search queries to find this missing information.\nReturn ONLY the 3 queries, one per line.",
+      "condensation_system_prompt": "You are an expert technical researcher synthesizing deep research data.\nAnalyze the raw research material from MULTIPLE sources and provide a highly detailed, coherent, and comprehensive Markdown report.\nCiting multiple diverse sources is CRITICAL. Do not rely on just one primary source if others are available.\nSynthesize cross-source data points to provide the most authoritative view."
+    },
     "single_file_review": true,
     "enable_feedback": true,
     "default_profile": "write",

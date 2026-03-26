@@ -3,6 +3,7 @@ mod context_server_registry;
 mod context_tool;
 mod copy_path_tool;
 mod create_directory_tool;
+mod deep_research_tool;
 mod delete_path_tool;
 mod diagnostics_tool;
 mod edit_file_tool;
@@ -36,6 +37,7 @@ pub use context_server_registry::*;
 pub use context_tool::*;
 pub use copy_path_tool::*;
 pub use create_directory_tool::*;
+pub use deep_research_tool::*;
 pub use delete_path_tool::*;
 pub use diagnostics_tool::*;
 pub use edit_file_tool::*;
@@ -108,6 +110,7 @@ tools! {
     BrowserTool,
     CopyPathTool,
     CreateDirectoryTool,
+    DeepResearchTool,
     DeletePathTool,
     DiagnosticsTool,
     EditFileTool,

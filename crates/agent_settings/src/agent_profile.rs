@@ -77,6 +77,10 @@ impl AgentProfile {
             .as_ref()
             .and_then(|profile| profile.system_prompt.clone());
 
+        let deep_research = base_profile
+            .map(|profile| profile.deep_research.clone())
+            .unwrap_or_default();
+
         let profile_settings = AgentProfileSettings {
             name: name.into(),
             tools,
@@ -85,6 +89,7 @@ impl AgentProfile {
             default_model,
             instructions,
             system_prompt,
+            deep_research,
         };
 
         update_settings_file(fs, cx, {
@@ -119,6 +124,7 @@ pub struct AgentProfileSettings {
     pub default_model: Option<LanguageModelSelection>,
     pub instructions: Option<SharedString>,
     pub system_prompt: Option<SharedString>,
+    pub deep_research: crate::DeepResearchSettings,
 }
 
 impl AgentProfileSettings {
@@ -170,6 +176,20 @@ impl AgentProfileSettings {
                 default_model: self.default_model.clone(),
                 instructions: self.instructions.clone().map(|s| s.into()),
                 system_prompt: self.system_prompt.clone().map(|s| s.into()),
+                deep_research: Some(settings::DeepResearchSettingsContent {
+                    max_depth: Some(self.deep_research.max_depth),
+                    max_concurrent_tabs: Some(self.deep_research.max_concurrent_tabs),
+                    search_provider: Some(match self.deep_research.search_provider {
+                        crate::SearchProvider::Google => settings::SearchProviderContent::Google,
+                        crate::SearchProvider::Tavily => settings::SearchProviderContent::Tavily,
+                        crate::SearchProvider::Duckduckgo => {
+                            settings::SearchProviderContent::Duckduckgo
+                        }
+                    }),
+                    search_system_prompt: self.deep_research.search_system_prompt.clone().map(|s| s.to_string()),
+                    gap_analysis_system_prompt: self.deep_research.gap_analysis_system_prompt.clone().map(|s| s.to_string()),
+                    condensation_system_prompt: self.deep_research.condensation_system_prompt.clone().map(|s| s.to_string()),
+                }),
             },
         );
 
@@ -187,6 +207,7 @@ impl From<AgentProfileContent> for AgentProfileSettings {
             default_model,
             instructions,
             system_prompt,
+            deep_research,
         } = content;
 
         Self {
@@ -200,6 +221,27 @@ impl From<AgentProfileContent> for AgentProfileSettings {
             default_model,
             instructions: instructions.map(|s| s.into()),
             system_prompt: system_prompt.map(|s| s.into()),
+            deep_research: deep_research
+                .map(|v| {
+                    let provider = match v.search_provider {
+                        Some(settings::SearchProviderContent::Google) => {
+                            crate::SearchProvider::Google
+                        }
+                        Some(settings::SearchProviderContent::Tavily) => {
+                            crate::SearchProvider::Tavily
+                        }
+                        _ => crate::SearchProvider::Duckduckgo,
+                    };
+                    crate::DeepResearchSettings {
+                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(5),
+                        max_depth: v.max_depth.unwrap_or(3),
+                        search_provider: provider,
+                        search_system_prompt: v.search_system_prompt.map(Into::into),
+                        gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),
+                        condensation_system_prompt: v.condensation_system_prompt.map(Into::into),
+                    }
+                })
+                .unwrap_or_default(),
         }
     }
 }

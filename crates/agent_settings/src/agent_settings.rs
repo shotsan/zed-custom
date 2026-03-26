@@ -55,10 +55,49 @@ pub struct AgentSettings {
     pub enable_prompt_caching: bool,
     pub tool_permissions: ToolPermissions,
     pub custom_search: Option<CustomSearchSettings>,
+    pub elastic_search: Option<ElasticSearchSettings>,
+    pub deep_research: DeepResearchSettings,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub enum SearchProvider {
+    #[default]
+    Duckduckgo,
+    Google,
+    Tavily,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeepResearchSettings {
+    pub max_concurrent_tabs: usize,
+    pub max_depth: usize,
+    pub search_provider: SearchProvider,
+    pub search_system_prompt: Option<SharedString>,
+    pub gap_analysis_system_prompt: Option<SharedString>,
+    pub condensation_system_prompt: Option<SharedString>,
+}
+
+impl Default for DeepResearchSettings {
+    fn default() -> Self {
+        Self {
+            max_concurrent_tabs: 10,
+            max_depth: 3,
+            search_provider: SearchProvider::Duckduckgo,
+            search_system_prompt: None,
+            gap_analysis_system_prompt: None,
+            condensation_system_prompt: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CustomSearchSettings {
+    pub endpoint_url: String,
+    pub api_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ElasticSearchSettings {
     pub endpoint_url: String,
     pub api_key: Option<String>,
 }
@@ -279,6 +318,35 @@ impl Settings for AgentSettings {
                 endpoint_url: v.endpoint_url.unwrap_or_default(),
                 api_key: v.api_key,
             }),
+            elastic_search: agent.elastic_search.map(|v| ElasticSearchSettings {
+                endpoint_url: v.endpoint_url.unwrap_or_default(),
+                api_key: v.api_key,
+            }),
+            deep_research: agent
+                .deep_research
+                .map(|v| {
+                    let provider = match v.search_provider {
+                        Some(settings::SearchProviderContent::Google) => SearchProvider::Google,
+                        Some(settings::SearchProviderContent::Tavily) => SearchProvider::Tavily,
+                        _ => SearchProvider::Duckduckgo,
+                    };
+                    DeepResearchSettings {
+                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(5),
+                        max_depth: v.max_depth.unwrap_or(3),
+                        search_provider: provider,
+                        search_system_prompt: v.search_system_prompt.map(Into::into),
+                        gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),
+                        condensation_system_prompt: v.condensation_system_prompt.map(Into::into),
+                    }
+                })
+                .unwrap_or_else(|| DeepResearchSettings {
+                    max_concurrent_tabs: 5,
+                    max_depth: 3,
+                    search_provider: SearchProvider::Duckduckgo,
+                    search_system_prompt: None,
+                    gap_analysis_system_prompt: None,
+                    condensation_system_prompt: None,
+                }),
         }
     }
 }

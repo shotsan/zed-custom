@@ -1436,6 +1436,7 @@ impl Thread {
         self.add_tool(CustomSearchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(SearchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(BrowserTool::new(self.project.read(cx).client().http_client()));
+        self.add_tool(crate::DeepResearchTool::new(self.project.read(cx).client().http_client()));
         self.add_tool(FindPathTool::new(self.project.clone()));
         self.add_tool(GrepTool::new(self.project.clone()));
         self.add_tool(ListDirectoryTool::new(self.project.clone()));

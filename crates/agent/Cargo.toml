@@ -53,6 +53,7 @@ lsp.workspace = true
 open.workspace = true
 parking_lot.workspace = true
 paths.workspace = true
+percent-encoding.workspace = true
 project.workspace = true
 prompt_store.workspace = true
 regex.workspace = true
