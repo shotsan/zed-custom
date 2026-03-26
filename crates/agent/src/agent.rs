@@ -73,8 +73,9 @@ pub struct RulesLoadingError {
 struct Session {
     /// The internal thread that processes messages
     thread: Entity<Thread>,
-    /// The ACP thread that handles protocol communication
-    acp_thread: WeakEntity<acp_thread::AcpThread>,
+    /// The ACP thread that handles protocol communication — held strongly so that
+    /// switching tabs does not release AcpThread and cancel any in-progress work.
+    acp_thread: Entity<acp_thread::AcpThread>,
     pending_save: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -403,13 +404,16 @@ impl NativeAgent {
         });
 
         let subscriptions = vec![
-            cx.observe_release(&acp_thread, |this, acp_thread, _cx| {
-                this.sessions.remove(acp_thread.session_id());
-            }),
             cx.subscribe(&thread_handle, Self::handle_thread_title_updated),
             cx.subscribe(&thread_handle, Self::handle_thread_token_usage_updated),
             cx.observe(&thread_handle, move |this, thread, cx| {
                 this.save_thread(thread, cx)
+            }),
+            // Clean up sessions for threads that have been deleted from the store.
+            cx.observe(&self.thread_store, |this, store, cx| {
+                let store = store.read(cx);
+                this.sessions
+                    .retain(|id, _| store.thread_from_session_id(id).is_some());
             }),
         ];
 
@@ -417,7 +421,7 @@ impl NativeAgent {
             session_id,
             Session {
                 thread: thread_handle,
-                acp_thread: acp_thread.downgrade(),
+                acp_thread: acp_thread.clone(),
                 _subscriptions: subscriptions,
                 pending_save: Task::ready(()),
             },
@@ -637,7 +641,7 @@ impl NativeAgent {
             return;
         };
         let thread = thread.downgrade();
-        let acp_thread = session.acp_thread.clone();
+        let acp_thread = session.acp_thread.downgrade();
         cx.spawn(async move |_, cx| {
             let title = thread.read_with(cx, |thread, _| thread.title())?;
             let task = acp_thread.update(cx, |acp_thread, cx| acp_thread.set_title(title, cx))?;
@@ -659,8 +663,7 @@ impl NativeAgent {
             .acp_thread
             .update(cx, |acp_thread, cx| {
                 acp_thread.update_token_usage(usage.0.clone(), cx);
-            })
-            .ok();
+            });
     }
 
     fn handle_project_event(
@@ -746,18 +749,16 @@ impl NativeAgent {
     fn update_available_commands(&self, cx: &mut Context<Self>) {
         let available_commands = self.build_available_commands(cx);
         for session in self.sessions.values() {
-            if let Some(acp_thread) = session.acp_thread.upgrade() {
-                acp_thread.update(cx, |thread, cx| {
-                    thread
-                        .handle_session_update(
-                            acp::SessionUpdate::AvailableCommandsUpdate(
-                                acp::AvailableCommandsUpdate::new(available_commands.clone()),
-                            ),
-                            cx,
-                        )
-                        .log_err();
-                });
-            }
+            session.acp_thread.update(cx, |thread, cx| {
+                thread
+                    .handle_session_update(
+                        acp::SessionUpdate::AvailableCommandsUpdate(
+                            acp::AvailableCommandsUpdate::new(available_commands.clone()),
+                        ),
+                        cx,
+                    )
+                    .log_err();
+            });
         }
     }
 
@@ -855,6 +856,21 @@ impl NativeAgent {
         id: acp::SessionId,
         cx: &mut Context<Self>,
     ) -> Task<Result<Entity<AcpThread>>> {
+        // If the session is already live (e.g., research is running), reuse the
+        // existing Thread entity. Creating a new Thread from DB would replace the
+        // session, drop the old Thread, and cancel any in-progress RunningTurn.
+        if let Some(existing_thread) = self.sessions.get(&id).map(|s| s.thread.clone()) {
+            let acp_thread = self.register_session(existing_thread.clone(), cx);
+            let events = existing_thread.update(cx, |thread, cx| thread.replay(cx));
+            return cx.spawn(async move |_, cx| {
+                cx.update(|cx| {
+                    NativeAgentConnection::handle_thread_events(events, acp_thread.downgrade(), cx)
+                })
+                .await?;
+                Ok(acp_thread)
+            });
+        }
+
         let task = self.load_thread(id, cx);
         cx.spawn(async move |this, cx| {
             let thread = task.await?;
@@ -936,7 +952,7 @@ impl NativeAgent {
                     .sessions
                     .get(&session_id)
                     .context("Failed to get session")?;
-                anyhow::Ok((session.acp_thread.clone(), session.thread.clone()))
+                anyhow::Ok((session.acp_thread.downgrade(), session.thread.clone()))
             })??;
 
             let mut last_is_user = true;
@@ -1053,7 +1069,7 @@ impl NativeAgentConnection {
             Ok(stream) => stream,
             Err(err) => return Task::ready(Err(err)),
         };
-        Self::handle_thread_events(response_stream, acp_thread, cx)
+        Self::handle_thread_events(response_stream, acp_thread.downgrade(), cx)
     }
 
     fn handle_thread_events(
@@ -1500,7 +1516,7 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
             agent.sessions.get(session_id).map(|session| {
                 Rc::new(NativeAgentSessionTruncate {
                     thread: session.thread.clone(),
-                    acp_thread: session.acp_thread.clone(),
+                    acp_thread: session.acp_thread.downgrade(),
                 }) as _
             })
         })
