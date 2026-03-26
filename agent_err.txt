@@ -1,0 +1,59 @@
+    Checking agent v0.1.0 (/Users/sillydon/Desktop/zed/crates/agent)
+error[E0308]: mismatched types
+   --> crates/agent/src/tools/deep_research_tool.rs:268:16
+    |
+268 | ...et Ok(mut stream) = model.stream_completion_text(request, async_cx) {
+    |       ^^^^^^^^^^^^^^   ----------------------------------------------- this expression has type `Pin<Box<...>>`
+    |       |
+    |       expected `Pin<Box<...>>`, found `Result<_, _>`
+    |
+    = note: expected struct `Pin<Box<...>>`
+                 found enum `std::result::Result<_, _>`
+    = note: the full name for the type has been written to '/Users/sillydon/Desktop/zed/target/debug/deps/agent-debb3bfa3c7379db.long-type-1160790559872817456.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> crates/agent/src/tools/deep_research_tool.rs:272:27
+    |
+272 |                 if let Ok(text) = chunk {
+    |                           ^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+    = note: all local variables must have a statically known size
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> crates/agent/src/tools/deep_research_tool.rs:272:24
+    |
+272 |                 if let Ok(text) = chunk {
+    |                        ^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by a bound in `std::prelude::v1::Ok`
+   --> /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/result.rs:561:5
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> crates/agent/src/tools/deep_research_tool.rs:271:58
+    |
+271 |             while let Some(chunk) = stream.stream.next().await {
+    |                                                          ^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by an implicit `Sized` bound in `std::result::Result`
+   --> /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/result.rs:557:1
+
+error[E0382]: use of moved value: `model`
+   --> crates/agent/src/tools/deep_research_tool.rs:110:78
+    |
+ 94 | ...ns.as_ref(), model, &mut async_cx).await;
+    |                 ----- value moved here
+...
+110 | ...&raw_report, model, &mut async_cx).await;
+    |                 ^^^^^ value used here after move
+    |
+    = note: move occurs because `model` has type `Option<Arc<dyn LanguageModel>>`, which does not implement the `Copy` trait
+    = note: the full name for the type has been written to '/Users/sillydon/Desktop/zed/target/debug/deps/agent-debb3bfa3c7379db.long-type-3368368785347549349.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+Some errors have detailed explanations: E0277, E0308, E0382.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `agent` (lib) due to 5 previous errors

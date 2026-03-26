@@ -112,11 +112,12 @@ impl AgentTool for DeepResearchTool {
                 let queries = queries.clone();
                 let domains = input.domains.clone();
                 let max_concurrent_tabs = settings.max_concurrent_tabs;
+                let max_iterations = settings.max_depth;
                 let event_stream = event_stream_clone;
                 let tokio_handle = tokio_handle.clone();
                 let gap_analysis_prompt = settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string());
                 async move {
-                    run_deep_research_bg(http_client, topic, queries, domains, max_concurrent_tabs, Some(event_stream), model_clone, &mut async_cx_clone, tokio_handle, gap_analysis_prompt).await
+                    run_deep_research_bg(http_client, topic, queries, domains, max_concurrent_tabs, max_iterations, Some(event_stream), model_clone, &mut async_cx_clone, tokio_handle, gap_analysis_prompt).await
                 }
             });
 
@@ -214,6 +215,7 @@ pub async fn run_deep_research_bg(
     queries: Vec<String>,
     domains: Option<Vec<String>>,
     max_concurrent_tabs: usize,
+    max_iterations: usize,
     event_stream: Option<ToolCallEventStream>,
     model: Option<Arc<dyn language_model::LanguageModel>>,
     async_cx: &mut gpui::AsyncApp,
@@ -299,7 +301,6 @@ pub async fn run_deep_research_bg(
     }
 
     let mut iteration = 1;
-    let max_iterations = 2; // Increase complexity carefully
     
     while iteration <= max_iterations && successful_results.len() < max_concurrent_tabs && !research_pool.is_empty() {
         log_message(format!("🚀 Iteration {}: Fetching and analyzing {} priority sources...", iteration, (max_concurrent_tabs - successful_results.len()).min(research_pool.len())), None);
@@ -347,8 +348,10 @@ pub async fn run_deep_research_bg(
             }
         }
         
-        // After iteration 1, ask the LLM for missing gaps and generate NEW queries
-        if iteration == 1 && successful_results.len() < max_concurrent_tabs {
+        // Run gap analysis after every iteration except the last, as long as there are
+        // still unfilled slots. This makes max_depth > 2 genuinely discover new sources
+        // rather than just exhausting the existing pool.
+        if iteration < max_iterations && successful_results.len() < max_concurrent_tabs {
             log_message("🧠 Identifying information gaps for targeted follow-up...".to_string(), None);
             if let Some(model) = model.as_ref() {
                 let mut collected_text = String::new();

@@ -642,10 +642,11 @@ impl MessageEditor {
                             let topic = topic.clone();
                             let queries = queries.clone();
                             let max_tabs = agent_settings.clone().deep_research.max_concurrent_tabs;
+                            let max_iterations = agent_settings.clone().deep_research.max_depth;
                             let gap_analysis_prompt = agent_settings.clone().deep_research.gap_analysis_system_prompt.as_ref().map(|s| s.to_string());
                             let tokio_handle = tokio_handle_clone;
                             async move {
-                                 agent::run_deep_research_bg(http_client, topic, queries, None, max_tabs, None, active_model_clone, &mut cx_clone, tokio_handle, gap_analysis_prompt).await
+                                 agent::run_deep_research_bg(http_client, topic, queries, None, max_tabs, max_iterations, None, active_model_clone, &mut cx_clone, tokio_handle, gap_analysis_prompt).await
                             }
                         }).await.map_err(|e| anyhow::anyhow!("Deep Research failed: {}", e))?;
                         
