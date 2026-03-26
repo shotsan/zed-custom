@@ -1425,6 +1425,31 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
                     )
                 });
             };
+
+            if parsed_command.prompt_name == "deep-research" && !parsed_command.arg_value.is_empty() {
+                let topic = parsed_command.arg_value.to_string();
+                let path_style = self.0.read(cx).project.read(cx).path_style(cx);
+                let user_content: Vec<UserMessageContent> = params
+                    .prompt
+                    .into_iter()
+                    .map(|block| UserMessageContent::from_content_block(block, path_style))
+                    .collect();
+                let tool_input = serde_json::json!({ "topic": topic });
+                let tool_title: SharedString = format!("🔍 Deep Research: {}", topic).into();
+
+                return self.run_turn(session_id, cx, move |thread, cx| {
+                    thread.update(cx, |thread, cx| {
+                        thread.start_direct_tool_run(
+                            id,
+                            user_content,
+                            "deep_research",
+                            tool_title,
+                            tool_input,
+                            cx,
+                        )
+                    })
+                });
+            }
         };
 
         let path_style = self.0.read(cx).project.read(cx).path_style(cx);

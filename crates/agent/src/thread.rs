@@ -1884,6 +1884,111 @@ impl Thread {
         cx.notify();
     }
 
+    /// Runs a registered tool directly, without going through an LLM turn.
+    /// Immediately adds the user message and a tool call card to the thread,
+    /// then awaits the tool result and appends it as an agent message.
+    /// Returns the event stream receiver for the caller to forward to the UI.
+    pub fn start_direct_tool_run(
+        &mut self,
+        user_message_id: UserMessageId,
+        user_message_content: Vec<UserMessageContent>,
+        tool_name: &str,
+        tool_title: SharedString,
+        tool_input: serde_json::Value,
+        cx: &mut Context<Self>,
+    ) -> Result<mpsc::UnboundedReceiver<Result<ThreadEvent>>> {
+        self.flush_pending_message(cx);
+        self.cancel(cx).detach();
+
+        let model = self.model().context("No language model configured")?;
+        let profile = AgentSettings::get_global(cx)
+            .profiles
+            .get(&self.profile_id)
+            .context("Profile not found")?;
+        let tools = self.enabled_tools(profile, &model, cx);
+        let tool = tools
+            .get(tool_name)
+            .with_context(|| format!("Tool '{}' not found or not enabled in current profile", tool_name))?
+            .clone();
+
+        self.messages.push(Message::User(UserMessage {
+            id: user_message_id,
+            content: user_message_content,
+        }));
+        cx.notify();
+
+        let (events_tx, events_rx) = mpsc::unbounded::<Result<ThreadEvent>>();
+        let event_stream = ThreadEventStream(events_tx);
+        let (cancellation_tx, cancellation_rx) = watch::channel(false);
+        let tool_use_id: LanguageModelToolUseId = uuid::Uuid::new_v4().to_string().into();
+
+        event_stream.send_tool_call(
+            &tool_use_id,
+            tool_name,
+            tool_title,
+            acp::ToolKind::Execute,
+            tool_input.clone(),
+        );
+
+        let fs = self.project.read(cx).fs().clone();
+        let tool_event_stream = ToolCallEventStream::new(
+            tool_use_id.clone(),
+            event_stream.clone(),
+            Some(fs),
+            cancellation_rx,
+        );
+        tool_event_stream.update_fields(
+            acp::ToolCallUpdateFields::new().status(acp::ToolCallStatus::InProgress),
+        );
+
+        let tool_result_task = tool.run(tool_input, tool_event_stream, cx);
+
+        let running_task = cx.spawn({
+            let event_stream = event_stream.clone();
+            let tool_use_id = tool_use_id.clone();
+            async move |this, cx| {
+                let result = tool_result_task.await;
+                match result {
+                    Ok(output) => {
+                        event_stream.update_tool_call_fields(
+                            &tool_use_id,
+                            acp::ToolCallUpdateFields::new().status(acp::ToolCallStatus::Completed),
+                        );
+                        if let LanguageModelToolResultContent::Text(text) = output.llm_output {
+                            let text = text.to_string();
+                            this.update(cx, |thread, cx| {
+                                thread.messages.push(Message::Agent(AgentMessage {
+                                    content: vec![AgentMessageContent::Text(text)],
+                                    ..Default::default()
+                                }));
+                                cx.notify();
+                            })
+                            .ok();
+                        }
+                        event_stream.send_stop(acp::StopReason::EndTurn);
+                    }
+                    Err(error) => {
+                        event_stream.update_tool_call_fields(
+                            &tool_use_id,
+                            acp::ToolCallUpdateFields::new().status(acp::ToolCallStatus::Failed),
+                        );
+                        event_stream.send_error(error);
+                    }
+                }
+                this.update(cx, |this, _| this.running_turn.take()).ok();
+            }
+        });
+
+        self.running_turn = Some(RunningTurn {
+            _task: running_task,
+            event_stream,
+            tools,
+            cancellation_tx,
+        });
+
+        Ok(events_rx)
+    }
+
     #[cfg(feature = "eval")]
     pub fn proceed(
         &mut self,
