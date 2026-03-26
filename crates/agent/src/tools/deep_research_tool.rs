@@ -330,6 +330,7 @@ pub async fn run_deep_research_bg(
             let is_failure = summary.starts_with('(');
             if is_failure {
                 log::warn!("❌ Deep Research: Blocked or Failed: {} ({})", res.url, summary);
+                log_message(format!("❌ {} — {}", res.title, res.url), None);
                 status_entries.push(StatusEntry {
                     status: format!("❌ Failed: {}", summary),
                     idx: status_entries.len() + 1,
@@ -338,6 +339,7 @@ pub async fn run_deep_research_bg(
                 });
             } else {
                 log::info!("✅ Deep Research: Successfully analyzed: {}", res.url);
+                log_message(format!("✅ {} — {}", res.title, res.url), None);
                 status_entries.push(StatusEntry {
                     status: "✅ Analyzed".to_string(),
                     idx: status_entries.len() + 1,
