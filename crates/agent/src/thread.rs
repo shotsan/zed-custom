@@ -1956,6 +1956,7 @@ impl Thread {
                         );
                         if let LanguageModelToolResultContent::Text(text) = output.llm_output {
                             let text = text.to_string();
+                            event_stream.send_text(&text);
                             this.update(cx, |thread, cx| {
                                 thread.messages.push(Message::Agent(AgentMessage {
                                     content: vec![AgentMessageContent::Text(text)],
