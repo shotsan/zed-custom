@@ -28,6 +28,7 @@ export default defineConfig({
                     { text: 'Long-Term Memory', link: '/features/memory' },
                     { text: 'Auto Context Compression', link: '/features/context-compression' },
                     { text: 'Headless Web Search', link: '/features/search' },
+                    { text: 'Deep Research Tool', link: '/features/tools/deep-research' },
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
                     { text: 'Prompt Caching Logic', link: '/features/prompt-caching' },
                     { text: 'LSP Symbol Search', link: '/features/lsp' },
@@ -42,6 +43,7 @@ export default defineConfig({
                     { text: 'Memory: recall', link: '/features/tools/recall' },
                     { text: 'Web: search', link: '/features/tools/search' },
                     { text: 'Web: fetch', link: '/features/tools/fetch' },
+                    { text: 'Web: deep_research', link: '/features/tools/deep-research' },
                     { text: 'LSP: context', link: '/features/tools/context' },
                     { text: 'Custom Search: custom_search + /custom-search', link: '/features/tools/custom-search' }
                 ]
