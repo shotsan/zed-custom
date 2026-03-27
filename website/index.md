@@ -21,9 +21,6 @@ features:
   - title: 📚 Skill Library
     details: A modular prompt management system. Save refined prompts as "Skills" and hot-swap AI expertise (expert coding, auditing, architecture) instantly.
     link: /features/skill-library
-  - title: 👤 Agent Profiles
-    details: Configure specialized capabilities, Context (MCP) Servers, tools, and default LLM bindings directly from the GUI.
-    link: /features/agent-profiles
   - title: 🧠 Long-Term Memory
     details: Persistent SQLite database that stores project context across restarts. No more context amnesia.
     link: /features/memory
