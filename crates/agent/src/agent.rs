@@ -859,16 +859,8 @@ impl NativeAgent {
         // If the session is already live (e.g., research is running), reuse the
         // existing Thread entity. Creating a new Thread from DB would replace the
         // session, drop the old Thread, and cancel any in-progress RunningTurn.
-        if let Some(existing_thread) = self.sessions.get(&id).map(|s| s.thread.clone()) {
-            let acp_thread = self.register_session(existing_thread.clone(), cx);
-            let events = existing_thread.update(cx, |thread, cx| thread.replay(cx));
-            return cx.spawn(async move |_, cx| {
-                cx.update(|cx| {
-                    NativeAgentConnection::handle_thread_events(events, acp_thread.downgrade(), cx)
-                })
-                .await?;
-                Ok(acp_thread)
-            });
+        if let Some(session) = self.sessions.get(&id) {
+            return Task::ready(Ok(session.acp_thread.clone()));
         }
 
         let task = self.load_thread(id, cx);

@@ -105,38 +105,54 @@ impl AgentTool for DeepResearchTool {
             
             let event_stream_clone = event_stream.clone();
             let model_clone = model.clone();
-            let mut async_cx_clone = async_cx.clone();
-            let bg_task = async_cx.foreground_executor().spawn({
-                let http_client = http_client.clone();
-                let topic = input.topic.clone();
-                let queries = queries.clone();
-                let domains = input.domains.clone();
-                let max_concurrent_tabs = settings.max_concurrent_tabs;
-                let max_iterations = settings.max_depth;
-                let event_stream = event_stream_clone;
-                let tokio_handle = tokio_handle.clone();
-                let gap_analysis_prompt = settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string());
-                async move {
-                    run_deep_research_bg(http_client, topic, queries, domains, max_concurrent_tabs, max_iterations, Some(event_stream), model_clone, &mut async_cx_clone, tokio_handle, gap_analysis_prompt).await
-                }
-            });
-
-
+            let mut async_cx_recursive = async_cx.clone();
             
-            match bg_task.await {
-                Ok(raw_report) => {
-                    let summary = condense_report(
+            let tokio_handle_inner = tokio_handle.clone();
+            let raw_report = {
+                let _guard = tokio_handle_inner.enter();
+                run_deep_research_bg(
+                    http_client.clone(),
+                    input.topic.clone(),
+                    queries,
+                    input.domains.clone(),
+                    settings.max_concurrent_tabs,
+                    settings.max_depth,
+                    Some(event_stream_clone),
+                    model_clone.clone(),
+                    &mut async_cx_recursive,
+                    tokio_handle_inner.clone(),
+                    settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string())
+                ).await?
+            };
+
+            let event_stream = event_stream.clone();
+            let topic = input.topic.clone();
+            let condensation_prompt = settings.condensation_system_prompt.as_ref().map(|s| s.to_string());
+            let report_for_synthesis = raw_report.clone();
+            let model_for_synthesis = model.clone();
+            let mut async_cx_for_synthesis = async_cx.clone();
+            
+            let summary_result = {
+                let _guard = tokio_handle.enter();
+                tokio::time::timeout(std::time::Duration::from_secs(120), async move {
+                     event_stream.push_log("🧠 Synthesizing final research report...".to_string());
+                     condense_report(
                         http_client,
-                        &input.topic,
-                        &raw_report,
-                        settings.condensation_system_prompt.as_ref().map(|s| s.as_ref()),
-                        model,
-                        &mut async_cx
-                    ).await.unwrap_or_else(|_| raw_report);
-                    Ok(DeepResearchToolOutput { report: summary })
-                }
-                Err(e) => Ok(DeepResearchToolOutput { report: format!("Failed deep research: {}", e) }),
-            }
+                        &topic,
+                        &report_for_synthesis,
+                        condensation_prompt.as_deref(),
+                        model_for_synthesis,
+                        &mut async_cx_for_synthesis
+                    ).await
+                }).await
+            };
+
+            let final_report = match summary_result {
+                Ok(Ok(summary)) => summary,
+                _ => raw_report,
+            };
+
+            Ok(DeepResearchToolOutput { report: final_report })
         })
     }
 }
@@ -223,19 +239,23 @@ pub async fn run_deep_research_bg(
     gap_analysis_custom_prompt: Option<String>,
 ) -> anyhow::Result<String> {
 
-    let mut logs = Vec::new();
+    let mut logs = if let Some(es) = &event_stream {
+        if let Some(sl) = &es.shared_logs {
+            sl.lock().clone()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
     let mut log_message = |message: String, title: Option<String>| {
-        logs.push(message.clone());
         if let Some(event_stream) = &event_stream {
-            let mut fields = acp::ToolCallUpdateFields::new().content(
-                logs.iter()
-                    .map(|l: &String| acp::ToolCallContent::from(l.clone()))
-                    .collect::<Vec<acp::ToolCallContent>>()
-            );
             if let Some(t) = title {
-                fields = fields.title(t);
+                event_stream.update_fields(acp::ToolCallUpdateFields::new().title(t));
             }
-            event_stream.update_fields(fields);
+            event_stream.push_log(message);
+        } else {
+            logs.push(message);
         }
     };
 
@@ -301,28 +321,23 @@ pub async fn run_deep_research_bg(
     }
 
     let mut iteration = 1;
-    
     while iteration <= max_iterations && successful_results.len() < max_concurrent_tabs && !research_pool.is_empty() {
-        log_message(format!("🚀 Iteration {}: Fetching and analyzing {} priority sources...", iteration, (max_concurrent_tabs - successful_results.len()).min(research_pool.len())), None);
-        log::info!("🚀 Deep Research: Iteration {} starting fetch...", iteration);
-        
         let mut candidates_to_fetch = Vec::new();
-        while candidates_to_fetch.len() < (max_concurrent_tabs - successful_results.len()) && !research_pool.is_empty() {
+        while candidates_to_fetch.len() < max_concurrent_tabs && !research_pool.is_empty() {
             candidates_to_fetch.push(research_pool.remove(0));
         }
         
         if candidates_to_fetch.is_empty() { break; }
         
-        let urls_to_fetch: Vec<String> = candidates_to_fetch.iter().map(|c| c.url.clone()).collect();
-        for url in &urls_to_fetch {
-             log::info!("🌐 Deep Research: Attempting to fetch: {}", url);
-        }
+        log::info!("🚀 Deep Research: Iteration {} launching {} parallel tabs.", iteration, candidates_to_fetch.len());
+        log_message(format!("🚀 Iteration {}: Launching {} parallel research tabs...", iteration, candidates_to_fetch.len()), None);
 
         let summaries = {
              let http_client = http_client.clone();
              let event_stream = event_stream.clone();
+             let candidates = candidates_to_fetch.clone();
              tokio_handle.spawn(async move {
-                 browse_parallel(http_client, urls_to_fetch, event_stream).await
+                 browse_parallel(http_client, candidates, event_stream).await
              }).await??
         };
         
@@ -330,7 +345,6 @@ pub async fn run_deep_research_bg(
             let is_failure = summary.starts_with('(');
             if is_failure {
                 log::warn!("❌ Deep Research: Blocked or Failed: {} ({})", res.url, summary);
-                log_message(format!("❌ {} — {}", res.title, res.url), None);
                 status_entries.push(StatusEntry {
                     status: format!("❌ Failed: {}", summary),
                     idx: status_entries.len() + 1,
@@ -339,7 +353,6 @@ pub async fn run_deep_research_bg(
                 });
             } else {
                 log::info!("✅ Deep Research: Successfully analyzed: {}", res.url);
-                log_message(format!("✅ {} — {}", res.title, res.url), None);
                 status_entries.push(StatusEntry {
                     status: "✅ Analyzed".to_string(),
                     idx: status_entries.len() + 1,
@@ -747,7 +760,7 @@ fn url_decode(input: &str) -> Result<String> {
 }
 async fn browse_parallel(
     http_client: Arc<HttpClientWithUrl>, 
-    urls: Vec<String>,
+    candidates: Vec<DeepResearchSearchResult>,
     event_stream: Option<ToolCallEventStream>,
 ) -> Result<Vec<String>> {
 
@@ -797,14 +810,15 @@ async fn browse_parallel(
 
             let browser = Arc::new(browser);
             let mut tab_futures = Vec::new();
-            let urls_for_log = urls.clone();
             
-            for url in urls.into_iter() {
+            for res in candidates.clone() {
+                let url = res.url.clone();
+                let title = res.title.clone();
                 let b = browser.clone();
                 let event_stream = event_stream.clone();
                 let future = async move {
                     if let Some(event_stream) = &event_stream {
-                        event_stream.update_fields(acp::ToolCallUpdateFields::new().title(format!("Fetching {}...", url)));
+                        event_stream.push_log(format!("🌐 Fetching: {} ({})", title, url));
                     }
                     
                     let fetch_result = tokio::time::timeout(std::time::Duration::from_secs(45), async {
@@ -817,6 +831,11 @@ async fn browse_parallel(
                         let _ = page.wait_for_navigation().await;
                         tokio::time::sleep(std::time::Duration::from_millis(6000)).await;
                         
+                        let title: String = page.get_title().await.ok().flatten().unwrap_or_else(|| url.clone());
+                        if let Some(event_stream) = &event_stream {
+                             event_stream.push_log(format!("✅ Analyzed: {}", title));
+                        }
+
                         // Scroll down to trigger lazy-loading and move past some overlays
                         let _ = page.evaluate("window.scrollBy(0, 1500)").await;
                         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
@@ -846,41 +865,49 @@ async fn browse_parallel(
                         Ok::<String, anyhow::Error>(markdown)
                     }).await;
 
-                    match fetch_result {
+                    let outcome = match fetch_result {
                         Ok(res) => res,
                         Err(_) => Ok::<String, anyhow::Error>(format!("(Timeout fetching {} after 45s)", url)),
+                    };
+
+                    if let Some(event_stream) = &event_stream {
+                         match &outcome {
+                             Ok(body) if body.starts_with('(') => {
+                                 event_stream.push_log(format!("❌ Blocked/Thin: {}", url));
+                             }
+                             Ok(_) => {
+                                 event_stream.push_log(format!("✅ Analyzed: {}", url));
+                             }
+                             Err(e) => {
+                                 event_stream.push_log(format!("❌ Failed: {} ({})", url, e));
+                             }
+                         }
                     }
+                    (url, outcome)
                 };
                 tab_futures.push(future);
             }
 
-            let mut outcomes = Vec::new();
+            let mut outcomes_map = std::collections::HashMap::new();
             {
                  use futures::StreamExt as _;
-                 // Use .buffered() to maintain order, so urls_for_log[idx] matches the outcome.
-                 let mut outcomes_stream = futures::stream::iter(tab_futures).buffered(10);
-                 while let Some(outcome) = outcomes_stream.next().await {
-                     outcomes.push(outcome);
+                 // Use buffer_unordered so we get results as they finish!
+                 let mut outcomes_stream = futures::stream::iter(tab_futures).buffer_unordered(10);
+                 while let Some((url, outcome)) = outcomes_stream.next().await {
+                     outcomes_map.insert(url, outcome);
                  }
             }
             
             let mut results = Vec::new();
-            for (idx, outcome) in outcomes.into_iter().enumerate() {
-                 let url = &urls_for_log[idx];
+            for res in candidates {
+                 let outcome = outcomes_map.remove(&res.url).unwrap_or_else(|| Ok("(Internal error: result missing)".to_string()));
                  match outcome {
-                     Ok(body) => {
-                          results.push(body);
-                          if let Some(event_stream) = &event_stream {
-                              event_stream.update_fields(acp::ToolCallUpdateFields::new().title(format!("✅ Fetched {}", url)));
-                          }
-                     }
-                     Err(e) => {
-                          let error_msg = format!("(Error fetching {}: {})", url, e);
-                          results.push(error_msg.clone());
-                          if let Some(event_stream) = &event_stream {
-                              event_stream.update_fields(acp::ToolCallUpdateFields::new().title(format!("❌ Failed: {}", url)));
-                          }
-                     }
+                      Ok(body) => {
+                           results.push(body);
+                      }
+                      Err(e) => {
+                           results.push(format!("(Error analyzing {}: {})", res.url, e));
+                      }
                  }
             }
 
@@ -894,7 +921,8 @@ async fn browse_parallel(
             log::error!("Browser launch failed: {:#}", e);
             // FALLBACK: Use raw HTTP fetch if browser launch fails
             let mut results = Vec::new();
-            for url_str in urls {
+            for res in candidates {
+                let url_str = res.url.clone();
                 if let Some(event_stream) = &event_stream {
                     event_stream.update_fields(acp::ToolCallUpdateFields::new().title(format!("Fetching {} (HTTP Fallback)...", url_str)));
                 }

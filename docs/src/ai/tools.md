@@ -15,8 +15,10 @@ When no path is provided, shows a summary of error and warning counts for all fi
 Fetches a URL and returns the content as Markdown. Useful for providing docs as context.
 
 ### `deep_research`
+ 
+ Performs an autonomous, multi-stage research task on a given topic. It expands the topic into search queries, crawls high-fidelity sources in parallel, and synthesizes a structured Discovery Report.
 
-Performs an autonomous, multi-stage research task on a given topic. It expands the topic into search queries, crawls high-fidelity sources in parallel, and synthesizes a structured Discovery Report.
+See [Deep Research](./deep-research.md) for more details.
 
 ### `find_path`
 

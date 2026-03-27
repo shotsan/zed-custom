@@ -1153,6 +1153,21 @@ impl Thread {
         let output = tool_result
             .as_ref()
             .and_then(|result| result.output.clone());
+
+        if let Some(turn) = &self.running_turn {
+            if turn.active_tool_use_id.as_ref() == Some(&tool_use.id) {
+                let logs = turn.active_tool_logs.lock();
+                if !logs.is_empty() {
+                    stream.update_tool_call_fields(
+                        &tool_use.id,
+                        acp::ToolCallUpdateFields::new().content(
+                            logs.iter().cloned().map(acp::ToolCallContent::from).collect::<Vec<_>>()
+                        ),
+                    );
+                }
+            }
+        }
+
         if let Some(output) = output.clone() {
             // For replay, we use a dummy cancellation receiver since the tool already completed
             let (_cancellation_tx, cancellation_rx) = watch::channel(false);
@@ -1161,6 +1176,7 @@ impl Thread {
                 stream.clone(),
                 Some(self.project.read(cx).fs().clone()),
                 cancellation_rx,
+                None,
             );
             tool.replay(tool_use.input.clone(), output, tool_event_stream, cx)
                 .log_err();
@@ -1172,7 +1188,13 @@ impl Thread {
                 .status(
                     tool_result
                         .as_ref()
-                        .map_or(acp::ToolCallStatus::Failed, |result| {
+                        .map_or({
+                            if self.running_turn.as_ref().map_or(false, |turn| turn.active_tool_use_id.as_ref() == Some(&tool_use.id)) {
+                                acp::ToolCallStatus::InProgress
+                            } else {
+                                acp::ToolCallStatus::Failed
+                            }
+                        }, |result| {
                             if result.is_error {
                                 acp::ToolCallStatus::Failed
                             } else {
@@ -1922,30 +1944,48 @@ impl Thread {
         let (cancellation_tx, cancellation_rx) = watch::channel(false);
         let tool_use_id: LanguageModelToolUseId = uuid::Uuid::new_v4().to_string().into();
 
+        // Persist the tool use call in the thread message history.
+        // This ensures replay() (triggered on tab switch) finds the tool-use block.
+        self.messages.push(Message::Agent(AgentMessage {
+            content: vec![AgentMessageContent::ToolUse(LanguageModelToolUse {
+                id: tool_use_id.clone(),
+                name: Arc::from(tool_name),
+                raw_input: tool_input.to_string(),
+                input: tool_input.clone(),
+                is_input_complete: true,
+                thought_signature: None,
+            })],
+            tool_results: IndexMap::default(),
+            reasoning_details: None,
+        }));
+        let tool_name_owned = tool_name.to_string();
         event_stream.send_tool_call(
             &tool_use_id,
-            tool_name,
-            tool_title,
+            &tool_name_owned,
+            tool_title.clone(),
             acp::ToolKind::Execute,
             tool_input.clone(),
         );
-
+        let active_logs = std::sync::Arc::new(parking_lot::Mutex::new(Vec::new()));
         let fs = self.project.read(cx).fs().clone();
         let tool_event_stream = ToolCallEventStream::new(
             tool_use_id.clone(),
             event_stream.clone(),
             Some(fs),
             cancellation_rx,
+            Some(active_logs.clone()),
         );
         tool_event_stream.update_fields(
             acp::ToolCallUpdateFields::new().status(acp::ToolCallStatus::InProgress),
         );
 
         let tool_result_task = tool.run(tool_input, tool_event_stream, cx);
+        let tool_name_static = tool_name_owned.clone();
 
         let running_task = cx.spawn({
             let event_stream = event_stream.clone();
             let tool_use_id = tool_use_id.clone();
+            let tool_name = tool_name_static;
             async move |this, cx| {
                 let result = tool_result_task.await;
                 match result {
@@ -1958,10 +1998,28 @@ impl Thread {
                             let text = text.to_string();
                             event_stream.send_text(&text);
                             this.update(cx, |thread, cx| {
-                                thread.messages.push(Message::Agent(AgentMessage {
-                                    content: vec![AgentMessageContent::Text(text)],
-                                    ..Default::default()
-                                }));
+                                // Add result to the message that triggered the tool run.
+                                let mut result_found = false;
+                                if let Some(Message::Agent(message)) = thread.messages.last_mut() {
+                                    if message.content.iter().any(|c| matches!(c, AgentMessageContent::ToolUse(u) if u.id == tool_use_id)) {
+                                        message.tool_results.insert(tool_use_id.clone(), LanguageModelToolResult {
+                                             tool_use_id: tool_use_id.clone(),
+                                             tool_name: Arc::from(tool_name.clone()),
+                                             is_error: false,
+                                             content: LanguageModelToolResultContent::Text(Arc::from(text.clone())),
+                                             output: None,
+                                        });
+                                        result_found = true;
+                                    }
+                                }
+
+                                if !result_found {
+                                    thread.messages.push(Message::Agent(AgentMessage {
+                                        content: vec![AgentMessageContent::Text(text)],
+                                        tool_results: IndexMap::default(),
+                                        reasoning_details: None,
+                                    }));
+                                }
                                 cx.notify();
                             })
                             .ok();
@@ -1985,6 +2043,8 @@ impl Thread {
             event_stream,
             tools,
             cancellation_tx,
+            active_tool_use_id: Some(tool_use_id),
+            active_tool_logs: active_logs,
         });
 
         Ok(events_rx)
@@ -2023,6 +2083,8 @@ impl Thread {
             event_stream: event_stream.clone(),
             tools: self.enabled_tools(profile, &model, cx),
             cancellation_tx,
+            active_tool_use_id: None,
+            active_tool_logs: std::sync::Arc::new(parking_lot::Mutex::new(Vec::new())),
             _task: cx.spawn(async move |this, cx| {
                 log::debug!("Starting agent turn execution");
 
@@ -2477,6 +2539,11 @@ impl Thread {
             return None;
         }
 
+        if let Some(turn) = &mut self.running_turn {
+            turn.active_tool_use_id = Some(tool_use.id.clone());
+            *turn.active_tool_logs.lock() = Vec::new();
+        }
+
         let Some(tool) = tool else {
             let content = format!("No tool named {} exists", tool_use.name);
             return Some(Task::ready(LanguageModelToolResult {
@@ -2494,6 +2561,7 @@ impl Thread {
             event_stream.clone(),
             Some(fs),
             cancellation_rx,
+            self.running_turn.as_ref().map(|t| t.active_tool_logs.clone()),
         );
         tool_event_stream.update_fields(
             acp::ToolCallUpdateFields::new().status(acp::ToolCallStatus::InProgress),
@@ -3209,7 +3277,6 @@ impl Thread {
         }
     }
 }
-
 struct RunningTurn {
     /// Holds the task that handles agent interaction until the end of the turn.
     /// Survives across multiple requests as the model performs tool calls and
@@ -3223,6 +3290,11 @@ struct RunningTurn {
     /// Sender to signal tool cancellation. When cancel is called, this is
     /// set to true so all tools can detect user-initiated cancellation.
     cancellation_tx: watch::Sender<bool>,
+    /// The ID of the tool call that is currently active, if any.
+    pub active_tool_use_id: Option<LanguageModelToolUseId>,
+    /// Ephemeral logs from the active tool (e.g. search URLs) to preserve them
+    /// through thread switches.
+    pub active_tool_logs: std::sync::Arc<parking_lot::Mutex<Vec<String>>>,
 }
 
 impl RunningTurn {
@@ -3517,6 +3589,8 @@ pub struct ToolCallEventStream {
     stream: ThreadEventStream,
     fs: Option<Arc<dyn Fs>>,
     cancellation_rx: watch::Receiver<bool>,
+    /// Ephemeral logs that should be persisted in the RunningTurn for replay
+    pub shared_logs: Option<std::sync::Arc<parking_lot::Mutex<Vec<String>>>>,
 }
 
 impl ToolCallEventStream {
@@ -3536,6 +3610,7 @@ impl ToolCallEventStream {
             ThreadEventStream(events_tx),
             None,
             cancellation_rx,
+            None,
         );
 
         (
@@ -3556,12 +3631,14 @@ impl ToolCallEventStream {
         stream: ThreadEventStream,
         fs: Option<Arc<dyn Fs>>,
         cancellation_rx: watch::Receiver<bool>,
+        shared_logs: Option<std::sync::Arc<parking_lot::Mutex<Vec<String>>>>,
     ) -> Self {
         Self {
             tool_use_id,
             stream,
             fs,
             cancellation_rx,
+            shared_logs,
         }
     }
 
@@ -3591,6 +3668,20 @@ impl ToolCallEventStream {
 
     pub fn tool_use_id(&self) -> &LanguageModelToolUseId {
         &self.tool_use_id
+    }
+
+    pub fn push_log(&self, log: String) {
+        if let Some(shared_logs) = &self.shared_logs {
+            let mut logs = shared_logs.lock();
+            logs.push(log);
+            let fields = acp::ToolCallUpdateFields::new().content(
+                logs.iter()
+                    .cloned()
+                    .map(acp::ToolCallContent::from)
+                    .collect::<Vec<_>>(),
+            );
+            self.stream.update_tool_call_fields(&self.tool_use_id, fields);
+        }
     }
 
     pub fn update_fields(&self, fields: acp::ToolCallUpdateFields) {
