@@ -36,6 +36,9 @@ features:
   - title: 🌐 Headless Chromium
     details: Built-in chromiumoxide engine for real-time web search and JavaScript-heavy documentation.
     link: /features/search
+  - title: 🧪 Deep Research Tool
+    details: Autonomous, multi-stage recursive research engine. It identifies information gaps and performs follow-up searches to synthesize reports on complex topics.
+    link: /features/tools/deep-research
   - title: ☁️ Azure Anthropic
     details: Native support for Azure deployments and real-time Token Caching (Prompt Caching) visualization.
     link: /features/azure-anthropic
