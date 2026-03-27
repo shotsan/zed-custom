@@ -45,7 +45,7 @@ export default defineConfig({
                     { text: 'Web: fetch', link: '/features/tools/fetch' },
                     { text: 'Web: deep_research', link: '/features/tools/deep-research' },
                     { text: 'LSP: context', link: '/features/tools/context' },
-                    { text: 'Custom Search: custom_search + /custom-search', link: '/features/tools/custom-search' }
+                    { text: 'Web: custom_search', link: '/features/tools/custom-search' }
                 ]
             },
             {
