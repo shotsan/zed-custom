@@ -11,16 +11,13 @@ The editor automatically analyzes your conversation history and strategically pl
 The "Smart Caching" logic follows a four-tiered approach:
 
 1.  **System Prompt (Always Cached)**
-    - The core system instructions and your persona are always marked for caching. Since these never change, they are almost 100% effective at reusing the cache.
+    - The core system instructions and your persona are always marked for caching.
 
-2.  **Interval Checkpoints (Every 15 Blocks)**
-    - As the conversation grows, Zed places a cache marker every 15 message blocks. This creates "anchors" in the timeline, ensuring that even in very long sessions, large chunks of the history remain cached.
+2.  **Last History Item (Turn-over-Turn)**
+    - Zed explicitly caches the last message in your history. This ensures that as your conversation grows, the "immediate past" remains hot for the next turn.
 
-3.  **Midpoint Anchoring**
-    - For conversations exceeding 30 messages, the midpoint is explicitly cached. This provides a stable reference point for the model to look back on, preventing "cache evaporation" in extremely deep threads.
-
-4.  **Immediate Prefix (Second-to-Last Message)**
-    - The most recent context is the most valuable. Zed always caches the message immediately preceding your current input. This ensures that the "immediate past" is ready for instant reuse the moment you hit send.
+3.  **Immediate Prefix (Active Tool Loops)**
+    - To speed up parallel tool execution and recursive research turns, the current message prefix is cached. This ensures tool results can be processed without re-parsing the entire prompt context.
 
 ## The Visual Indicators
 

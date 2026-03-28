@@ -286,9 +286,18 @@ impl NativeAgent {
         let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
         let maintain_semantic_index = Task::ready(Ok(()));
 
+        let memory_db_path = paths::data_dir().join("memory");
+        let _ = std::fs::create_dir_all(&memory_db_path);
+        let memory_db_file = memory_db_path.join("memory.db");
+
         let memory_store = Arc::new(MemoryStore::new(
-            Arc::new(MemoryDatabase::new(cx.background_executor().clone(), Connection::open_memory(None)).unwrap()),
-            std::path::PathBuf::new()
+            Arc::new(MemoryDatabase::new(
+                cx.background_executor().clone(),
+                Connection::open_file(&memory_db_file.to_string_lossy())
+            ).unwrap()),
+            cx.update(|cx| {
+                project.read(cx).worktrees(cx).next().map(|w| w.read(cx).abs_path().to_path_buf()).unwrap_or_else(std::path::PathBuf::new)
+            }).await
         ));
 
         Ok(cx.new(|cx| {
@@ -408,12 +417,6 @@ impl NativeAgent {
             cx.subscribe(&thread_handle, Self::handle_thread_token_usage_updated),
             cx.observe(&thread_handle, move |this, thread, cx| {
                 this.save_thread(thread, cx)
-            }),
-            // Clean up sessions for threads that have been deleted from the store.
-            cx.observe(&self.thread_store, |this, store, cx| {
-                let store = store.read(cx);
-                this.sessions
-                    .retain(|id, _| store.thread_from_session_id(id).is_some());
             }),
         ];
 
@@ -1365,7 +1368,7 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
         params: acp::PromptRequest,
         cx: &mut App,
     ) -> Task<Result<acp::PromptResponse>> {
-        let id = id.expect("UserMessageId is required");
+        let id = id.unwrap_or_else(acp_thread::UserMessageId::new);
         let session_id = params.session_id.clone();
         log::info!("Received prompt request for session: {}", session_id);
         log::debug!("Prompt blocks count: {}", params.prompt.len());
@@ -1526,8 +1529,9 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
     }
 
     fn session_list(&self, cx: &mut App) -> Option<Rc<dyn AgentSessionList>> {
+        let agent = self.0.clone();
         let thread_store = self.0.read(cx).thread_store.clone();
-        Some(Rc::new(NativeAgentSessionList::new(thread_store, cx)) as _)
+        Some(Rc::new(NativeAgentSessionList::new(agent, thread_store, cx)) as _)
     }
 
     fn status(&self, cx: &App) -> Option<Task<Result<serde_json::Value>>> {
@@ -1562,6 +1566,7 @@ impl acp_thread::AgentTelemetry for NativeAgentConnection {
 }
 
 pub struct NativeAgentSessionList {
+    agent: Entity<NativeAgent>,
     thread_store: Entity<ThreadStore>,
     updates_tx: smol::channel::Sender<acp_thread::SessionListUpdate>,
     updates_rx: smol::channel::Receiver<acp_thread::SessionListUpdate>,
@@ -1569,7 +1574,7 @@ pub struct NativeAgentSessionList {
 }
 
 impl NativeAgentSessionList {
-    fn new(thread_store: Entity<ThreadStore>, cx: &mut App) -> Self {
+    fn new(agent: Entity<NativeAgent>, thread_store: Entity<ThreadStore>, cx: &mut App) -> Self {
         let (tx, rx) = smol::channel::unbounded();
         let this_tx = tx.clone();
         let subscription = cx.observe(&thread_store, move |_, _| {
@@ -1578,6 +1583,7 @@ impl NativeAgentSessionList {
                 .ok();
         });
         Self {
+            agent,
             thread_store,
             updates_tx: tx,
             updates_rx: rx,
@@ -1620,11 +1626,17 @@ impl AgentSessionList for NativeAgentSessionList {
     }
 
     fn delete_session(&self, session_id: &acp::SessionId, cx: &mut App) -> Task<Result<()>> {
+        self.agent.update(cx, |agent, _| {
+            agent.sessions.remove(session_id);
+        });
         self.thread_store
             .update(cx, |store, cx| store.delete_thread(session_id.clone(), cx))
     }
 
     fn delete_sessions(&self, cx: &mut App) -> Task<Result<()>> {
+        self.agent.update(cx, |agent, _| {
+            agent.sessions.clear();
+        });
         self.thread_store
             .update(cx, |store, cx| store.delete_threads(cx))
     }

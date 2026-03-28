@@ -4,7 +4,7 @@ One of the core design goals of this Zed fork is **Total Transparency**. Unlike 
 
 ## The Local Audit Trail
 
-When you start a session, a hidden directory is automatically created at your project root: **`.zed/agent_logs/`**.
+When you start a session, a hidden directory is automatically created at your project root: **`.zed_custom/agent_logs/`**.
 
 Every outgoing system prompt, user message, and tool result is appended to **`traffic.md`** within that directory. This provides a raw, un-truncated history of all LLM traffic, allowing for:
 - **Security Audits**: Verify no sensitive tokens or private files were accidentally leaked.

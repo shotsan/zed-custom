@@ -110,5 +110,6 @@ Tune the engine in your `settings.json`:
 }
 ```
 
-- **`max_concurrent_tabs`**: How many sources the agent attempts to "win" ($10$ is the sweet spot for breadth).
+- **`max_concurrent_tabs`**: How many sources the agent attempts to "win" (10 is the sweet spot for breadth).
 - **`max_depth`**: How many recursive iterations (1 = surface, 2 = standard, 3 = deep).
+- **`search_provider`**: Choose between `duckduckgo`, `google` (requires API key), or `tavily` (requires API key).

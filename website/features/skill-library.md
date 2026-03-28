@@ -20,7 +20,7 @@ Type `/rust` or `/tailwind` directly in the chat.
 
 ## 📂 Hybrid Expertise System
 
-Skills are managed through two parallel systems, giving you the best of both world: **Shared Team Standards** and **Personal Library expertise**.
+Skills are managed through two parallel systems, giving you the best of both worlds: **Shared Team Standards** and **Personal Library expertise**.
 
 ### 1. Global Skill Library (Personal)
 Stored in a local high-performance database, these skills follow you across all your projects.

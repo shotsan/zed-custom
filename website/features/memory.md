@@ -6,7 +6,7 @@ The Long-Term Memory system solves the "context amnesia" problem common in AI ID
 
 Unlike simple `.md` rule files that are always present in the prompt (leading to token bloat), this system uses a **Retrival-Augmented Generation (RAG)** approach backed by a local SQLite database.
 
-Knowledge is structured into five distinct categories to help the agent maintain a clean conceptual map of your project:
+Knowledge is structured into five distinct categories:
 1.  **Architecture**: Core structural decisions.
 2.  **Patterns**: Recurring code styles or library usage.
 3.  **Issues**: Tricky bugs and their historical fixes.
@@ -15,7 +15,7 @@ Knowledge is structured into five distinct categories to help the agent maintain
 
 ## Implementation Details
 
-The core logic resides in `crates/agent/src/tools/memory_tools.rs`. The database is stored locally on your filesystem at `~/.local/share/zed/project_memory.db` (scoped by project path).
+The core logic resides in `crates/agent/src/tools/memory_tools.rs`. The database is stored locally in your Zed data directory (e.g. `~/Library/Application Support/Zed/memory/memory.db` on macOS) and is scoped by the project path.
 
 - **Fact Ingestion**: The agent uses the `@remember` tool to write new rows using `INSERT OR REPLACE`.
 - **Fact Retrieval**: The agent uses the `@recall` tool to execute `SELECT` queries, often triggered by a semantic search query or a category filter.

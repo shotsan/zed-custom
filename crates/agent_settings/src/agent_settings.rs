@@ -331,7 +331,7 @@ impl Settings for AgentSettings {
                         _ => SearchProvider::Duckduckgo,
                     };
                     DeepResearchSettings {
-                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(5),
+                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(10),
                         max_depth: v.max_depth.unwrap_or(3),
                         search_provider: provider,
                         search_system_prompt: v.search_system_prompt.map(Into::into),
@@ -340,7 +340,7 @@ impl Settings for AgentSettings {
                     }
                 })
                 .unwrap_or_else(|| DeepResearchSettings {
-                    max_concurrent_tabs: 5,
+                    max_concurrent_tabs: 10,
                     max_depth: 3,
                     search_provider: SearchProvider::Duckduckgo,
                     search_system_prompt: None,
