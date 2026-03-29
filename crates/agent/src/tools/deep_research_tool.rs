@@ -4,15 +4,15 @@ use std::rc::Rc;
 use anyhow::{Result, bail};
 use gpui::{App, Task, SharedString};
 use schemars::JsonSchema;
-use scraper::{Html, Selector};
+use scraper::{Html, Selector, ElementRef};
 use serde::{Deserialize, Serialize};
-use http_client::{AsyncBody, HttpClientWithUrl};
+use http_client::{AsyncBody, Builder, HttpClientWithUrl, RedirectPolicy};
 use chromiumoxide::{Browser, BrowserConfig};
 use html_to_markdown::{TagHandler, convert_html_to_markdown, markdown};
 
 use crate::{AgentTool, ToolCallEventStream};
 use agent_client_protocol as acp;
-use agent_settings::AgentSettings;
+use agent_settings::{AgentProfileId, AgentSettings};
 use language_model::LanguageModelToolResultContent;
 use util::markdown::MarkdownEscaped;
 use settings::Settings;
@@ -43,11 +43,12 @@ impl From<DeepResearchToolOutput> for LanguageModelToolResultContent {
 
 pub struct DeepResearchTool {
     http_client: Arc<HttpClientWithUrl>,
+    profile_id: Option<AgentProfileId>,
 }
 
 impl DeepResearchTool {
-    pub fn new(http_client: Arc<HttpClientWithUrl>) -> Self {
-        Self { http_client }
+    pub fn new(http_client: Arc<HttpClientWithUrl>, profile_id: Option<AgentProfileId>) -> Self {
+        Self { http_client, profile_id }
     }
 }
 
@@ -80,7 +81,16 @@ impl AgentTool for DeepResearchTool {
         event_stream: ToolCallEventStream,
         cx: &mut App,
     ) -> Task<Result<Self::Output>> {
-        let settings = AgentSettings::get_global(cx).deep_research.clone();
+        let global_settings = AgentSettings::get_global(cx);
+        let settings = if let Some(profile_id) = &self.profile_id {
+            global_settings
+                .profiles
+                .get(profile_id)
+                .map(|p| p.deep_research.clone())
+                .unwrap_or_else(|| global_settings.deep_research.clone())
+        } else {
+            global_settings.deep_research.clone()
+        };
         let http_client = self.http_client.clone();
         
         // 1. Prepare Expansion Prompt
@@ -121,7 +131,8 @@ impl AgentTool for DeepResearchTool {
                     model_clone.clone(),
                     &mut async_cx_recursive,
                     tokio_handle_inner.clone(),
-                    settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string())
+                    settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string()),
+                    settings.search_provider,
                 ).await?
             };
 
@@ -237,6 +248,7 @@ pub async fn run_deep_research_bg(
     async_cx: &mut gpui::AsyncApp,
     tokio_handle: tokio::runtime::Handle,
     gap_analysis_custom_prompt: Option<String>,
+    search_provider: agent_settings::SearchProvider,
 ) -> anyhow::Result<String> {
 
     let mut logs = if let Some(es) = &event_stream {
@@ -260,22 +272,58 @@ pub async fn run_deep_research_bg(
     };
 
 
-    log_message("Searching DuckDuckGo for candidates...".to_string(), None);
+    log_message(format!("Searching {} for candidates...", match search_provider {
+        agent_settings::SearchProvider::Duckduckgo => "DuckDuckGo",
+        agent_settings::SearchProvider::Google => "Google Search",
+    }), None);
 
     // 1. Fetch raw candidates
-    let mut search_futures = Vec::new();
-    for q in &queries {
-        let http_client = http_client.clone();
-        let q_clone = q.clone();
-        search_futures.push(async move {
-            ddg_search(http_client, &q_clone).await.unwrap_or_default()
-        });
-    }
-    
-    log::info!("🔍 Deep Research: Executing {} search queries...", queries.len());
     let mut results = Vec::new();
-    for r in futures::future::join_all(search_futures).await {
-        results.extend(r);
+    
+    if search_provider == agent_settings::SearchProvider::Google {
+        log_message("🔍 Google Search: Sequential stealth mode...".to_string(), None);
+        for (idx, q) in queries.iter().enumerate() {
+            let search_candidates = vec![DeepResearchSearchResult {
+                id: idx,
+                title: q.clone(),
+                url: format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(q)),
+                snippet: String::new(),
+                score: 0,
+            }];
+            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone()).await {
+                if let Some(html) = html_responses.first() {
+                    log::info!("Google Response for '{}' (first 200 chars): {}", q, &html[..html.len().min(200)]);
+                    let parsed = parse_google_results(html);
+                    log::info!("Google Parser: Found {} sources for query {}", parsed.len(), idx);
+                    results.extend(parsed);
+                }
+            }
+            // Add jitter to avoid bot pattern
+            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+        }
+    } else {
+        let mut search_futures = Vec::new();
+        for q in &queries {
+            let http_client = http_client.clone();
+            let q_clone = q.clone();
+            search_futures.push(async move {
+                match ddg_search(http_client, &q_clone).await {
+                    Ok(results) => {
+                        log::info!("DDG Search: Found {} sources for query '{}'", results.len(), q_clone);
+                        results
+                    },
+                    Err(e) => {
+                        log::warn!("Deep Research: DDG search query failed for '{}': {}", q_clone, e);
+                        Vec::new()
+                    }
+                }
+            });
+        }
+        
+        log::info!("🔍 Deep Research: Executing {} search queries via DuckDuckGo...", queries.len());
+        for r in futures::future::join_all(search_futures).await {
+            results.extend(r);
+        }
     }
     log::info!("✅ Deep Research: Found {} raw candidate sources.", results.len());
     
@@ -385,17 +433,45 @@ pub async fn run_deep_research_bg(
                 
                 if !follow_up_queries.is_empty() {
                     log_message(format!("🔍 Launching {} targeted follow-up searches for missing data...", follow_up_queries.len()), None);
-                    let mut follow_up_futures = Vec::new();
-                    for q in follow_up_queries {
-                        let http_client = http_client.clone();
-                        follow_up_futures.push(async move {
-                            ddg_search(http_client, &q).await.unwrap_or_default()
-                        });
-                    }
+                    let mut follow_up_results = Vec::new();
                     
-                    let new_results = futures::future::join_all(follow_up_futures).await;
-                    for r_set in new_results {
-                        for mut r in r_set {
+                    if search_provider == agent_settings::SearchProvider::Google {
+                        log_message("🔍 Google: Sequential follow-up mode...".to_string(), None);
+                        for (idx, q) in follow_up_queries.iter().enumerate() {
+                            let search_candidates = vec![DeepResearchSearchResult {
+                                id: idx,
+                                title: q.clone(),
+                                url: format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(q)),
+                                snippet: String::new(),
+                                score: 0,
+                            }];
+                            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone()).await {
+                                if let Some(html) = html_responses.first() {
+                                    follow_up_results.extend(parse_google_results(&html));
+                                }
+                            }
+                            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                        }
+                    } else {
+                        let mut follow_up_futures = Vec::new();
+                        for q in follow_up_queries {
+                            let http_client = http_client.clone();
+                            let q_clone = q.clone();
+                            follow_up_futures.push(async move {
+                                match ddg_search(http_client, &q_clone).await {
+                                    Ok(results) => results,
+                                    Err(e) => {
+                                        log::warn!("Deep Research: Gap search failed for '{}': {}", q_clone, e);
+                                        Vec::new()
+                                    }
+                                }
+                            });
+                        }
+                        for r_set in futures::future::join_all(follow_up_futures).await {
+                            follow_up_results.extend(r_set);
+                        }
+                    }
+                    for mut r in follow_up_results {
                             // Check if URL already in pool or entries
                             let clean_url = r.url.split('?').next().unwrap_or(&r.url).trim_end_matches('/').to_string();
                             if !unique_urls.contains(&clean_url) {
@@ -410,7 +486,6 @@ pub async fn run_deep_research_bg(
                     let _ = rank_results_with_llm(&topic, &mut research_pool, model, async_cx).await;
                 }
             }
-        }
         
         iteration += 1;
     }
@@ -559,11 +634,95 @@ pub struct DeepResearchSearchResult {
     pub score: i32,
 }
 
+
+fn parse_google_results(html: &str) -> Vec<DeepResearchSearchResult> {
+    let document = Html::parse_document(html);
+    let mut results = Vec::new();
+    
+    // Use tag-based structural analysis which is much more robust than randomized class names
+    let Ok(a_selector) = Selector::parse("a") else { return Vec::new(); };
+    let Ok(h3_selector) = Selector::parse("h3") else { return Vec::new(); };
+
+    for (idx, a_ref) in document.select(&a_selector).enumerate() {
+        let href = a_ref.value().attr("href").unwrap_or_default();
+        
+        let url = if href.starts_with("/url?q=") {
+            // Unmask the actual destination URL from the Google redirect (Classic mode)
+            let mut extracted = String::new();
+            if let Some(pos) = href.find("q=") {
+                let rest = &href[pos + 2..];
+                let end = rest.find('&').unwrap_or(rest.len());
+                if let Ok(decoded) = url_decode(&rest[..end]) {
+                    extracted = decoded;
+                }
+            }
+            extracted
+        } else if href.starts_with("http") && !href.contains("google.com/") && !href.contains("youtube.com/") {
+            // Direct Link (Modern Browser mode)
+            href.to_string()
+        } else {
+            continue;
+        };
+
+        if url.is_empty() || url.contains("google.com/") {
+            continue;
+        }
+
+        // Extract the title: check for an <h3> inside the link, fallback to link text
+        let title = a_ref.select(&h3_selector).next()
+            .map(|h3| h3.text().collect::<String>())
+            .unwrap_or_else(|| a_ref.text().collect::<String>())
+            .trim().to_string();
+
+        if title.is_empty() {
+            continue;
+        }
+
+        // Find the snippet text: look at the siblings of the title container
+        let mut snippet = String::new();
+        let mut current = a_ref.parent();
+        for _ in 0..2 { // Check a couple of levels up to find the text container
+            if let Some(node) = current {
+                let mut sibling = node.next_sibling();
+                while let Some(sib) = sibling {
+                    if let Some(el) = ElementRef::wrap(sib) {
+                        let text: String = el.text().collect();
+                        let text = text.trim().to_string();
+                        if !text.is_empty() && !text.contains(&title) {
+                            snippet = text;
+                            break;
+                        }
+                    }
+                    sibling = sib.next_sibling();
+                }
+                if !snippet.is_empty() { break; }
+                current = node.parent();
+            } else { break; }
+        }
+
+        results.push(DeepResearchSearchResult { id: idx, title, url, snippet, score: 0 });
+    }
+    
+    // Deduplicate results based on unmasked URL
+    let mut seen = std::collections::HashSet::new();
+    results.retain(|r| seen.insert(r.url.clone()));
+    
+    results
+}
+
 async fn ddg_search(http_client: Arc<HttpClientWithUrl>, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
     let encoded_query = url_encode(query);
     let url = format!("https://html.duckduckgo.com/html/?q={encoded_query}");
 
-    let mut response = http_client.get(&url, AsyncBody::default(), true).await?;
+    let request = Builder::new()
+        .uri(url)
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .follow_redirects(RedirectPolicy::FollowAll)
+        .body(AsyncBody::default())?;
+
+    let mut response = http_client.send(request).await?;
 
     let mut body = Vec::new();
     response.body_mut().read_to_end(&mut body).await?;
@@ -769,17 +928,21 @@ async fn browse_parallel(
     
     // Create a unique temporary user data directory to avoid "SingletonLock" errors
     // when running multiple researches or when a previous session didn't clean up.
-    let user_data_dir = std::env::temp_dir().join(format!("zed-research-{}", uuid::Uuid::new_v4()));
+    let user_data_dir = std::env::temp_dir().join("zed-research-profile");
     builder = builder.user_data_dir(user_data_dir);
 
-    let modern_ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    let modern_ua = if cfg!(target_os = "macos") {
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    } else {
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    };
+
     builder = builder
         .window_size(1920, 1080)
         .arg(format!("--user-agent={}", modern_ua))
         .arg("--disable-blink-features=AutomationControlled")
         .arg("--disable-extensions")
-        .arg("--no-first-run")
-        .incognito();
+        .arg("--no-first-run");
     
     // Attempt to find Chrome on macOS if it's not in the PATH
     #[cfg(target_os = "macos")]
@@ -823,13 +986,38 @@ async fn browse_parallel(
                     
                     let fetch_result = tokio::time::timeout(std::time::Duration::from_secs(45), async {
                         let page = match b.new_page(&url).await {
-                            Ok(p) => p,
+                            Ok(p) => {
+                                // Mask the webdriver flag to hide headless Chromium (Stealth)
+                                let _ = p.evaluate("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})").await;
+                                p
+                            },
                             Err(e) => return Ok::<String, anyhow::Error>(format!("(Failed to open page for {}: {})", url, e)),
                         };
 
                         // Match BrowserTool's navigation logic
                         let _ = page.wait_for_navigation().await;
-                        tokio::time::sleep(std::time::Duration::from_millis(6000)).await;
+                        
+                        // "Follow-Through" Loop: Detecting and following meta-refreshes (common on Google)
+                        let mut attempts = 0;
+                        while attempts < 4 {
+                            let content = page.content().await.unwrap_or_default();
+                            // If we see the intermediate redirect or challenge page, wait and click
+                            if content.contains("http-equiv=\"refresh\"") || content.contains("enablejs") || content.contains("unusual traffic") {
+                                log::info!("🌐 Detected Google Challenge/Redirect. Clicking and polling (Attempt {})...", attempts + 1);
+                                // Explicitly click any available link to force progression
+                                let _ = page.evaluate("document.querySelector('a')?.click()").await;
+                                tokio::time::sleep(std::time::Duration::from_millis(4000)).await;
+                                attempts += 1;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        // Specifically wait for results to render if it's a search page
+                        if url.contains("/search") {
+                            let _ = tokio::time::timeout(std::time::Duration::from_secs(10), page.find_element("h3")).await;
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                         
                         let title: String = page.get_title().await.ok().flatten().unwrap_or_else(|| url.clone());
                         if let Some(event_stream) = &event_stream {

@@ -13,7 +13,8 @@ use settings::{
     LanguageModelProviderSetting, LanguageModelSelection, Settings as _, update_settings_file,
 };
 use ui::{
-    KeyBinding, ListItem, ListItemSpacing, ListSeparator, Navigable, NavigableEntry, prelude::*,
+    ContextMenu, KeyBinding, ListItem, ListItemSpacing, ListSeparator, Navigable, NavigableEntry,
+    PopoverMenu, prelude::*,
 };
 use workspace::{ModalView, Workspace};
 
@@ -21,6 +22,15 @@ use crate::agent_configuration::manage_profiles_modal::profile_modal_header::Pro
 use crate::agent_configuration::tool_picker::{ToolPicker, ToolPickerDelegate};
 use crate::language_model_selector::{LanguageModelSelector, language_model_selector};
 use crate::{AgentPanel, ManageProfiles};
+use gpui::actions;
+
+actions!(deep_research_config, []);
+
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize, gpui::Action, schemars::JsonSchema)]
+pub struct SetSearchProvider {
+    pub profile_id: AgentProfileId,
+    pub provider: agent_settings::SearchProvider,
+}
 
 enum Mode {
     ChooseProfile(ChooseProfileMode),
@@ -117,6 +127,7 @@ pub struct ConfigureDeepResearchMode {
     condensation_prompt_editor: Entity<Editor>,
     max_tabs_editor: Entity<Editor>,
     max_depth_editor: Entity<Editor>,
+    search_provider: agent_settings::SearchProvider,
 }
 
 #[derive(Clone)]
@@ -180,6 +191,7 @@ impl ManageProfilesModal {
                     cx.notify();
                 }
             });
+
 
         Self {
             fs,
@@ -280,14 +292,23 @@ impl ManageProfilesModal {
 
                         update_settings_file(fs.clone(), cx, move |settings, _cx| {
                             let agent_settings = settings.agent.get_or_insert_default();
-                            if let Some(profiles) = agent_settings.profiles.as_mut() {
-                                if let Some(profile) = profiles.get_mut(profile_id.0.as_ref()) {
-                                    profile.default_model = Some(LanguageModelSelection {
-                                        provider: LanguageModelProviderSetting(provider.clone()),
-                                        model: model_id.clone(),
-                                    });
+                            let profiles = agent_settings.profiles.get_or_insert_default();
+                            let profile = profiles.entry(profile_id.0.clone().into()).or_insert_with(|| {
+                                settings::AgentProfileContent {
+                                    name: profile_id.0.clone().into(),
+                                    tools: Default::default(),
+                                    enable_all_context_servers: None,
+                                    context_servers: Default::default(),
+                                    default_model: None,
+                                    instructions: None,
+                                    system_prompt: None,
+                                    deep_research: None,
                                 }
-                            }
+                            });
+                            profile.default_model = Some(LanguageModelSelection {
+                                provider: LanguageModelProviderSetting(provider.clone()),
+                                model: model_id.clone(),
+                            });
                         });
                     }
                 },
@@ -456,27 +477,20 @@ impl ManageProfilesModal {
             return;
         };
 
-        let search_prompt = profile
-            .deep_research
-            .search_system_prompt
-            .clone()
-            .unwrap_or_default();
-        let condensation_prompt = profile
-            .deep_research
-            .condensation_system_prompt
-            .clone()
-            .unwrap_or_default();
+        let search_prompt = profile.deep_research.search_system_prompt.clone().unwrap_or_default().to_string();
+        let condensation_prompt = profile.deep_research.condensation_system_prompt.clone().unwrap_or_default().to_string();
         let max_tabs = profile.deep_research.max_concurrent_tabs.to_string();
         let max_depth = profile.deep_research.max_depth.to_string();
+        let search_provider = profile.deep_research.search_provider;
 
         let search_prompt_editor = cx.new(|cx| {
-            let mut editor = Editor::single_line(window, cx);
+            let mut editor = Editor::multi_line(window, cx);
             editor.set_text(search_prompt, window, cx);
             editor
         });
 
         let condensation_prompt_editor = cx.new(|cx| {
-            let mut editor = Editor::single_line(window, cx);
+            let mut editor = Editor::multi_line(window, cx);
             editor.set_text(condensation_prompt, window, cx);
             editor
         });
@@ -499,6 +513,7 @@ impl ManageProfilesModal {
             condensation_prompt_editor,
             max_tabs_editor,
             max_depth_editor,
+            search_provider,
         });
         cx.notify();
     }
@@ -526,55 +541,80 @@ impl ManageProfilesModal {
 
                 update_settings_file(fs, cx, move |settings, _| {
                     let agent_settings = settings.agent.get_or_insert_default();
-                    if let Some(profiles) = agent_settings.profiles.as_mut() {
-                        if let Some(profile) = profiles.get_mut(profile_id.0.as_ref()) {
-                            profile.instructions = if instructions.is_empty() {
-                                None
-                            } else {
-                                Some(instructions.into())
-                            };
-                            profile.system_prompt = if system_prompt.is_empty() {
-                                None
-                            } else {
-                                Some(system_prompt.into())
-                            };
+                    let profiles = agent_settings.profiles.get_or_insert_default();
+                    let profile = profiles.entry(profile_id.0.clone().into()).or_insert_with(|| {
+                        settings::AgentProfileContent {
+                            name: profile_id.0.clone().into(),
+                            tools: Default::default(),
+                            enable_all_context_servers: None,
+                            context_servers: Default::default(),
+                            default_model: None,
+                            instructions: None,
+                            system_prompt: None,
+                            deep_research: None,
                         }
-                    }
+                    });
+
+                    profile.instructions = if instructions.is_empty() {
+                        None
+                    } else {
+                        Some(instructions.into())
+                    };
+                    profile.system_prompt = if system_prompt.is_empty() {
+                        None
+                    } else {
+                        Some(system_prompt.into())
+                    };
                 });
 
                 self.view_profile(mode.profile_id.clone(), window, cx);
             }
             Mode::ConfigureDeepResearch(mode) => {
-                let search_prompt = mode.search_prompt_editor.read(cx).text(cx);
-                let condensation_prompt = mode.condensation_prompt_editor.read(cx).text(cx);
-                let max_tabs = mode.max_tabs_editor.read(cx).text(cx).parse::<usize>().unwrap_or(5);
-                let max_depth = mode.max_depth_editor.read(cx).text(cx).parse::<usize>().unwrap_or(3);
-
                 let fs = self.fs.clone();
                 let profile_id = mode.profile_id.clone();
+                let search_prompt = mode.search_prompt_editor.read(cx).text(cx);
+                let condensation_prompt = mode.condensation_prompt_editor.read(cx).text(cx);
+                let max_tabs = mode.max_tabs_editor.read(cx).text(cx).parse().unwrap_or(10);
+                let max_depth = mode.max_depth_editor.read(cx).text(cx).parse().unwrap_or(3);
+                let search_provider = mode.search_provider;
 
-                update_settings_file(fs, cx, move |settings, _| {
+                let profile_id_for_closure = profile_id.clone();
+                update_settings_file(fs, cx, move |settings, _cx| {
                     let agent_settings = settings.agent.get_or_insert_default();
-                    if let Some(profiles) = agent_settings.profiles.as_mut() {
-                        if let Some(profile) = profiles.get_mut(profile_id.0.as_ref()) {
-                            let deep_research = profile.deep_research.get_or_insert_default();
-                            deep_research.search_system_prompt = if search_prompt.is_empty() {
-                                None
-                            } else {
-                                Some(search_prompt)
-                            };
-                            deep_research.condensation_system_prompt = if condensation_prompt.is_empty() {
-                                None
-                            } else {
-                                Some(condensation_prompt)
-                            };
-                            deep_research.max_concurrent_tabs = Some(max_tabs);
-                            deep_research.max_depth = Some(max_depth);
+                    let profiles = agent_settings.profiles.get_or_insert_default();
+                    let profile_content = profiles.entry(profile_id_for_closure.0.clone().into()).or_insert_with(|| {
+                        settings::AgentProfileContent {
+                            name: profile_id_for_closure.0.clone().into(),
+                            tools: Default::default(),
+                            enable_all_context_servers: None,
+                            context_servers: Default::default(),
+                            default_model: None,
+                            instructions: None,
+                            system_prompt: None,
+                            deep_research: None,
                         }
-                    }
+                    });
+
+                    let deep_research = profile_content.deep_research.get_or_insert_default();
+                    deep_research.search_system_prompt = if search_prompt.is_empty() {
+                        None
+                    } else {
+                        Some(search_prompt)
+                    };
+                    deep_research.condensation_system_prompt = if condensation_prompt.is_empty() {
+                        None
+                    } else {
+                        Some(condensation_prompt)
+                    };
+                    deep_research.max_concurrent_tabs = Some(max_tabs);
+                    deep_research.max_depth = Some(max_depth);
+                    deep_research.search_provider = Some(match search_provider {
+                        agent_settings::SearchProvider::Duckduckgo => settings::SearchProviderContent::Duckduckgo,
+                        agent_settings::SearchProvider::Google => settings::SearchProviderContent::Google,
+                    });
                 });
 
-                self.view_profile(mode.profile_id.clone(), window, cx);
+                self.view_profile(profile_id, window, cx);
             }
         }
     }
@@ -1253,7 +1293,7 @@ impl ManageProfilesModal {
     fn render_configure_deep_research(
         &mut self,
         mode: ConfigureDeepResearchMode,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let settings = AgentSettings::get_global(cx);
@@ -1329,6 +1369,64 @@ impl ManageProfilesModal {
                                         .border_color(cx.theme().colors().border)
                                         .child(mode.max_depth_editor))
                             )
+                            .child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(Label::new("Search Engine"))
+                                    .child(
+                                        PopoverMenu::new("search-provider-selector")
+                                            .trigger(
+                                                Button::new("search-provider-button", match mode.search_provider {
+                                                    agent_settings::SearchProvider::Duckduckgo => "DuckDuckGo",
+                                                    agent_settings::SearchProvider::Google => "Google",
+                                                })
+                                                .style(ButtonStyle::Outlined)
+                                                .icon(IconName::ChevronDown)
+                                                .icon_position(IconPosition::End)
+                                                .icon_size(IconSize::XSmall)
+                                            )
+                                            .menu({
+                                                let profile_id = mode.profile_id.clone();
+                                                let this = cx.weak_entity();
+                                                move |window, cx| {
+                                                    let profile_id = profile_id.clone();
+                                                    let this = this.clone();
+                                                    Some(ContextMenu::build(window, cx, move |menu: ContextMenu, _window, _cx| {
+                                                        menu.entry("DuckDuckGo", None, {
+                                                            let profile_id = profile_id.clone();
+                                                            let this = this.clone();
+                                                            move |window, cx: &mut App| {
+                                                                this.update(cx, |this, cx| {
+                                                                    if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                                        if mode.profile_id == profile_id {
+                                                                            mode.search_provider = agent_settings::SearchProvider::Duckduckgo;
+                                                                            cx.notify();
+                                                                        }
+                                                                    }
+                                                                }).ok();
+                                                                window.dispatch_action(Box::new(SetSearchProvider { profile_id: profile_id.clone(), provider: agent_settings::SearchProvider::Duckduckgo }), cx);
+                                                            }
+                                                        })
+                                                        .entry("Google", None, {
+                                                            let profile_id = profile_id.clone();
+                                                            let this = this.clone();
+                                                            move |window, cx: &mut App| {
+                                                                this.update(cx, |this, cx| {
+                                                                    if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                                        if mode.profile_id == profile_id {
+                                                                            mode.search_provider = agent_settings::SearchProvider::Google;
+                                                                            cx.notify();
+                                                                        }
+                                                                    }
+                                                                }).ok();
+                                                                window.dispatch_action(Box::new(SetSearchProvider { profile_id: profile_id.clone(), provider: agent_settings::SearchProvider::Google }), cx);
+                                                            }
+                                                        })
+                                                    }))
+                                                }
+                                            })
+                                    )
+                            )
                     )
             )
             .child(ListSeparator)
@@ -1392,6 +1490,14 @@ impl Render for ManageProfilesModal {
             .key_context("ManageProfilesModal")
             .on_action(cx.listener(|this, _: &menu::Cancel, window, cx| this.cancel(window, cx)))
             .on_action(cx.listener(|this, _: &menu::Confirm, window, cx| this.confirm(window, cx)))
+            .on_action(cx.listener(|this, action: &SetSearchProvider, _window, cx| {
+                if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                    if mode.profile_id == action.profile_id {
+                        mode.search_provider = action.provider;
+                        cx.notify();
+                    }
+                }
+            }))
             .capture_any_mouse_down(cx.listener(|this, _, window, cx| {
                 this.focus_handle(cx).focus(window, cx);
             }))

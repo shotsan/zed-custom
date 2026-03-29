@@ -59,12 +59,11 @@ pub struct AgentSettings {
     pub deep_research: DeepResearchSettings,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, JsonSchema)]
 pub enum SearchProvider {
     #[default]
     Duckduckgo,
     Google,
-    Tavily,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -327,7 +326,6 @@ impl Settings for AgentSettings {
                 .map(|v| {
                     let provider = match v.search_provider {
                         Some(settings::SearchProviderContent::Google) => SearchProvider::Google,
-                        Some(settings::SearchProviderContent::Tavily) => SearchProvider::Tavily,
                         _ => SearchProvider::Duckduckgo,
                     };
                     DeepResearchSettings {
