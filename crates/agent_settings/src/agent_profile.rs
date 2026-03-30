@@ -181,7 +181,6 @@ impl AgentProfileSettings {
                     max_concurrent_tabs: Some(self.deep_research.max_concurrent_tabs),
                     search_provider: Some(match self.deep_research.search_provider {
                         crate::SearchProvider::Google => settings::SearchProviderContent::Google,
-                        crate::SearchProvider::Tavily => settings::SearchProviderContent::Tavily,
                         crate::SearchProvider::Duckduckgo => {
                             settings::SearchProviderContent::Duckduckgo
                         }
@@ -226,9 +225,6 @@ impl From<AgentProfileContent> for AgentProfileSettings {
                     let provider = match v.search_provider {
                         Some(settings::SearchProviderContent::Google) => {
                             crate::SearchProvider::Google
-                        }
-                        Some(settings::SearchProviderContent::Tavily) => {
-                            crate::SearchProvider::Tavily
                         }
                         _ => crate::SearchProvider::Duckduckgo,
                     };

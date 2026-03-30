@@ -81,7 +81,7 @@ impl Default for DeepResearchSettings {
         Self {
             max_concurrent_tabs: 10,
             max_depth: 3,
-            search_provider: SearchProvider::Duckduckgo,
+            search_provider: SearchProvider::default(),
             search_system_prompt: None,
             gap_analysis_system_prompt: None,
             condensation_system_prompt: None,

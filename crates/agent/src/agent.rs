@@ -297,7 +297,7 @@ impl NativeAgent {
             ).unwrap()),
             cx.update(|cx| {
                 project.read(cx).worktrees(cx).next().map(|w| w.read(cx).abs_path().to_path_buf()).unwrap_or_else(std::path::PathBuf::new)
-            }).await
+            })
         ));
 
         Ok(cx.new(|cx| {

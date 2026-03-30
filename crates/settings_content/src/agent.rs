@@ -167,7 +167,6 @@ pub enum SearchProviderContent {
     #[default]
     Duckduckgo,
     Google,
-    Tavily,
 }
 
 #[with_fallible_options]
