@@ -56,12 +56,12 @@ export default defineConfig({
         ],
 
         socialLinks: [
-            { icon: 'github', link: 'https://github.com/shotsan/agentic-ide' }
+            { icon: 'github', link: 'https://github.com/shotsan/zed-custom' }
         ],
 
         footer: {
-            message: 'A professional AI-native coding environment designed for engineering excellence.',
-            copyright: 'Copyright © 2026 shotsan. Built for high-performance engineering.'
+            message: 'A professional AI-native coding environment. Enhancements provided under the MIT License.',
+            copyright: 'Copyright © 2026 shotsan. Unofficial Zed Fork. Not affiliated with Zed Industries. Original source subject to GPL/AGPL/Apache licenses.'
         },
 
         search: {
