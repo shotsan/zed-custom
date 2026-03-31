@@ -60,7 +60,7 @@ export default defineConfig({
         ],
 
         footer: {
-            message: 'An independent AI-native coding environment.',
+            message: 'A professional AI-native coding environment designed for engineering excellence.',
             copyright: 'Copyright © 2026 shotsan. Built for high-performance engineering.'
         },
 
