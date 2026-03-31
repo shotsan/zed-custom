@@ -12,46 +12,18 @@ This ensures:
 
 ## Navigation & Extraction Process
 
-The agent utilizes two tools under the hood:
-1.  **`search`**: Queries the DuckDuckGo API to find relevant URLs.
+The agent utilizes two primary tools under the hood:
+1.  **`search`**: Queries search providers (DuckDuckGo or Google) to find relevant URLs.
 2.  **`browser`**: Navigates to a specific URL, waits for hydrations, and extracts the content.
 
-## Visual Walkthrough
-
-### Stage 1: Discovering the Solution
-
-<ZedChat>
-  <template #user>
-    How do I fix Rust error E0277 in the latest version of Axum?
-  </template>
-  <template #assistant>
-    I need to search the live web as my training data doesn't cover the most recent Axum release.
-  </template>
-  <template #output>
-    @search({ query: "axum rust error E0277 trait bound not satisfied" })
-    >> Result 1: https://docs.rs/axum/latest/axum/error_handling/index.html
-    >> Result 2: https://github.com/tokio-rs/axum/issues/1234
-  </template>
-</ZedChat>
-
-### Stage 2: Deep Extraction
-
-<ZedChat>
-  <template #assistant>
-    The docs.rs page looks most relevant. I am now navigating to the page to extract the precise fix.
-  </template>
-  <template #output>
-    @browser({ action: "navigate", target: "https://docs.rs/axum/latest/axum/error_handling/index.html" })
-    >> Status: Page Rendered (JS Hydrated)
-    >> Extracted: [Comprehensive Markdown summary of the fix...]
-  </template>
-</ZedChat>
+### Google Search Capability
+In addition to DuckDuckGo, the agent supports a robust browser-based Google search implementation. This uses customized user-agents and headless Chromium profiles to browse Google’s search result pages directly, ensuring high availability and bypassing aggressive bot detection for a rich discovery experience.
 
 ## Technical Details
 
 - **Containerization**: Rendering happens entirely within a local chromium process.
-- **Privacy**: No tracking tokens are sent; we mimic standard Chrome headers to bypass basic anti-bot triggers.
-- **Code Path**: Implemented in `crates/agent/src/tools/web_search_tool.rs`.
+- **Privacy**: We mimic standard Chrome headers to bypass basic anti-bot triggers.
+- **Code Path**: Implemented in `crates/agent/src/tools/web_search_tool.rs` and `crates/agent/src/tools/deep_research_tool.rs`.
 
 ## Workflow Impact
 - **Infinite Knowledge**: Bypasses the LLM training cutoff by pulling live data from the web.

@@ -1,115 +1,65 @@
 # 🕵️ Deep Research: The Discovery Engine
 
-The **Deep Research Tool** is not just a search tool—it is an **autonomous investigative agent** built directly into Zed. While standard search tools (like `/search` or `/fetch`) provide immediate answers to simple questions, Deep Research is designed for the high-uncertainty, multi-source investigation required by senior engineers and researchers.
-
-It transforms the agent from a static knowledge base into a **recursive discovery engine** that hunts for information across the live web, identifies its own blind spots, and synthesizes a comprehensive report.
+The **Deep Research Tool** is an autonomous investigative agent built directly into Zed. It is designed for high-uncertainty, multi-source investigation required by senior engineers and researchers.
 
 ---
 
-## 🔁 The Recursive Loop: How it "Thinks"
+## 🔁 The Recursive Loop: How it Works
 
-The "Deep" in Deep Research comes from its **recursive gap analysis**. Unlike a single-pass search, the agent actively critiques its own findings to find what is missing.
+Deep Research follows a recursive "Fetch → Analyze → Gap Analysis → Fetch Again" cycle:
 
-### Stage 1: Topic Expansion (The Horizontal Sweep)
-The agent takes your objective (e.g., *"How does the GPU pipeline work in GPUI?"*) and expands it into 6-10 distinct search queries. It doesn't just search for the query; it searches for:
-- Official documentation and whitepapers.
-- GitHub implementation details.
-- Developer community discussions and edge cases.
-- Recent changes or regressions in changelogs.
+### 1. Semantic Expansion
+The agent takes your objective and expands it into **6 highly specific search queries**. It targets documentation, GitHub repositories, and technical whitepapers to ensure broad coverage.
 
-### Stage 2: Parallel Headless Crawling
-Using a localized, headless Chromium instance, the agent launches up to **10 tabs in parallel**. This isn't just a text scrape; the engine:
-- Executes JavaScript to render dynamic content.
-- Mimics modern browser headers to bypass basic anti-bot triggers.
-- Automatically handles redirects and hydrates content before extracting a clean Markdown representation.
+### 2. Parallel Headless Crawling
+Using a localized, headless Chromium instance, the agent launches up to **10 tabs in parallel**. It executes JavaScript, handles hydrates, and extracts a clean Markdown representation of the page content.
 
-### Stage 3: Gap Analysis (The Deep Dive)
-**This is the core differentiator.** After reading the first 10 pages, the agent asks itself: *"Given everything I just read, what is still missing to truly answer the user?"*
-- If it finds a library's API but not its performance trade-offs, it spawns new queries specifically targeting benchmarks.
-- If it finds a founder's name but not their previous technical exits, it pivots to corporate filings.
-- It then crawls these **follow-up targets** in a second iteration.
+### 3. Gap Analysis (Recursive Discovery)
+After the first sweep, the agent critiques its own findings: *"What is still missing to truly answer the user?"* It then generates targeted follow-up queries and launches a second iteration of searches to fill those gaps.
 
-### Stage 4: Synthesis & The Discovery Report
-Finally, all collected context (often 20,000+ words of raw data) is distilled into a structured Markdown report, complete with source citations and a "Status Table" for full auditability of the research path.
+### 4. Synthesis & The Discovery Report
+Finally, the collected context (often 20,000+ words) is distilled into a structured Markdown report with source citations and an audit status table.
 
 ---
 
-## 📖 Real-World Example: Investigating an Entity
+## 🎯 Mastering Google-Powered Research
 
-When you research a person or a company, the agent doesn't just give you a bio—it maps their digital footprint.
+While DuckDuckGo is excellent for speed, the **Google Search Engine** is the recommended choice for high-fidelity technical discovery. 
 
-<ZedChat>
-  <template #user>
-    /deep_research "Santosh Ganji" professional background and technical contributions
-  </template>
-  <template #assistant>
-    🚀 **Iteration 1: Mapping the Surface**
-    🔍 Expanded into: "Santosh Ganji LinkedIn", "Santosh Ganji IEEE papers", "Santosh Ganji startup exits", "Santosh Ganji developer profiles"
-    🌐 Fetching: IEEE Author Profile... ✅ Analyzed
-    🌐 Fetching: Scholar.google citations... ✅ Analyzed
-    🌐 Fetching: LinkedIn professional history... ✅ Analyzed
-    
-    🧠 **Gap Analysis**: "I found his academic citations and current LinkedIn title, but his specific role in the 'Godspeed' project and his earlier corporate directorships in India are unclear."
-    
-    🚀 **Iteration 2: The Deep Dive**
-    🔍 Follow-up: "Santosh Kumar Ganji director profile MyCorporateInfo", "Santosh Ganji Godspeed project technical architecture"
-    🌐 Fetching: thecompanycheck.com profile... ✅ Analyzed
-    ...
-  </template>
-  <template #output>
-    # Discovery Report: Santosh Ganji
-    
-    ## 🎓 Academic Profile
-    - **Citations**: Extensive work in timbre characteristics and speech features.
-    - **Key Paper**: "Speakers' Ethnical Features as a Factor Influencing Timbre..." (IEEE/Gramota).
-    
-    ## 💼 Professional Tenure
-    - **Current**: Leading technical initiatives at [Redacted].
-    - **History**: Previously held directorships at [Company A] and [Company B], focused on specialized infrastructure.
-    
-    ## 🛠 Technical Contributions
-    - Deep involvement in the **Godspeed** activity (Activity ID: 715345...), focused on high-scale distributed systems.
-    
-    | Status | Source Title | URL |
-    | :--- | :--- | :--- |
-    | ✅ Analyzed | IEEEXplore Author Profile | https://ieeexplore.ieee.org/... |
-    | ✅ Analyzed | Scholar Citations | https://scholar.google.com/... |
-    | ❌ Failed | Paywalled Bio (Thin Content) | https://zoominfo.com/... |
-  </template>
-</ZedChat>
+### Why Use the Google Engine?
+- **Sequential Stealth Mode**: Unlike parallel search engines, the agent navigates Google results sequentially with built-in "jitter" (1.2s delay between queries) to mimic human browsing and bypass aggressive bot detection.
+- **Structural Analysis**: The agent uses tag-based structural analysis to unmask Google's redirect URLs, ensuring it extracts the highest-quality destination sources.
+- **Niche Discovery**: Accesses the world's most comprehensive index for deep technical whitepapers and academic filings that generic engines often miss.
 
----
-
-## 🛠 Advanced Features
-
-### 🛡 Stealth & Reliability
-- **Isolated User Directories**: Every research task uses a fresh, temporary Chromium profile. This prevents `SingletonLock` errors and ensures that cookies/cache from one session don't leak into another.
-- **Automation Masking**: We remove the `navigator.webdriver` flag and use customized viewport/UA settings to ensure the agent isn't blocked by standard bot-detection.
-
-### ⚡ Live Status Streams
-Deep Research in Zed-Custom uses a custom `ToolCallEventStream`. You don't wait for a "Thinking..." icon for 2 minutes—you see every URL the agent is attempting to fetch, every title it resolves, and every gap it identifies **in real-time**.
-
-### 🔄 Thread Persistence
-Because research can take time (1-3 minutes for 3-deep iterations), we have stabilized the session management. You can **switch to another thread**, work on code, and come back—the research continues in the background and your logs will be waiting for you.
-
----
-
-## ⚙️ Configuration
-
-Tune the engine in your `settings.json`:
+### How to Configure Google Search
+To enable the Google search provider, update your `settings.json`:
 
 ```json
 {
   "agent": {
     "deep_research": {
+      "search_provider": "google",
       "max_concurrent_tabs": 10,
-      "max_depth": 3,
-      "search_provider": "duckduckgo"
+      "max_depth": 3
     }
   }
 }
 ```
 
-- **`max_concurrent_tabs`**: How many sources the agent attempts to "win" (10 is the sweet spot for breadth).
-- **`max_depth`**: How many recursive iterations (1 = surface, 2 = standard, 3 = deep).
-- **`search_provider`**: Choose between `duckduckgo`, `google` (requires API key), or `tavily` (requires API key).
+- **`search_provider`**: Set to `"google"` (default is `"duckduckgo"`).
+- **`max_concurrent_tabs`**: Number of sources the agent analyzes per iteration (default: 10).
+- **`max_depth`**: Number of recursive "gap-filling" iterations (1-3).
+
+---
+
+## 🛡 Stealth & Privacy
+
+- **Isolated Profiles**: Every research task uses a fresh, temporary Chromium user profile, preventing session conflicts and protecting your privacy.
+- **Zero API Keys**: Google search works natively through your local Chromium engine. No expensive Serper or Tavily API keys are required.
+- **Automation Masking**: Typical automation flags are removed from the browser to ensure high reliability across documentation sites.
+
+---
+
+## ⚡ Thread Persistence
+
+Deep Research is designed for the long haul. Because deep investigations can take 1-3 minutes, you can safely **switch to other files or threads**—the research runs in the background and your final report will be waiting for you.

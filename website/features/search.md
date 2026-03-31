@@ -6,7 +6,7 @@ This custom fork integrates a full headless Chrome engine (`chromiumoxide`), sea
 
 ## The `/search` Command
 
-By typing `/search <query>` into the Assistant Panel, you trigger an asynchronous background task that boots a headless Chromium instance, performs a DuckDuckGo search, navigates to the top URLs, and executes JavaScript to render SPA applications (like React or Vue docs).
+By typing `/search <query>` into the Assistant Panel, you trigger an asynchronous background task that boots a headless Chromium instance, performs a Search (via DuckDuckGo or Google), navigates to the top URLs, and executes JavaScript to render SPA applications (like React or Vue docs).
 
 Once the page is rendered, Zed extracts the Markdown payload and synthesizes a perfect answer for you, right inline with your current code.
 
@@ -49,3 +49,4 @@ Once the page is rendered, Zed extracts the Markdown payload and synthesizes a p
 - **Fact Verification**: Instantly cross-reference agent suggestions against official documentation without leaving the editor.
 - **Context Expansion**: Pull in external examples, RFCs, and GitHub issues to solve obscure architectural problems.
 - **Accurate Dependencies**: The agent can verify the exact latest version strings for your `Cargo.toml`.
+- **Search Engine Flexibility**: Choose between Google and DuckDuckGo to optimize for the richest search results.
