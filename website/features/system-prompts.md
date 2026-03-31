@@ -1,54 +1,57 @@
-# 🎭 System Prompts & Persona
+# 📝 System Prompts & Persona
 
-The System Prompt is the agent's "subconscious"—a set of foundational instructions that define its identity, its available tools, and its behavioral boundaries.
+System Prompts are the top-level instructions that define the Assistant's core behavior, tone, and technical constraints. This IDE grants you absolute control to modify or completely overwrite these instructions.
 
-## The Handlebars Engine
+---
 
-Instead of a static text file, this fork uses the **Handlebars** template engine to dynamically construct the prompt based on your real-time environment. 
+## 🛠️ The Prompt Hierarchy
 
-The template is located in `crates/agent/src/templates/system_prompt.hbs` and is embedded into the binary using `rust-embed` for maximum performance.
+When the Assistant generates a response, it synthesizes three distinct layers of instructions in order:
 
-## Prompt Prioritization (Top to Bottom)
+1.  **The Base System Prompt**: The fundamental logic that instructs the model on how to use tools, how to format responses, and its identity as an AI coding partner.
+2.  **Global Instructions**: Your personalized technical rules (e.g., "Always use TypeScript," "Prefer functional components").
+3.  **Project-Scoped Rules (`.rules` / `.cursorrules`)**: Specific logic that only applies to your current repository or directory.
 
-The prompt is structured into five distinct sections, prioritized by their distance from the user's latest query:
+---
 
-1.  **Identity & Persona**: Defines the agent as a "10x proactive engineer" who uses `<thought>` blocks.
-2.  **Epistemic State**: Dynamic sensors providing real-time data on active files and LSP error counts.
-3.  **Language Modifiers**: Targeted best practices injected based on the file extension (e.g., C++17 pointers).
-4.  **Project Memory**: Contextually relevant facts retrieved from the [SQLite database](/features/memory).
-5.  **Custom Session Instructions**: Thread-specific overrides set via the ✨ GUI, injected after memory.
-6.  **Custom Rules**: Your project-scoped `.rules` files, placed last to maximize the model's attention.
+## 🧠 Why Overwrite?
 
-## Dynamic Session Overrides
+While the default logic is optimized for general engineering, advanced users can customize the Assistant's performance:
 
-Unlike binary-embedded templates or project-wide `.rules` files, **Custom Session Instructions** allow you to pivot the agent's behavior for just the current thread. 
+-   **Precision Control**: If the model is making recurring formatting errors or being overly chatty, you can modify the internal instructions directly.
+-   **Specialized Models**: Some models (like `o1-preview`) respond better to extremely brief instructions. You can create a "Minimalist" profile specifically for these models.
+-   **Security Constraints**: Explicitly forbid the use of certain libraries or external APIs in the Assistant's "foundational" logic.
 
-Click the ✨ icon in the message editor toolbar to open a modal where you can paste specific constraints like "Write all tests in Jest" or "Respond as if you are a code reviewer." These are injected into every system prompt refresh for that session.
+---
 
-## Technical Detail: Memory Injection
+## 🏗️ Technical Override Mechanism
 
-The memory block is injected using a conditional Handlebars loop that iterates through your project's historical facts:
+You can override these prompts in two ways:
 
-```hbs
-\{{#if (gt (len memories) 0)}}
-## Project Memory
-The following information has been remembered from previous sessions:
+### 1. The Global Override
+Specify your persona directly in your `settings.json`:
 
-\{{#each memories}}
-### \{{category}}
-\{{content}}
-\{{/each}}
-\{{/if}}
+```json
+{
+  "agent": {
+    "system_prompt": "You are a senior Rust kernel engineer. Be extremely concise."
+  }
+}
 ```
 
-## Modifying the Persona
+### 2. Profile-Level Overwrites
+Vary the foundational logic depending on the active profile:
 
-Because the prompt is embedded in the binary, fundamental changes to the agent's base persona require editing the `.hbs` template and re-running `cargo build --release`. 
+```json
+{
+  "agent": {
+    "profiles": {
+      "security-auditor": {
+        "system_prompt": "You are a professional security consultant focused on OWASP Top 10."
+      }
+    }
+  }
+}
+```
 
-For transient project-specific behaviors, we recommend using [Custom Rules](/features/rules) instead of binary modifications.
-
-## Workflow Impact
-- **Absolute Control**: You own the prompt. If the agent is being too chatty or making formatting errors, you can fix its "brain" directly without waiting for an upstream Zed release.
-- **Model Optimization**: Fine-tune the context injection strategy based on whether you're using Claude 3.5 Sonnet, GPT-4o, or local Llama models.
-- **Security & Privacy**: Audit exactly what system-level metadata is being leaked to the model and strip out what you don't want.
-- **Rapid Prototyping**: Experiment with new agent capabilities (like "Refactor Mode") by simply creating a new Handlebars template.
+This allows you to change the Assistant's entire persona simply by switching your active profile.

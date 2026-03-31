@@ -1,52 +1,49 @@
-# 🌐 Headless Chromium Search
+# 🔍 Quick Web Search (DDG HTML)
 
-The ultimate AI assistant shouldn't just know your code; it should be able to read external documentation. 
+The Quick Search tool provides the Assistant with instant access to the web for fact-checking, API documentation lookups, and real-time data retrieval.
 
-This custom fork integrates a full headless Chrome engine (`chromiumoxide`), seamlessly hooked into a new `/search` panel command.
+Unlike complex browser-based tools, this system is optimized for **speed** and **privacy** by using a lightweight, static scraping engine.
 
-## The `/search` Command
+---
 
-By typing `/search <query>` into the Assistant Panel, you trigger an asynchronous background task that boots a headless Chromium instance, performs a Search (via DuckDuckGo or Google), navigates to the top URLs, and executes JavaScript to render SPA applications (like React or Vue docs).
+## ⚡ The HTML Engine
 
-Once the page is rendered, Zed extracts the Markdown payload and synthesizes a perfect answer for you, right inline with your current code.
+The Assistant utilizes a specialized **DuckDuckGo HTML** scraper to pull in facts. This approach offers several technical advantages:
 
-![Search Tool Demo](/demo-search.gif)
+1.  **Zero-JavaScript Overhead**: By targeting the static HTML version of DuckDuckGo, the tool avoids the latency of loading a full browser engine (Chromium/Webkit).
+2.  **Instant Context**: Results are parsed in milliseconds and injected directly into the conversation as clean Markdown.
+3.  **Privacy Focused**: Searches are proxied through a privacy-centric gateway, ensuring your local IP and system details are never exposed to search engines.
+4.  **Stealth Execution**: Because there is no browser footprint, the search is highly resistant to bot-detection and "Unusual Traffic" flags that often plague other AI search tools.
 
-## Visual Walkthrough
+---
 
-### Example 1: Resolving Library Knowledge Cutoffs
-<ZedChat>
-  <template #user>
-    Write a simple server using the latest `axum` version. I'm not sure if the API changed in 0.7.
-  </template>
-  <template #assistant>
-    Searching for `axum 0.7 release notes` to verify API changes...
-  </template>
-  <template #output>
-    @search({ query: "axum 0.7 breaking changes" })
-    >> Results: docs.rs/axum/latest/..., entries found.
-    @fetch({ url: "https://docs.rs/axum/latest/axum/index.html" })
-    >> Extracting Axum 0.7 routing syntax...
-  </template>
-</ZedChat>
+## 🛠️ How to Use
 
-### Example 2: Comparative Documentation Research
-<ZedChat>
-  <template #user>
-    Should I use `tokio::sync::mpsc` or `crossbeam_channel` for a high-throughput UI event loop?
-  </template>
-  <template #assistant>
-    Comparing performance benchmarks and async compatibility...
-  </template>
-  <template #output>
-    @search({ query: "tokio mpsc vs crossbeam performance benchmarks" })
-    >> Found benchmark analysis on Reddit and GitHub Discussions.
-  </template>
-</ZedChat>
+Simply type your query or ask a question that requires up-to-date information:
 
-## Workflow Impact
-- **End-to-End Solutions**: The agent no longer says "I don't know the latest API." It finds it, reads it, and implements it.
-- **Fact Verification**: Instantly cross-reference agent suggestions against official documentation without leaving the editor.
-- **Context Expansion**: Pull in external examples, RFCs, and GitHub issues to solve obscure architectural problems.
-- **Accurate Dependencies**: The agent can verify the exact latest version strings for your `Cargo.toml`.
-- **Search Engine Flexibility**: Choose between Google and DuckDuckGo to optimize for the richest search results.
+> **User**: *"What is the latest version of the `sqlez` crate and what changed in the last release?"*
+
+**Assistant Action**:
+1.  Triggers the `@search` tool with the query.
+2.  Connects to `html.duckduckgo.com` and retrieves the top 10 results.
+3.  Parses titles, URLs, and snippets using high-speed CSS selectors.
+4.  Provides an answer with clickable citations.
+
+---
+
+## 🛡️ Permission Mode
+
+By default, the IDE respects your privacy settings:
+-   **Always Allow**: Grant the Assistant permanent permission to search specific domains or all domains.
+-   **Ask Always**: The Assistant will request a one-click confirmation before performing any external network request.
+
+---
+
+## Comparison: Quick Search vs. Deep Research
+
+| Feature | Quick Search (`/search`) | Deep Research (`/research`) |
+| :--- | :--- | :--- |
+| **Engine** | DuckDuckGo Static HTML | Multi-Staged Chromium Search |
+| **Speed** | Instant (<1s) | Sequential (~20-40s) |
+| **Complexity** | Basic fact-checking | Exhaustive technical deep-dives |
+| **JavaScript** | Disabled (Lightweight) | Enabled (Full Browser) |

@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "R-D Code"
-  text: "The High-Performance AI Agent Fork"
-  tagline: "Custom features for Zed including Long-Term Memory, LSP-based Context, and Headless Searching."
+  text: "The High-Performance AI Agentic IDE"
+  tagline: "High-performance features including Long-Term Memory, LSP-based Context, and Quick Search."
   image:
     src: /logo-animated.svg
     alt: R-D Code AI Logo
@@ -15,7 +15,7 @@ hero:
       link: /features/memory
     - theme: alt
       text: GitHub
-      link: https://github.com/shotsan/zed-custom
+      link: https://github.com/shotsan/agentic-ide
 
 features:
   - title: 📚 Skill Library
@@ -30,8 +30,8 @@ features:
   - title: ⚡ LSP Symbol Search
     details: Native Language Server Protocol integration for 100% accurate, type-aware code context.
     link: /features/lsp
-  - title: 🌐 Headless Chromium
-    details: Built-in chromiumoxide engine for real-time web search and JavaScript-heavy documentation.
+  - title: ⚡ Quick Web Search
+    details: High-speed DuckDuckGo HTML scraper for instant fact-checking and automated link retrieval.
     link: /features/search
   - title: 🧪 Deep Research Tool
     details: Autonomous, multi-stage recursive research engine. It identifies information gaps and performs follow-up searches to synthesize reports on complex topics.
@@ -52,7 +52,7 @@ features:
 ---
 
 > [!IMPORTANT]
-> **Unofficial Fork**: This is a custom, unofficial fork of [Zed](https://github.com/zed-industries/zed) and is **not** associated with, endorsed by, or affiliated with [Zed Industries](https://zed.dev).
+> **Unofficial Fork**: This is a custom, unofficial fork and is **not** associated with, endorsed by, or affiliated with the original developers.
 >
-> **Licensing**: The enhancements in this fork are provided under the [MIT License](https://github.com/shotsan/zed-custom/blob/main/LICENSE-MIT). The original Zed source code follows its respective GPL/AGPL/Apache licenses.
+> **Licensing**: The enhancements in this fork are provided under the [MIT License](https://github.com/shotsan/agentic-ide/blob/main/LICENSE-MIT). The original source code follows its respective GPL/AGPL/Apache licenses.
 ---

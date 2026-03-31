@@ -804,7 +804,7 @@ impl ActionLog {
             let direction = direction.to_string();
 
             cx.background_executor().spawn(async move {
-                let log_dir = worktree_path.join(".zed_custom").join("agent_logs");
+                let log_dir = worktree_path.join(".agent_logs");
                 let log_file = log_dir.join("traffic.md");
 
                 _ = std::fs::create_dir_all(&log_dir);

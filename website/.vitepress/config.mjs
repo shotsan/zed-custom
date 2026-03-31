@@ -2,12 +2,12 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-    title: "Zed Custom",
-    description: "An enhanced fork of the Zed code editor with native AI memory and headless search.",
+    title: "Agentic IDE",
+    description: "The high-performance AI coding environment with native project memory and advanced recursive research.",
     base: '/zed-custom/',
 
     head: [
-        ['link', { rel: 'icon', type: 'image/png', href: '/zed-custom/favicon.png' }]
+        ['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }]
     ],
 
     themeConfig: {
@@ -27,10 +27,9 @@ export default defineConfig({
                     { text: 'Skill Library', link: '/features/skill-library' },
                     { text: 'Long-Term Memory', link: '/features/memory' },
                     { text: 'Auto Context Compression', link: '/features/context-compression' },
-                    { text: 'Headless Web Search', link: '/features/search' },
+                    { text: 'Quick Web Search', link: '/features/search' },
                     { text: 'Deep Research Tool', link: '/features/tools/deep-research' },
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
-                    { text: 'Prompt Caching Logic', link: '/features/prompt-caching' },
                     { text: 'LSP Symbol Search', link: '/features/lsp' },
                     { text: 'System Prompts & Persona', link: '/features/system-prompts' },
                     { text: 'Full Message Interception', link: '/features/message-interception' }
@@ -57,12 +56,12 @@ export default defineConfig({
         ],
 
         socialLinks: [
-            { icon: 'github', link: 'https://github.com/shotsan/zed-custom' }
+            { icon: 'github', link: 'https://github.com/shotsan/agentic-ide' }
         ],
 
         footer: {
-            message: 'Unofficial Zed Fork. Not affiliated with Zed Industries.',
-            copyright: 'Copyright © 2026 shotsan. Modifications under MIT License.'
+            message: 'An independent AI-native coding environment.',
+            copyright: 'Copyright © 2026 shotsan. Built for high-performance engineering.'
         },
 
         search: {

@@ -1,16 +1,16 @@
 # ☁️ Azure Anthropic & Token Caching
 
-This fork provides native integration for Azure OpenAI/Foundry Anthropic deployments and real-time visualization of Anthropic's **Prompt Caching** (Beta).
+The IDE provides native integration for Azure OpenAI and Azure AI Foundry Anthropic deployments, along with real-time visualization of Anthropic's **Prompt Caching** performance.
+
+---
 
 ## Native Azure Support
 
-Standard Anthropic providers in Zed often fail with `404 DeploymentNotFound` because they passdated version strings (e.g., `claude-3-5-sonnet-20241022`) that Azure strictly rejects.
-
-We modified `crates/anthropic/src/anthropic.rs` to intercept model resolution. When a custom `api_url` is detected, Zed automatically forwards the exact `serde_name` string you provided in settings, ensuring your Azure deployment name is matched perfectly.
+Connecting to Anthropic models via Azure requires precise model ID matching and endpoint routing. The IDE handles these specialized deployments out of the box, ensuring that custom deployment names are resolved correctly without requiring manual version string suffixes.
 
 ### Configuration Example
 
-To use your Azure Anthropic deployment, set your `settings.json` like this:
+To use your Azure-hosted Anthropic deployment, configure your `settings.json` with the appropriate `api_url` and deployment names:
 
 ```json
 {
@@ -29,67 +29,37 @@ To use your Azure Anthropic deployment, set your `settings.json` like this:
 }
 ```
 
-> [!TIP]
-> Zed will now correctly route requests to `.../bot/chat` (Azure's endpoint) and use your deployment name as the model ID without version suffixes.
+---
 
 ## Prompt Caching UI
 
-For massive context windows (200k+ tokens), sending the entire codebase on every turn is slow and expensive. Anthropic's **Prompt Caching** stores prefixes on their servers for roughly 5 minutes.
+For massive context windows (200k+ tokens), processing the entire project on every turn can be slow. Anthropic's **Prompt Caching** stores frequently used project data on the server for immediate reuse.
 
-In this build, the `show_turn_stats` visualization is **enabled by default**.
+The IDE displays these statistics in every message to provide full visibility into your "Cache ROI."
 
-## Visual Walkthrough: Caching ROI
+### Understanding the Statistics
 
-<ZedChat>
-  <template #user>
-    (First Turn: Sends 50 files)
-    Summarize the overall architecture.
-  </template>
-  <template #assistant>
-    >> 0 tokens cached
-    >> 45,000 tokens input
-    Generating summary...
-  </template>
-</ZedChat>
-
-<ZedChat>
-  <template #user>
-    (Second Turn: Asks follow-up)
-    Now find the specific logic for the auth handler.
-  </template>
-  <template #assistant>
-    >> 45,200 tokens cached (ROI! ⚡️)
-    >> 150 tokens input
-    Locating auth handler...
-  </template>
-</ZedChat>
-
-### Understanding the Labels (The "Grocery Receipt" Analogy)
-
-- 🟢 **[X]k cached (Green)**: Think of this as your "loyalty discount." These are tokens Claude already "remembered" from previous messages. You pay a fraction of the cost for these.
-- 🔵 **+[X]k saved (Blue)**: This is your "investment." These are new tokens Claude just read and locked into its high-speed memory so you can get the discount on them in the *next* turn.
+- 🟢 **[X]k cached (Already Memorized)**: This is the code or documentation the model already "knows" from earlier in the conversation. Because the model doesn't have to re-read this data, it responds nearly instantly and costs significantly less.
+- 🔵 **+[X]k saved (Newly Pinned)**: This is new information the model just read for the first time (like a newly opened file). The system is now "pinning" this to the model's high-speed memory so that it becomes "Cached" (Green) on your very next message.
 
 ---
 
-## Smart Caching Strategy
+## 🏗️ Three-Layer Caching Architecture
 
-For a deep dive into the technical implementation (Intervals, Midpoints, and Prefix Windows), see our detailed **[Prompt Caching Logic](./prompt-caching)** guide.
+Instead of flagging data randomly, the IDE uses a multi-layered strategy to ensure maximum hit rates in every turn:
 
-1.  **System Prompt Caching**: The base system prompt and injected tool definitions are permanently flagged for caching.
-2.  **The "Prefix Window" Strategy**: We strategically flag the **second-to-last message** in every turn to ensure the "immediate past" remains hot.
-3.  **Interval Stabilization**: Caching is re-enforced every 15 messages and at the midpoint of long threads.
+1.  **Base Layer (The Foundation)**: We always cache your project-specific rules, system prompts, and tool definitions. These are the core instructions the model needs for every single message.
+2.  **Continuity Layer (Historical Context)**: We cache the very last message in your history. This essentially "locks in" the entire historical conversation prefix, ensuring the model doesn't have to re-read your old logs.
+3.  **Active Layer (Task Processing)**: We cache your current message. This is critical for **Tool Use**. If the Assistant has to run a search or read a file *before* it answers you, the second part of that "brainstorming" cycle happens instantly.
 
 ### Technical Thresholds
-- **Activation**: Anthropic typically activates caching for prompts exceeding **1024 or 2048 tokens**. Small conversations will not show caching tokens until this threshold is crossed.
-- **Persistence**: Cache entries live for approximately **5 minutes** on the server. Frequent turn-arounds in code-heavy threads will result in near 100% cache hit rates.
+- **Activation**: Caching is a server-side feature that typically kicks in once your prompt exceeds **1024 to 2048 tokens**. Conversations falling under this size will not show caching labels until the thread grows beyond this threshold crossed.
+- **Persistence**: These cache entries live for approximately **5 minutes**. Frequent interactions in code-heavy threads will result in near 100% cache hit rates.
 
-## Workflow Impact
-- **Enterprise Compliance**: Securely use LLMs within Azure's managed infrastructure and VPCs.
-- **Zero-Wait Context**: Massive projects that usually take 10s to process now respond in <1s due to prefix caching.
-- **Dramatic Cost Savings**: Pay up to 90% less for the "static" project context that doesn't change between turns.
-- **Perfect Routing**: Eliminates the "404 Model Not Found" errors by matching exact Azure deployment names.
+---
 
-### References & Source Code
-- [`crates/agent/src/thread.rs`](file:///Users/sillydon/Desktop/zed/crates/agent/src/thread.rs) — Implements the message flagging and prefix logic.
-- [`crates/language_models/src/provider/anthropic.rs`](file:///Users/sillydon/Desktop/zed/crates/language_models/src/provider/anthropic.rs) — Handles the `cache_control` headers.
-- [`crates/agent_ui/src/acp/thread_view.rs`](file:///Users/sillydon/Desktop/zed/crates/agent_ui/src/acp/thread_view.rs) — Manages the green/blue token visualization.
+## Workflow Benefits
+
+- **Enterprise Compliance**: Securely use high-performance models within managed Azure infrastructure.
+- **Zero-Wait Context**: Massive projects that usually take 10s to process now respond in <1s.
+- **Cost Optimization**: Reduce input costs by up to 90% for the "static" portions of your codebase.

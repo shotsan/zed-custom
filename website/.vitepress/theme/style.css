@@ -21,3 +21,35 @@
   height: 36px !important;
   margin-right: 12px;
 }
+
+/* Mobile-friendliness & Out-of-boundary fixes */
+.vp-doc table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vp-doc p, .vp-doc li, .vp-doc td {
+  overflow-wrap: break-word;
+}
+
+.zed-chat-container {
+  max-width: 100% !important;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 640px) {
+  .VPHero .name {
+    font-size: 32px !important;
+    line-height: 40px !important;
+  }
+  .VPHero .text {
+    font-size: 24px !important;
+    line-height: 32px !important;
+  }
+  .zed-chat-container {
+    padding: 16px !important;
+  }
+}

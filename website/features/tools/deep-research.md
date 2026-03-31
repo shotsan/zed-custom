@@ -1,65 +1,72 @@
-# 🕵️ Deep Research: The Discovery Engine
+# 🧪 Deep Research: Advanced Multi-Stage Investigation
 
-The **Deep Research Tool** is an autonomous investigative agent built directly into Zed. It is designed for high-uncertainty, multi-source investigation required by senior engineers and researchers.
-
----
-
-## 🔁 The Recursive Loop: How it Works
-
-Deep Research follows a recursive "Fetch → Analyze → Gap Analysis → Fetch Again" cycle:
-
-### 1. Semantic Expansion
-The agent takes your objective and expands it into **6 highly specific search queries**. It targets documentation, GitHub repositories, and technical whitepapers to ensure broad coverage.
-
-### 2. Parallel Headless Crawling
-Using a localized, headless Chromium instance, the agent launches up to **10 tabs in parallel**. It executes JavaScript, handles hydrates, and extracts a clean Markdown representation of the page content.
-
-### 3. Gap Analysis (Recursive Discovery)
-After the first sweep, the agent critiques its own findings: *"What is still missing to truly answer the user?"* It then generates targeted follow-up queries and launches a second iteration of searches to fill those gaps.
-
-### 4. Synthesis & The Discovery Report
-Finally, the collected context (often 20,000+ words) is distilled into a structured Markdown report with source citations and an audit status table.
+Deep Research is an autonomous, multi-stage recursive engine designed for high-stakes technical investigations, market analysis, and exhaustive fact-finding. It identifies missing data points and performs follow-up searches to close information gaps in every investigation.
 
 ---
 
-## 🎯 Mastering Google-Powered Research
+## 🏗️ The 4-Stage Lifecycle
 
-While DuckDuckGo is excellent for speed, the **Google Search Engine** is the recommended choice for high-fidelity technical discovery. 
+The tool follows a deterministic state machine to ensure exhaustive coverage of the topic:
 
-### Why Use the Google Engine?
-- **Sequential Stealth Mode**: Unlike parallel search engines, the agent navigates Google results sequentially with built-in "jitter" (1.2s delay between queries) to mimic human browsing and bypass aggressive bot detection.
-- **Structural Analysis**: The agent uses tag-based structural analysis to unmask Google's redirect URLs, ensuring it extracts the highest-quality destination sources.
-- **Niche Discovery**: Accesses the world's most comprehensive index for deep technical whitepapers and academic filings that generic engines often miss.
+### 1. Search Query Expansion
+The engine begins by using a high-fidelity model to expand your initial prompt into **~6 highly specific search queries**. 
 
-### How to Configure Google Search
-To enable the Google search provider, update your `settings.json`:
-
-```json
-{
-  "agent": {
-    "deep_research": {
-      "search_provider": "google",
-      "max_concurrent_tabs": 10,
-      "max_depth": 3
-    }
-  }
-}
-```
-
-- **`search_provider`**: Set to `"google"` (default is `"duckduckgo"`).
-- **`max_concurrent_tabs`**: Number of sources the agent analyzes per iteration (default: 10).
-- **`max_depth`**: Number of recursive "gap-filling" iterations (1-3).
+To ensure broad coverage, the engine purposefully targets five distinct data categories:
+1.  **Official Corporate Records**: Investor Relations, Annual Reports, and SEC filings.
+2.  **Technical Resources**: Specifications, Documentation, and GitHub repositories.
+3.  **Market Analytics**: Financial analysis and industry providers.
+4.  **Current Events**: Recent press releases and news.
+5.  **Technical Assessment**: Expert critiques and whitepapers.
 
 ---
 
-## 🛡 Stealth & Privacy
+### 2. Search Discovery & Filtering (Phase 1)
+The engine detects your configured **Search Provider** and routes to one of two entirely separate logic paths for **URL discovery**. The goal of this phase is to rapidly identify candidate links using specialized scouts.
 
-- **Isolated Profiles**: Every research task uses a fresh, temporary Chromium user profile, preventing session conflicts and protecting your privacy.
-- **Zero API Keys**: Google search works natively through your local Chromium engine. No expensive Serper or Tavily API keys are required.
-- **Automation Masking**: Typical automation flags are removed from the browser to ensure high reliability across documentation sites.
+### 3. Deep Page Analysis & Processing (Phase 2)
+Once candidate URLs are discovered, the engine launches a **unified, parallelized Chromium engine** to analyze each page. This browser-based scraping allows the tool to process modern, JavaScript-heavy documentation into clean Markdown.
+
+### 4. Recursive Gap Analysis (Discovery Loops)
+After gathering initial findings, the engine identifies **critical information gaps** and performs follow-up discovery:
+- **Autonomous Query Generation**: The engine automatically writes **3 targeted follow-up queries** (Gaps) based on missing data points.
+- **Iteration Depth**: Controlled by the `max_depth` setting. A depth of 3 means the engine will perform up to 3 recursive loops to find missing facts before synthesis.
 
 ---
 
-## ⚡ Thread Persistence
+## ⚡ Search Discovery: DuckDuckGo Scout
 
-Deep Research is designed for the long haul. Because deep investigations can take 1-3 minutes, you can safely **switch to other files or threads**—the research runs in the background and your final report will be waiting for you.
+The DuckDuckGo implementation acts as a **high-speed discovery scout** for initial URL retrieval.
+
+- **URL Discovery Only**: Targets `html.duckduckgo.com` (Zero-JS) to retrieve long lists of candidate links without browser overhead.
+- **Direct Scraping**: This phase does **not** use a browser; it utilizes high-performance Rust-based CSS selectors.
+- **Massive Parallelism**: Search queries are fired in a single parallel burst to populate the candidate pool instantly.
+
+---
+
+## 🕵️ Search Discovery: Google Search Scout (Stealth Mode)
+
+The Google implementation acts as a **Stealth Scout** designed to navigate defensive security layers and resolve high-fidelity results.
+
+- **Chromium-Driven Search**: Uses a headless Chromium engine even for the initial result discovery.
+- **Sequential Stealth Mode**: Searches are performed **one by one** with a mandatory **1.2-second jitter delay** between queries to avoid bot detection.
+- **Link Unmasking**: Automatically resolves Google's internal tracking redirects to extract clean, high-fidelity URLs.
+
+---
+
+## 🚀 The Multi-Tab Browsing Engine (Unified)
+
+Regardless of the search provider, the **Deep Page Analysis** phase is unified and uses a specialized Chromiumoxide engine.
+
+- **Stealth Browsing**: Automatically masks `navigator.webdriver` and detects intermediate "Enable JS" or "Unusual Traffic" challenges.
+- **The "Follow-Through" Loop**: A 4-attempt loop that autonomously progresses through intermediate redirect pages.
+- **Content Conversion**: Every page is analyzed, scrolled to trigger lazy-loading, and converted from raw HTML into **Technical Markdown**.
+
+---
+
+## 🤖 Customizing the System Prompts
+
+Advanced users can refine the internal logic used during each stage by overriding these prompts in their settings:
+
+1.  **`search_system_prompt`**: Controls the initial search query expansion strategy.
+2.  **`gap_analysis_system_prompt`**: Controls how missing information is identified and follow-up queries are written.
+3.  **`condensation_system_prompt`**: Controls the final report's tone, structure, and technical density.
