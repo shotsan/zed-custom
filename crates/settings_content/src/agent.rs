@@ -174,6 +174,7 @@ pub enum SearchProviderContent {
 pub struct DeepResearchSettingsContent {
     pub max_concurrent_tabs: Option<usize>,
     pub max_depth: Option<usize>,
+    pub use_headed_browser: Option<bool>,
     pub search_provider: Option<SearchProviderContent>,
     pub search_system_prompt: Option<String>,
     pub gap_analysis_system_prompt: Option<String>,

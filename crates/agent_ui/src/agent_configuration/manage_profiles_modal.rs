@@ -128,6 +128,7 @@ pub struct ConfigureDeepResearchMode {
     max_tabs_editor: Entity<Editor>,
     max_depth_editor: Entity<Editor>,
     search_provider: agent_settings::SearchProvider,
+    use_headed_browser: bool,
 }
 
 #[derive(Clone)]
@@ -482,6 +483,7 @@ impl ManageProfilesModal {
         let max_tabs = profile.deep_research.max_concurrent_tabs.to_string();
         let max_depth = profile.deep_research.max_depth.to_string();
         let search_provider = profile.deep_research.search_provider;
+        let use_headed_browser = profile.deep_research.use_headed_browser;
 
         let search_prompt_editor = cx.new(|cx| {
             let mut editor = Editor::multi_line(window, cx);
@@ -514,6 +516,7 @@ impl ManageProfilesModal {
             max_tabs_editor,
             max_depth_editor,
             search_provider,
+            use_headed_browser,
         });
         cx.notify();
     }
@@ -577,6 +580,7 @@ impl ManageProfilesModal {
                 let max_tabs = mode.max_tabs_editor.read(cx).text(cx).parse().unwrap_or(10);
                 let max_depth = mode.max_depth_editor.read(cx).text(cx).parse().unwrap_or(3);
                 let search_provider = mode.search_provider;
+                let use_headed_browser = mode.use_headed_browser;
 
                 let profile_id_for_closure = profile_id.clone();
                 update_settings_file(fs, cx, move |settings, _cx| {
@@ -609,9 +613,14 @@ impl ManageProfilesModal {
                     deep_research.max_concurrent_tabs = Some(max_tabs);
                     deep_research.max_depth = Some(max_depth);
                     deep_research.search_provider = Some(match search_provider {
-                        agent_settings::SearchProvider::Duckduckgo => settings::SearchProviderContent::Duckduckgo,
-                        agent_settings::SearchProvider::Google => settings::SearchProviderContent::Google,
+                        agent_settings::SearchProvider::Duckduckgo => {
+                            settings::SearchProviderContent::Duckduckgo
+                        }
+                        agent_settings::SearchProvider::Google => {
+                            settings::SearchProviderContent::Google
+                        }
                     });
+                    deep_research.use_headed_browser = Some(use_headed_browser);
                 });
 
                 self.view_profile(profile_id, window, cx);
@@ -1404,7 +1413,6 @@ impl ManageProfilesModal {
                                                                         }
                                                                     }
                                                                 }).ok();
-                                                                window.dispatch_action(Box::new(SetSearchProvider { profile_id: profile_id.clone(), provider: agent_settings::SearchProvider::Duckduckgo }), cx);
                                                             }
                                                         })
                                                         .entry("Google", None, {
@@ -1419,10 +1427,29 @@ impl ManageProfilesModal {
                                                                         }
                                                                     }
                                                                 }).ok();
-                                                                window.dispatch_action(Box::new(SetSearchProvider { profile_id: profile_id.clone(), provider: agent_settings::SearchProvider::Google }), cx);
                                                             }
                                                         })
                                                     }))
+                                                }
+                                            })
+                                    )
+                            )
+                            .child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(Label::new("Browser Visibility"))
+                                    .child(
+                                        Button::new("headed-toggle", if mode.use_headed_browser { "Visible Window (Headed)" } else { "Hidden (Headless)" })
+                                            .style(ButtonStyle::Outlined)
+                                            .on_click({
+                                                let this = cx.weak_entity();
+                                                move |_, window, cx| {
+                                                    this.update(cx, |this, cx| {
+                                                        if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                            mode.use_headed_browser = !mode.use_headed_browser;
+                                                            cx.notify();
+                                                        }
+                                                    }).ok();
                                                 }
                                             })
                                     )

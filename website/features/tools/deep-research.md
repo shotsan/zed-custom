@@ -24,7 +24,7 @@ To ensure broad coverage, the engine purposefully targets five distinct data cat
 The engine detects your configured **Search Provider** and routes to one of two entirely separate logic paths for **URL discovery**. The goal of this phase is to rapidly identify candidate links using specialized scouts.
 
 ### 3. Deep Page Analysis & Processing (Phase 2)
-Once candidate URLs are discovered, the engine launches a **unified, parallelized Chromium engine** to analyze each page. This browser-based scraping allows the tool to process modern, JavaScript-heavy documentation into clean Markdown.
+Once candidate URLs are discovered, the engine launches a **unified, parallelized Chromium engine** to analyze each page. Choose between **Headless** (Background) or **Headed** (Visible Window) mode to bypass hardware-level fingerprinting or manually resolve traffic challenges. This browser-based scraping allows the tool to process modern, JavaScript-heavy documentation into clean Markdown.
 
 ### 4. Recursive Gap Analysis (Discovery Loops)
 After gathering initial findings, the engine identifies **critical information gaps** and performs follow-up discovery:
@@ -47,9 +47,10 @@ The DuckDuckGo implementation acts as a **high-speed discovery scout** for initi
 
 The Google implementation acts as a **Stealth Scout** designed to navigate defensive security layers and resolve high-fidelity results.
 
-- **Chromium-Driven Search**: Uses a headless Chromium engine even for the initial result discovery.
-- **Sequential Stealth Mode**: Searches are performed **one by one** with a mandatory **1.2-second jitter delay** between queries to avoid bot detection.
-- **Link Unmasking**: Automatically resolves Google's internal tracking redirects to extract clean, high-fidelity URLs.
+- **Chromium-Driven Search**: Uses a Chromium engine even for the initial result discovery. Supported in both background and visible modes.
+- **Sequential Stealth Mode**: Searches are performed **one by one** with a mandatory **1.2-second jitter delay** between queries to avoid traffic flagging.
+- **Dynamic Redirect Resolution**: Natively detects and follows Google's "Enable JS" and "Unusual Traffic" redirects by monitoring tab context switching.
+- **Broad Bucket Collection**: Acts as a pure data harvester, capturing every link and metadata field before delegating relevance ranking to the semantic engine.
 
 ---
 
@@ -57,8 +58,8 @@ The Google implementation acts as a **Stealth Scout** designed to navigate defen
 
 Regardless of the search provider, the **Deep Page Analysis** phase is unified and uses a specialized Chromiumoxide engine.
 
-- **Stealth Browsing**: Automatically masks `navigator.webdriver` and detects intermediate "Enable JS" or "Unusual Traffic" challenges.
-- **The "Follow-Through" Loop**: A 4-attempt loop that autonomously progresses through intermediate redirect pages.
+- **Native Challenge Recovery**: Auto-detects secondary tabs spawned by JS-challenges (e.g., `enablejs` redirects), ensuring the scraper always binds to the active result context.
+- **Profile Isolation**: Each research session uses a unique, **process-level temporary directory** (`zed-research-profile-<PID>`), preventing SingletonLock conflicts and ensuring private, state-free browsing for every task.
 - **Content Conversion**: Every page is analyzed, scrolled to trigger lazy-loading, and converted from raw HTML into **Technical Markdown**.
 
 ---
@@ -70,3 +71,4 @@ Advanced users can refine the internal logic used during each stage by overridin
 1.  **`search_system_prompt`**: Controls the initial search query expansion strategy.
 2.  **`gap_analysis_system_prompt`**: Controls how missing information is identified and follow-up queries are written.
 3.  **`condensation_system_prompt`**: Controls the final report's tone, structure, and technical density.
+4.  **`use_headed_browser`**: Toggles between a hidden background browser and a visible window for manual audit and CAPTCHA resolution.

@@ -133,6 +133,7 @@ impl AgentTool for DeepResearchTool {
                     tokio_handle_inner.clone(),
                     settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string()),
                     settings.search_provider,
+                    settings.use_headed_browser,
                 ).await?
             };
 
@@ -249,6 +250,7 @@ pub async fn run_deep_research_bg(
     tokio_handle: tokio::runtime::Handle,
     gap_analysis_custom_prompt: Option<String>,
     search_provider: agent_settings::SearchProvider,
+    use_headed_browser: bool,
 ) -> anyhow::Result<String> {
 
     let mut logs = if let Some(es) = &event_stream {
@@ -290,11 +292,14 @@ pub async fn run_deep_research_bg(
                 snippet: String::new(),
                 score: 0,
             }];
-            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone()).await {
+            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone(), true, use_headed_browser).await {
                 if let Some(html) = html_responses.first() {
-                    log::info!("Google Response for '{}' (first 200 chars): {}", q, &html[..html.len().min(200)]);
                     let parsed = parse_google_results(html);
-                    log::info!("Google Parser: Found {} sources for query {}", parsed.len(), idx);
+                    log::info!("✅ Google Scraper: Finished query '{}'. Parsed {} items from {} bytes of HTML.", q, parsed.len(), html.len());
+                    if parsed.is_empty() {
+                         let safe_len = html.char_indices().map(|(i, _)| i).find(|&i| i >= 500).unwrap_or(html.len());
+                         log::debug!("⚠️ Empty results. Raw HTML snippet: {}", &html[..safe_len]);
+                    }
                     results.extend(parsed);
                 }
             }
@@ -385,7 +390,7 @@ pub async fn run_deep_research_bg(
              let event_stream = event_stream.clone();
              let candidates = candidates_to_fetch.clone();
              tokio_handle.spawn(async move {
-                 browse_parallel(http_client, candidates, event_stream).await
+                 browse_parallel(http_client, candidates, event_stream.clone(), false, use_headed_browser).await
              }).await??
         };
         
@@ -445,9 +450,9 @@ pub async fn run_deep_research_bg(
                                 snippet: String::new(),
                                 score: 0,
                             }];
-                            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone()).await {
+                            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone(), true, use_headed_browser).await {
                                 if let Some(html) = html_responses.first() {
-                                    follow_up_results.extend(parse_google_results(&html));
+                                    follow_up_results.extend(parse_google_results(html));
                                 }
                             }
                             tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
@@ -646,36 +651,46 @@ fn parse_google_results(html: &str) -> Vec<DeepResearchSearchResult> {
     for (idx, a_ref) in document.select(&a_selector).enumerate() {
         let href = a_ref.value().attr("href").unwrap_or_default();
         
-        let url = if href.starts_with("/url?q=") {
-            // Unmask the actual destination URL from the Google redirect (Classic mode)
+        let mut url = String::new();
+        
+        // Handle Google tracking redirects: /url?q= or https://www.google.com/url?url= or q=
+        if href.contains("/url?") {
             let mut extracted = String::new();
-            if let Some(pos) = href.find("q=") {
+            
+            // Try extracting from 'url=' parameter first (modern)
+            if let Some(pos) = href.find("url=") {
+                let rest = &href[pos + 4..];
+                let end = rest.find('&').unwrap_or(rest.len());
+                if let Ok(decoded) = url_decode(&rest[..end]) {
+                    extracted = decoded;
+                }
+            } 
+            // Fallback to 'q=' parameter (classic)
+            else if let Some(pos) = href.find("q=") {
                 let rest = &href[pos + 2..];
                 let end = rest.find('&').unwrap_or(rest.len());
                 if let Ok(decoded) = url_decode(&rest[..end]) {
                     extracted = decoded;
                 }
             }
-            extracted
-        } else if href.starts_with("http") && !href.contains("google.com/") && !href.contains("youtube.com/") {
-            // Direct Link (Modern Browser mode)
-            href.to_string()
-        } else {
-            continue;
-        };
+            url = extracted;
+        } else if href.starts_with("http") {
+            // It's a direct HTML link
+            url = href.to_string();
+        }
 
-        if url.is_empty() || url.contains("google.com/") {
+        if url.is_empty() || !url.starts_with("http") {
             continue;
         }
 
-        // Extract the title: check for an <h3> inside the link, fallback to link text
-        let title = a_ref.select(&h3_selector).next()
+        // Extract the title: check for an <h3> inside the link, fallback to link text, and finally fallback to URL
+        let mut title = a_ref.select(&h3_selector).next()
             .map(|h3| h3.text().collect::<String>())
             .unwrap_or_else(|| a_ref.text().collect::<String>())
             .trim().to_string();
 
         if title.is_empty() {
-            continue;
+            title = url.clone();
         }
 
         // Find the snippet text: look at the siblings of the title container
@@ -921,6 +936,8 @@ async fn browse_parallel(
     http_client: Arc<HttpClientWithUrl>, 
     candidates: Vec<DeepResearchSearchResult>,
     event_stream: Option<ToolCallEventStream>,
+    rip_raw_html: bool,
+    use_headed_browser: bool,
 ) -> Result<Vec<String>> {
 
     let mut builder = BrowserConfig::builder();
@@ -928,7 +945,7 @@ async fn browse_parallel(
     
     // Create a unique temporary user data directory to avoid "SingletonLock" errors
     // when running multiple researches or when a previous session didn't clean up.
-    let user_data_dir = std::env::temp_dir().join("zed-research-profile");
+    let user_data_dir = std::env::temp_dir().join(format!("zed-research-profile-{}", std::process::id()));
     builder = builder.user_data_dir(user_data_dir);
 
     let modern_ua = if cfg!(target_os = "macos") {
@@ -936,6 +953,12 @@ async fn browse_parallel(
     } else {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     };
+
+    if use_headed_browser {
+        builder = builder.with_head();
+    } else {
+        builder = builder.args(["--headless=new"]);
+    }
 
     builder = builder
         .window_size(1920, 1080)
@@ -985,49 +1008,55 @@ async fn browse_parallel(
                     }
                     
                     let fetch_result = tokio::time::timeout(std::time::Duration::from_secs(45), async {
-                        let page = match b.new_page(&url).await {
+                        let mut page = match b.new_page("about:blank").await {
                             Ok(p) => {
-                                // Mask the webdriver flag to hide headless Chromium (Stealth)
-                                let _ = p.evaluate("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})").await;
+                                // Mask the webdriver flag to hide headless Chromium (Stealth) BEFORE navigation
+                                use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
+                                let script = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});";
+                                let _ = p.evaluate_on_new_document(AddScriptToEvaluateOnNewDocumentParams::builder().source(script).build().unwrap()).await;
+                                let _ = p.goto(&url).await;
                                 p
                             },
                             Err(e) => return Ok::<String, anyhow::Error>(format!("(Failed to open page for {}: {})", url, e)),
                         };
 
-                        // Match BrowserTool's navigation logic
+                        // Wait for navigation and initial load
                         let _ = page.wait_for_navigation().await;
                         
-                        // "Follow-Through" Loop: Detecting and following meta-refreshes (common on Google)
-                        let mut attempts = 0;
-                        while attempts < 4 {
-                            let content = page.content().await.unwrap_or_default();
-                            // If we see the intermediate redirect or challenge page, wait and click
-                            if content.contains("http-equiv=\"refresh\"") || content.contains("enablejs") || content.contains("unusual traffic") {
-                                log::info!("🌐 Detected Google Challenge/Redirect. Clicking and polling (Attempt {})...", attempts + 1);
-                                // Explicitly click any available link to force progression
-                                let _ = page.evaluate("document.querySelector('a')?.click()").await;
-                                tokio::time::sleep(std::time::Duration::from_millis(4000)).await;
-                                attempts += 1;
-                            } else {
-                                break;
-                            }
+                        // If we are searching Google, wait for the actual results to render on screen.
+                        if url.contains("google.com/search") {
+                           log::info!("🔍 Google Search: Waiting for result elements (h3) to appear...");
+                           let wait_result = tokio::time::timeout(std::time::Duration::from_secs(15), page.find_element("h3")).await;
+                           match wait_result {
+                               Ok(Ok(_)) => log::info!("✅ Google Search: Results (h3 tags) detected on screen."),
+                               _ => log::warn!("⚠️ Google Search: Results (h3 tags) NOT found within 15s. Page might be blank or challenge-locked."),
+                           }
                         }
 
-                        // Specifically wait for results to render if it's a search page
-                        if url.contains("/search") {
-                            let _ = tokio::time::timeout(std::time::Duration::from_secs(10), page.find_element("h3")).await;
-                        }
+                        // Capture final state before content rip
+                        let final_url = page.url().await.ok().flatten().unwrap_or_else(|| "unknown".to_string());
+                        let final_title = page.get_title().await.ok().flatten().unwrap_or_else(|| "no-title".to_string());
+                        log::info!("📄 Fetching content from: {} (Resolved Title: '{}')", final_url, final_title);
+
                         tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                         
-                        let title: String = page.get_title().await.ok().flatten().unwrap_or_else(|| url.clone());
-                        if let Some(event_stream) = &event_stream {
-                             event_stream.push_log(format!("✅ Analyzed: {}", title));
+                        // Scroll and pull
+                        let _ = page.evaluate("window.scrollBy(0, 1500)").await;
+                        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                        
+                        // If the browser natively redirected to a new tab/window, we need to find that window
+                        if let Ok(pages) = b.pages().await {
+                             if pages.len() > 1 {
+                                 for p in pages {
+                                     let current_url = p.url().await.ok().flatten().unwrap_or_default();
+                                     if current_url.contains("google.com/search") && !current_url.contains("enablejs") {
+                                         page = p;
+                                         break;
+                                     }
+                                 }
+                             }
                         }
 
-                        // Scroll down to trigger lazy-loading and move past some overlays
-                        let _ = page.evaluate("window.scrollBy(0, 1500)").await;
-                        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
-                        
                         let html_body = match page.content().await {
                             Ok(h) => h,
                             Err(e) => {
@@ -1035,6 +1064,13 @@ async fn browse_parallel(
                                  return Ok::<String, anyhow::Error>(format!("(Failed to get content for {}: {})", url, e));
                             }
                         };
+                        
+                        log::info!("📦 Rip complete: {} bytes of source HTML captured.", html_body.len());
+                        
+                        if rip_raw_html {
+                            let _ = page.close().await;
+                            return Ok::<String, anyhow::Error>(html_body);
+                        }
                         
                         let markdown = match html_to_clean_markdown(html_body.as_bytes(), &url) {
                             Ok(m) => m,

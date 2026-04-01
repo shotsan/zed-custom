@@ -70,6 +70,7 @@ pub enum SearchProvider {
 pub struct DeepResearchSettings {
     pub max_concurrent_tabs: usize,
     pub max_depth: usize,
+    pub use_headed_browser: bool,
     pub search_provider: SearchProvider,
     pub search_system_prompt: Option<SharedString>,
     pub gap_analysis_system_prompt: Option<SharedString>,
@@ -81,6 +82,7 @@ impl Default for DeepResearchSettings {
         Self {
             max_concurrent_tabs: 10,
             max_depth: 3,
+            use_headed_browser: false,
             search_provider: SearchProvider::default(),
             search_system_prompt: None,
             gap_analysis_system_prompt: None,
@@ -331,6 +333,7 @@ impl Settings for AgentSettings {
                     DeepResearchSettings {
                         max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(10),
                         max_depth: v.max_depth.unwrap_or(3),
+                        use_headed_browser: v.use_headed_browser.unwrap_or(false),
                         search_provider: provider,
                         search_system_prompt: v.search_system_prompt.map(Into::into),
                         gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),
@@ -340,6 +343,7 @@ impl Settings for AgentSettings {
                 .unwrap_or_else(|| DeepResearchSettings {
                     max_concurrent_tabs: 10,
                     max_depth: 3,
+                    use_headed_browser: false,
                     search_provider: SearchProvider::Duckduckgo,
                     search_system_prompt: None,
                     gap_analysis_system_prompt: None,

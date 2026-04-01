@@ -179,6 +179,7 @@ impl AgentProfileSettings {
                 deep_research: Some(settings::DeepResearchSettingsContent {
                     max_depth: Some(self.deep_research.max_depth),
                     max_concurrent_tabs: Some(self.deep_research.max_concurrent_tabs),
+                    use_headed_browser: Some(self.deep_research.use_headed_browser),
                     search_provider: Some(match self.deep_research.search_provider {
                         crate::SearchProvider::Google => settings::SearchProviderContent::Google,
                         crate::SearchProvider::Duckduckgo => {
@@ -229,8 +230,9 @@ impl From<AgentProfileContent> for AgentProfileSettings {
                         _ => crate::SearchProvider::Duckduckgo,
                     };
                     crate::DeepResearchSettings {
-                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(5),
+                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(10),
                         max_depth: v.max_depth.unwrap_or(3),
+                        use_headed_browser: v.use_headed_browser.unwrap_or(false),
                         search_provider: provider,
                         search_system_prompt: v.search_system_prompt.map(Into::into),
                         gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),

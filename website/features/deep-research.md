@@ -8,7 +8,7 @@ The tool follows a rigorous, four-stage investigative process:
 
 1.  **Semantic Expansion**: Your request is automatically expanded into 6 highly targeted search queries.
 2.  **Autonomous Ranking**: Discovered URLs are prioritized using an internal ranking engine, which scores sources by relevance and keyword overlap.
-3.  **Secure Parallel Browsing**: Analyzes the top 10-20 sources simultaneously using a fleet of isolated, headless Chromium tabs. 
+3.  **Secure Parallel Browsing**: Analyzes the top 10-20 sources simultaneously using a fleet of isolated, Chromium tabs. Choose between **Headless (Background)** or **Headed (Visible)** mode for full control.
 4.  **Consolidated Synthesis**: Gathers the extracted data, identifies information gaps, and presents a comprehensive discovery report.
 
 ## Choosing Your Search Engine
@@ -21,6 +21,7 @@ Ideal for **speed and privacy**. It provides a configuration-free, zero-setup ex
 ### 🌐 Google Search (Advanced Depth)
 The premium choice for **high-fidelity discovery**. 
 - **Sequential Stealth Mode**: Navigates Google's SERPs with a 1.2s delay ("jitter") between queries to mimic human behavior and avoid bot triggers.
+- **Dynamic Challenge Resolution**: Supports **Visible Window** mode to natively resolve "Unusual Traffic" or "Enable JS" challenges.
 - **Deep Coverage**: Leverages the world’s most comprehensive index for niche technical documentation and academic whitepapers.
 - **No API Keys**: Works entirely via your local Chromium engine.
 
@@ -33,12 +34,18 @@ To enable the specialized Google Search provider, add the following to your `set
   "agent": {
     "deep_research": {
       "search_provider": "google",
+      "use_headed_browser": false,
       "max_concurrent_tabs": 10,
       "max_depth": 3
     }
   }
 }
 ```
+
+### Browser Visibility (Headed vs. Headless)
+You can now control whether the investigation happens in the background or in a visible window:
+- **Headless (Hidden)**: Runs silently in the background. Best for performance and minimizing distractions.
+- **Headed (Visible Window)**: Launches a real Chrome window. Use this if you encounter persistent CAPTCHAs or want to audit the scraper's navigation in real-time.
 
 ## Built for Resilience
 
