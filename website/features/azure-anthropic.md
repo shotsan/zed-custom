@@ -6,28 +6,41 @@ The IDE provides native integration for Azure OpenAI and Azure AI Foundry Anthro
 
 ## Native Azure Support
 
-Connecting to Anthropic models via Azure requires precise model ID matching and endpoint routing. The IDE handles these specialized deployments out of the box, ensuring that custom deployment names are resolved correctly without requiring manual version string suffixes.
+Connecting to Anthropic models via Azure requires a precise understanding of how Azure routes requests using **Deployment Names**. The IDE handles these specialized deployments gracefully, provided your settings accurately reflect your Azure AI Foundry configuration.
+
+### Common Pitfall: `404 DeploymentNotFound` Error
+If you receive the error `The API deployment [NAME] does not exist`, it means your IDE successfully connected to Azure, but Azure could not find your deployed model. 
+
+In standard Anthropic APIs, you use a generic Model ID (like `claude-3-opus-20240229`). However, in Azure AI Foundry, **you must use the exact "Deployment Name" you created in the Azure Portal**. 
+
+If you named your deployment `my-claude-3-5` in Azure, you must put `my-claude-3-5` in the `"name"` field of your settings. Setting the name to a generic string like `claude-opus-4.6` will result in a 404 because Azure will actively search your resource for a deployment labeled exactly `claude-opus-4.6`.
 
 ### Configuration Example
 
-To use your Azure-hosted Anthropic deployment, configure your `settings.json` with the appropriate `api_url` and deployment names:
+To use your Azure-hosted Anthropic deployment, you must match your `api_url` to the Azure Serverless endpoint, and map the `available_models` `name` field to your Azure Deployment Name.
+
+Configure your `settings.json` exactly like this:
 
 ```json
 {
   "language_models": {
-    "anthropic": {
-      "api_url": "https://YOUR_RESOURCE_NAME.services.ai.azure.com/anthropic",
+    "azure_anthropic": {
+      "api_url": "https://<YOUR_RESOURCE_NAME>.services.ai.azure.com/anthropic",
       "available_models": [
         {
-          "name": "YOUR_DEPLOYMENT_NAME",
+          "name": "<YOUR_EXACT_AZURE_DEPLOYMENT_NAME>",
           "display_name": "Azure Claude 3.5 Sonnet",
-          "max_tokens": 200000
+          "max_tokens": 200000,
+          "max_output_tokens": 8192
         }
       ]
     }
   }
 }
 ```
+
+> [!WARNING]
+> Do **not** use URLs like `.openai.azure.com/openai/deployments/...` for Anthropic models. Azure Anthropic uses the native `.services.ai.azure.com/anthropic` endpoint, which is designed to handle Anthropic's `v1/messages` JSON payload.
 
 ---
 

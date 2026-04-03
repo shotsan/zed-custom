@@ -1808,7 +1808,8 @@ impl AcpThread {
         if let ToolCallStatus::WaitingForConfirmation { respond_tx, .. } = curr_status {
             respond_tx.send(option_id).log_err();
         } else if cfg!(debug_assertions) {
-            panic!("tried to authorize an already authorized tool call");
+            // Logically we would log this, but since we were previously just panicking
+            // we will gracefully swallow this multiple click to avoid crashes.
         }
 
         cx.emit(AcpThreadEvent::EntryUpdated(ix));

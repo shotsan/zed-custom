@@ -1302,7 +1302,7 @@ impl ManageProfilesModal {
     fn render_configure_deep_research(
         &mut self,
         mode: ConfigureDeepResearchMode,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let settings = AgentSettings::get_global(cx);
@@ -1404,7 +1404,7 @@ impl ManageProfilesModal {
                                                         menu.entry("DuckDuckGo", None, {
                                                             let profile_id = profile_id.clone();
                                                             let this = this.clone();
-                                                            move |window, cx: &mut App| {
+                                                            move |_window, cx: &mut App| {
                                                                 this.update(cx, |this, cx| {
                                                                     if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
                                                                         if mode.profile_id == profile_id {
@@ -1418,7 +1418,7 @@ impl ManageProfilesModal {
                                                         .entry("Google", None, {
                                                             let profile_id = profile_id.clone();
                                                             let this = this.clone();
-                                                            move |window, cx: &mut App| {
+                                                            move |_window, cx: &mut App| {
                                                                 this.update(cx, |this, cx| {
                                                                     if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
                                                                         if mode.profile_id == profile_id {
@@ -1443,7 +1443,7 @@ impl ManageProfilesModal {
                                             .style(ButtonStyle::Outlined)
                                             .on_click({
                                                 let this = cx.weak_entity();
-                                                move |_, window, cx| {
+                                                move |_, _window, cx| {
                                                     this.update(cx, |this, cx| {
                                                         if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
                                                             mode.use_headed_browser = !mode.use_headed_browser;

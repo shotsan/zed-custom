@@ -1049,7 +1049,6 @@ struct ConfigurationView {
     api_key_editor: Entity<InputField>,
     api_url_editor: Entity<InputField>,
     deployment_name_editor: Entity<InputField>,
-    display_name_editor: Entity<InputField>,
     max_tokens_editor: Entity<InputField>,
     max_output_tokens_editor: Entity<InputField>,
     state: Entity<State>,
@@ -1102,15 +1101,6 @@ impl ConfigurationView {
             }
             editor
         });
-        let display_name_editor = cx.new(|cx| {
-            let editor = InputField::new(window, cx, "Azure Claude").label("Display Name");
-            if let Some(model) = &model {
-                if let Some(display_name) = &model.display_name {
-                    editor.set_text(display_name, window, cx);
-                }
-            }
-            editor
-        });
         let max_tokens_editor = cx.new(|cx| {
             let editor = InputField::new(window, cx, "200000").label("Max Tokens");
             if let Some(model) = &model {
@@ -1132,7 +1122,6 @@ impl ConfigurationView {
             api_key_editor,
             api_url_editor,
             deployment_name_editor,
-            display_name_editor,
             max_tokens_editor,
             max_output_tokens_editor,
             state,
@@ -1145,7 +1134,6 @@ impl ConfigurationView {
         let api_key = self.api_key_editor.read(cx).text(cx);
         let api_url = self.api_url_editor.read(cx).text(cx).trim().to_string();
         let deployment_name = self.deployment_name_editor.read(cx).text(cx).trim().to_string();
-        let display_name = self.display_name_editor.read(cx).text(cx).trim().to_string();
         let max_tokens = self.max_tokens_editor.read(cx).text(cx).trim().parse::<u64>().unwrap_or(200000);
         let max_output_tokens = self.max_output_tokens_editor.read(cx).text(cx).trim().parse::<u64>().ok();
 
@@ -1174,14 +1162,14 @@ impl ConfigurationView {
                 
                 let models = azure.available_models.get_or_insert_default();
                 if let Some(model) = models.first_mut() {
-                    model.name = deployment_name;
-                    model.display_name = if display_name.is_empty() { None } else { Some(display_name) };
+                    model.name = deployment_name.clone();
+                    model.display_name = Some(deployment_name.clone());
                     model.max_tokens = max_tokens;
                     model.max_output_tokens = max_output_tokens;
                 } else {
                     models.push(settings::AnthropicAvailableModel {
-                        name: deployment_name,
-                        display_name: if display_name.is_empty() { None } else { Some(display_name) },
+                        name: deployment_name.clone(),
+                        display_name: Some(deployment_name),
                         max_tokens,
                         max_output_tokens,
                         tool_override: None,
@@ -1259,12 +1247,7 @@ impl Render for ConfigurationView {
                         .gap_3()
                         .child(self.api_url_editor.clone())
                         .child(self.api_key_editor.clone())
-                        .child(
-                            h_flex()
-                                .gap_3()
-                                .child(self.deployment_name_editor.clone())
-                                .child(self.display_name_editor.clone())
-                        )
+                        .child(self.deployment_name_editor.clone())
                         .child(
                             h_flex()
                                 .gap_3()
