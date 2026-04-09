@@ -80,8 +80,10 @@ struct ChromeSession {
 
 impl ChromeSession {
     async fn launch() -> Result<Self> {
+        let user_data_dir = std::env::temp_dir().join(format!("zed-browser-tool-{}", uuid::Uuid::new_v4()));
         let config = BrowserConfig::builder()
             .no_sandbox()
+            .user_data_dir(user_data_dir)
             .build()
             .map_err(|error| anyhow!("Failed to build Chrome config: {error}"))?;
 

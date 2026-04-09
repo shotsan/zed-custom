@@ -6,7 +6,7 @@ use agent::ContextServerRegistry;
 use agent_settings::{AgentProfile, AgentProfileId, AgentSettings, builtin_profiles};
 use editor::Editor;
 use fs::Fs;
-use gpui::{DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, Styled as _, Subscription, prelude::*};
+use gpui::{DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, Styled as _, Subscription, prelude::*, Task};
 use language_model::{LanguageModel, LanguageModelRegistry};
 use settings::SettingsStore;
 use settings::{
@@ -16,7 +16,7 @@ use ui::{
     ContextMenu, KeyBinding, ListItem, ListItemSpacing, ListSeparator, Navigable, NavigableEntry,
     PopoverMenu, prelude::*,
 };
-use workspace::{ModalView, Workspace};
+use workspace::{Workspace, item::ItemEvent};
 
 use crate::agent_configuration::manage_profiles_modal::profile_modal_header::ProfileModalHeader;
 use crate::agent_configuration::tool_picker::{ToolPicker, ToolPickerDelegate};
@@ -161,7 +161,7 @@ impl ManageProfilesModal {
                     .and_then(|thread| thread.read(cx).model().cloned());
 
                 let context_server_registry = panel.read(cx).context_server_registry().clone();
-                workspace.toggle_modal(window, cx, |window, cx| {
+                let item = cx.new(|cx| {
                     let mut this = Self::new(fs, active_model, context_server_registry, window, cx);
 
                     if let Some(profile_id) = action.customize_tools.clone() {
@@ -169,7 +169,8 @@ impl ManageProfilesModal {
                     }
 
                     this
-                })
+                });
+                workspace.add_item_to_active_pane(Box::new(item), None, true, window, cx);
             }
         });
     }
@@ -478,8 +479,25 @@ impl ManageProfilesModal {
             return;
         };
 
-        let search_prompt = profile.deep_research.search_system_prompt.clone().unwrap_or_default().to_string();
-        let condensation_prompt = profile.deep_research.condensation_system_prompt.clone().unwrap_or_default().to_string();
+        let search_prompt = profile.deep_research.search_system_prompt.clone().unwrap_or_else(|| {
+            "You are a world-class investigative research analyst. Your task is to expand the provided topic into 6 highly specific and diverse search queries.
+Ensure you target a broad spectrum of data sources:
+1. Official Company Statements (Investor Relations, Annual Reports, SEC filings).
+2. Technical Specifications or GitHub repositories.
+3. Financial and Market Analysis (diverse providers).
+4. Recent Press Releases and News.
+5. Expert critiques or technical white papers.
+
+Avoid duplicate queries. Each query must target a distinct 'angle' of the topic.
+Provide ONLY the queries, one per line, with no extra text or formatting.".to_string().into()
+        });
+        
+        let condensation_prompt = profile.deep_research.condensation_system_prompt.clone().unwrap_or_else(|| {
+            "You are an expert technical researcher synthesizing deep research data.\n\
+            Analyze the raw research material from MULTIPLE sources and provide a highly detailed, coherent, and comprehensive Markdown report. \
+            Citing multiple diverse sources is CRITICAL. Do not rely on just one primary source if others are available. \
+            Synthesize cross-source data points to provide the most authoritative view.".to_string().into()
+        });
         let max_tabs = profile.deep_research.max_concurrent_tabs.to_string();
         let max_depth = profile.deep_research.max_depth.to_string();
         let search_provider = profile.deep_research.search_provider;
@@ -488,12 +506,14 @@ impl ManageProfilesModal {
         let search_prompt_editor = cx.new(|cx| {
             let mut editor = Editor::multi_line(window, cx);
             editor.set_text(search_prompt, window, cx);
+            editor.set_placeholder_text("System prompt for expanding topic into search queries...", window, cx);
             editor
         });
 
         let condensation_prompt_editor = cx.new(|cx| {
             let mut editor = Editor::multi_line(window, cx);
             editor.set_text(condensation_prompt, window, cx);
+            editor.set_placeholder_text("System prompt for synthesizing final research report...", window, cx);
             editor
         });
 
@@ -667,7 +687,7 @@ impl ManageProfilesModal {
     fn cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.mode {
             Mode::ChooseProfile { .. } => {
-                cx.emit(DismissEvent);
+                cx.emit(ItemEvent::CloseItem);
             }
             Mode::NewProfile(mode) => {
                 if let Some(profile_id) = mode.base_profile_id.clone() {
@@ -692,7 +712,30 @@ impl ManageProfilesModal {
     }
 }
 
-impl ModalView for ManageProfilesModal {}
+impl workspace::Item for ManageProfilesModal {
+    type Event = ItemEvent;
+
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Agent Profiles".into()
+    }
+
+    fn to_item_events(event: &Self::Event, mut f: impl FnMut(ItemEvent)) {
+        f(*event)
+    }
+
+    fn telemetry_event_text(&self) -> Option<&'static str> {
+        Some("agent profiles modal")
+    }
+
+    fn clone_on_split(
+        &self,
+        _workspace_id: Option<workspace::WorkspaceId>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Task<Option<Entity<Self>>> {
+        Task::ready(None)
+    }
+}
 
 impl Focusable for ManageProfilesModal {
     fn focus_handle(&self, cx: &App) -> FocusHandle {
@@ -709,7 +752,7 @@ impl Focusable for ManageProfilesModal {
     }
 }
 
-impl EventEmitter<DismissEvent> for ManageProfilesModal {}
+impl EventEmitter<ItemEvent> for ManageProfilesModal {}
 
 impl ManageProfilesModal {
     fn render_profile(
@@ -1323,14 +1366,14 @@ impl ManageProfilesModal {
                 v_flex()
                     .p_2()
                     .gap_2()
-                    .max_h(rems(30.))
+                    .max_h(rems(45.))
                     .overflow_y_hidden()
                     .child(
                         v_flex()
                             .gap_1()
                             .child(Label::new("Search Optimization System Prompt"))
                             .child(div()
-                                .h(rems(6.))
+                                .h(rems(12.))
                                 .border_1()
                                 .border_color(cx.theme().colors().border)
                                 .child(mode.search_prompt_editor))
@@ -1345,7 +1388,7 @@ impl ManageProfilesModal {
                             .gap_1()
                             .child(Label::new("Report Condensation System Prompt"))
                             .child(div()
-                                .h(rems(6.))
+                                .h(rems(12.))
                                 .border_1()
                                 .border_color(cx.theme().colors().border)
                                 .child(mode.condensation_prompt_editor))
@@ -1511,9 +1554,9 @@ impl Render for ManageProfilesModal {
                     }),
             );
 
-        div()
-            .elevation_3(cx)
-            .w(rems(34.))
+        v_flex()
+            .size_full()
+            .bg(cx.theme().colors().editor_background)
             .key_context("ManageProfilesModal")
             .on_action(cx.listener(|this, _: &menu::Cancel, window, cx| this.cancel(window, cx)))
             .on_action(cx.listener(|this, _: &menu::Confirm, window, cx| this.confirm(window, cx)))
@@ -1528,7 +1571,6 @@ impl Render for ManageProfilesModal {
             .capture_any_mouse_down(cx.listener(|this, _, window, cx| {
                 this.focus_handle(cx).focus(window, cx);
             }))
-            .on_mouse_down_out(cx.listener(|_this, _, _, cx| cx.emit(DismissEvent)))
             .child(match &self.mode {
                 Mode::ChooseProfile(mode) => self
                     .render_choose_profile(mode.clone(), window, cx)
@@ -1580,7 +1622,7 @@ impl Render for ManageProfilesModal {
                             Some(IconName::Ai),
                         ))
                         .child(ListSeparator)
-                        .child(v_flex().w(rems(34.)).child(model_picker.clone()))
+                        .child(v_flex().w(rems(60.)).child(model_picker.clone()))
                         .child(ListSeparator)
                         .child(go_back_item)
                         .into_any_element()

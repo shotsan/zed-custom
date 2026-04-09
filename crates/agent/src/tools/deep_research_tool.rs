@@ -945,7 +945,7 @@ async fn browse_parallel(
     
     // Create a unique temporary user data directory to avoid "SingletonLock" errors
     // when running multiple researches or when a previous session didn't clean up.
-    let user_data_dir = std::env::temp_dir().join(format!("zed-research-profile-{}", std::process::id()));
+    let user_data_dir = std::env::temp_dir().join(format!("zed-research-profile-{}-{}", std::process::id(), uuid::Uuid::new_v4()));
     builder = builder.user_data_dir(user_data_dir);
 
     let modern_ua = if cfg!(target_os = "macos") {
@@ -1000,7 +1000,7 @@ async fn browse_parallel(
             for res in candidates.clone() {
                 let url = res.url.clone();
                 let title = res.title.clone();
-                let b = browser.clone();
+                let b = Arc::clone(&browser);
                 let event_stream = event_stream.clone();
                 let future = async move {
                     if let Some(event_stream) = &event_stream {

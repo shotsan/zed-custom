@@ -1788,17 +1788,18 @@ impl AgentPanel {
                 window_handle
                     .update(cx, |_, window, cx| {
                         workspace.update(cx, |workspace, cx| {
-                            workspace.toggle_modal(window, cx, |window, cx| {
-                                let mut modal = ManageProfilesModal::new(
+                            let modal = cx.new(|cx| {
+                                let mut m = ManageProfilesModal::new(
                                     fs,
                                     active_model,
                                     context_server_registry,
                                     window,
                                     cx,
                                 );
-                                modal.new_profile(None, window, cx);
-                                modal
+                                m.new_profile(None, window, cx);
+                                m
                             });
+                            workspace.add_item_to_active_pane(Box::new(modal), None, true, window, cx);
                         });
                     })
                     .log_err();
@@ -1825,17 +1826,18 @@ impl AgentPanel {
                 window_handle
                     .update(cx, |_, window, cx| {
                         workspace.update(cx, |workspace, cx| {
-                            workspace.toggle_modal(window, cx, |window, cx| {
-                                let mut modal = ManageProfilesModal::new(
+                            let modal = cx.new(|cx| {
+                                let mut m = ManageProfilesModal::new(
                                     fs,
                                     active_model,
                                     context_server_registry,
                                     window,
                                     cx,
                                 );
-                                modal.new_profile(Some(profile_id), window, cx);
-                                modal
+                                m.new_profile(Some(profile_id), window, cx);
+                                m
                             });
+                            workspace.add_item_to_active_pane(Box::new(modal), None, true, window, cx);
                         });
                     })
                     .log_err();
