@@ -1284,6 +1284,7 @@ impl ManageProfilesModal {
 
         v_flex()
             .track_focus(&self.focus_handle(cx))
+            .size_full()
             .child(ProfileModalHeader::new(
                 format!("{profile_name} — Configure Instructions"),
                 Some(IconName::Sparkle),
@@ -1293,12 +1294,14 @@ impl ManageProfilesModal {
                 v_flex()
                     .p_2()
                     .gap_2()
+                    .flex_1()
                     .child(
                         v_flex()
                             .gap_1()
+                            .flex_1()
                             .child(Label::new("Custom Instructions"))
                             .child(div()
-                                .h(rems(6.))
+                                .flex_1()
                                 .border_1()
                                 .border_color(cx.theme().colors().border)
                                 .child(mode.instructions_editor))
@@ -1311,9 +1314,10 @@ impl ManageProfilesModal {
                     .child(
                         v_flex()
                             .gap_1()
+                            .flex_1()
                             .child(Label::new("System Prompt Override"))
                             .child(div()
-                                .h(rems(10.))
+                                .flex_1()
                                 .border_1()
                                 .border_color(cx.theme().colors().border)
                                 .child(mode.system_prompt_editor))
@@ -1357,6 +1361,7 @@ impl ManageProfilesModal {
 
         v_flex()
             .track_focus(&self.focus_handle(cx))
+            .size_full()
             .child(ProfileModalHeader::new(
                 format!("{profile_name} — Configure Deep Research"),
                 Some(IconName::MagnifyingGlass),
@@ -1366,14 +1371,14 @@ impl ManageProfilesModal {
                 v_flex()
                     .p_2()
                     .gap_2()
-                    .max_h(rems(45.))
-                    .overflow_y_hidden()
+                    .flex_1()
                     .child(
                         v_flex()
                             .gap_1()
+                            .flex_1()
                             .child(Label::new("Search Optimization System Prompt"))
                             .child(div()
-                                .h(rems(12.))
+                                .flex_1()
                                 .border_1()
                                 .border_color(cx.theme().colors().border)
                                 .child(mode.search_prompt_editor))
@@ -1386,9 +1391,10 @@ impl ManageProfilesModal {
                     .child(
                         v_flex()
                             .gap_1()
+                            .flex_1()
                             .child(Label::new("Report Condensation System Prompt"))
                             .child(div()
-                                .h(rems(12.))
+                                .flex_1()
                                 .border_1()
                                 .border_color(cx.theme().colors().border)
                                 .child(mode.condensation_prompt_editor))

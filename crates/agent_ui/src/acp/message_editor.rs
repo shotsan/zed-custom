@@ -796,6 +796,10 @@ impl MessageEditor {
     }
 
     fn chat(&mut self, _: &Chat, _: &mut Window, cx: &mut Context<Self>) {
+        if self.is_completions_menu_visible(cx) {
+            cx.propagate();
+            return;
+        }
         self.send(cx);
     }
 

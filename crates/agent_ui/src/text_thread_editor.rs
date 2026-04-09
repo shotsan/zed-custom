@@ -526,6 +526,7 @@ impl TextThreadEditor {
         cx: &mut Context<Self>,
     ) {
         if self.editor.read(cx).has_visible_completions_menu() {
+            cx.propagate();
             return;
         }
 

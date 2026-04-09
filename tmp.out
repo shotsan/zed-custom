@@ -1,0 +1,181 @@
+    Checking agent_ui v0.1.0 (/Users/sillydon/Desktop/zed/crates/agent_ui)
+error[E0433]: failed to resolve: could not find `ItemEvent` in `workspace`
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:689:36
+    |
+689 | ....emit(workspace::ItemEvent::CloseItem);
+    |                     ^^^^^^^^^ could not find `ItemEvent` in `workspace`
+    |
+help: consider importing this enum
+    |
+  3 + use workspace::item::ItemEvent;
+    |
+help: if you import `ItemEvent`, refer to it directly
+    |
+689 -                 cx.emit(workspace::ItemEvent::CloseItem);
+689 +                 cx.emit(ItemEvent::CloseItem);
+    |
+
+error[E0425]: cannot find type `ItemEvent` in crate `workspace`
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:714:29
+    |
+714 |     type Event = workspace::ItemEvent;
+    |                             ^^^^^^^^^ not found in `workspace`
+    |
+help: consider importing this enum
+    |
+  3 + use workspace::item::ItemEvent;
+    |
+help: if you import `ItemEvent`, refer to it directly
+    |
+714 -     type Event = workspace::ItemEvent;
+714 +     type Event = ItemEvent;
+    |
+
+error[E0425]: cannot find type `WindowContext` in this scope
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:720:15
+    |
+720 |         _cx: &WindowContext,
+    |               ^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find type `ItemEvent` in crate `workspace`
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:725:73
+    |
+725 | ...kspace::ItemEvent)) {
+    |            ^^^^^^^^^ not found in `workspace`
+    |
+help: consider importing this enum
+    |
+  3 + use workspace::item::ItemEvent;
+    |
+help: if you import `ItemEvent`, refer to it directly
+    |
+725 -     fn to_item_events(event: &Self::Event, mut f: impl FnMut(workspace::ItemEvent)) {
+725 +     fn to_item_events(event: &Self::Event, mut f: impl FnMut(ItemEvent)) {
+    |
+
+error[E0425]: cannot find type `ViewContext` in this scope
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:736:19
+    |
+736 |         _cx: &mut ViewContext<Self>,
+    |                   ^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find type `View` in this scope
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:737:17
+    |
+737 |     ) -> Option<View<Self>> {
+    |                 ^^^^ not found in this scope
+    |
+help: consider importing one of these structs
+    |
+  3 + use image::flat::View;
+    |
+  3 + use proto::View;
+    |
+
+error[E0425]: cannot find type `ItemEvent` in crate `workspace`
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:756:30
+    |
+756 | ...kspace::ItemEvent> for ManageProfilesModal {}
+    |            ^^^^^^^^^ not found in `workspace`
+    |
+help: consider importing this enum
+    |
+  3 + use workspace::item::ItemEvent;
+    |
+help: if you import `ItemEvent`, refer to it directly
+    |
+756 - impl EventEmitter<workspace::ItemEvent> for ManageProfilesModal {}
+756 + impl EventEmitter<ItemEvent> for ManageProfilesModal {}
+    |
+
+warning: unused import: `ModalView`
+  --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:19:17
+   |
+19 | use workspace::{ModalView, Workspace};
+   |                 ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0050]: method `clone_on_split` has 3 parameters but the declaration in trait `workspace::Item::clone_on_split` has 4
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:734:9
+    |
+734 | /         &self,
+735 | |         _workspace_id: workspace::WorkspaceId,
+736 | |         _cx: &mut ViewContext<Self>,
+    | |___________________________________^ expected 4 parameters, found 3
+    |
+    = note: `clone_on_split` from trait: `fn(&Self, std::option::Option<WorkspaceId>, &mut gpui::Window, &mut gpui::Context<'_, Self>) -> gpui::Task<std::option::Option<gpui::Entity<Self>>>`
+
+error[E0046]: not all trait items implemented, missing: `tab_content_text`
+   --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:713:1
+    |
+713 | impl workspace::Item for ManageProfilesModal {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `tab_content_text` in implementation
+    |
+    = help: implement the missing item: `fn tab_content_text(&self, _: usize, _: &gpui::App) -> gpui::SharedString { todo!() }`
+
+error[E0277]: the trait bound `ManageProfilesModal: ModalView` is not satisfied
+    --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:164:27
+     |
+ 164 | ...space.toggle_modal(window, cx, |window, cx| {
+     |          ^^^^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `ModalView` is not implemented for `ManageProfilesModal`
+    --> crates/agent_ui/src/agent_configuration/manage_profiles_modal.rs:140:1
+     |
+ 140 | pub struct ManageProfilesModal {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: the following other types implement trait `ModalView`:
+               AddLlmProviderModal
+               BranchList
+               ConfigureContextServerModal
+               ConfigureContextServerToolsModal
+               CustomPromptModal
+               GitOnboardingModal
+               GitPicker
+               MemoryManagerModal
+             and 15 others
+note: required by a bound in `workspace::Workspace::toggle_modal`
+    --> /Users/sillydon/Desktop/zed/crates/workspace/src/workspace.rs:6598:28
+     |
+6598 | ...oggle_modal<V: ModalView, B>(&mut self, window: &...
+     |                   ^^^^^^^^^ required by this bound in `Workspace::toggle_modal`
+     = note: the full name for the type has been written to '/Users/sillydon/Desktop/zed/target/debug/deps/agent_ui-39e1ea00e202ca9d.long-type-11943922931834719034.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0061]: this method takes 5 arguments but 3 arguments were supplied
+    --> crates/agent_ui/src/agent_panel.rs:1802:39
+     |
+1802 | ...ce.add_item_to_active_pane(Box::new(modal), window, cx);
+     |       ^^^^^^^^^^^^^^^^^^^^^^^                  ---------- two arguments of type `std::option::Option<usize>` and `bool` are missing
+     |
+note: method defined here
+    --> /Users/sillydon/Desktop/zed/crates/workspace/src/workspace.rs:3725:12
+     |
+3725 |     pub fn add_item_to_active_pane(
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+help: provide the arguments
+     |
+1802 |                             workspace.add_item_to_active_pane(Box::new(modal), /* std::option::Option<usize> */, /* bool */, window, cx);
+     |                                                                                +++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0061]: this method takes 5 arguments but 3 arguments were supplied
+    --> crates/agent_ui/src/agent_panel.rs:1840:39
+     |
+1840 | ...ce.add_item_to_active_pane(Box::new(modal), window, cx);
+     |       ^^^^^^^^^^^^^^^^^^^^^^^                  ---------- two arguments of type `std::option::Option<usize>` and `bool` are missing
+     |
+note: method defined here
+    --> /Users/sillydon/Desktop/zed/crates/workspace/src/workspace.rs:3725:12
+     |
+3725 |     pub fn add_item_to_active_pane(
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+help: provide the arguments
+     |
+1840 |                             workspace.add_item_to_active_pane(Box::new(modal), /* std::option::Option<usize> */, /* bool */, window, cx);
+     |                                                                                +++++++++++++++++++++++++++++++++++++++++++++
+
+Some errors have detailed explanations: E0046, E0050, E0061, E0277, E0425, E0433.
+For more information about an error, try `rustc --explain E0046`.
+warning: `agent_ui` (lib) generated 1 warning
+error: could not compile `agent_ui` (lib) due to 12 previous errors; 1 warning emitted

@@ -493,14 +493,14 @@
     },
   },
   {
-    "context": "AcpThread > Editor && !use_modifier_to_send",
+    "context": "AcpThread > Editor && !use_modifier_to_send && !showing_completions",
     "use_key_equivalents": true,
     "bindings": {
       "enter": "agent::Chat",
     },
   },
   {
-    "context": "AcpThread > Editor && use_modifier_to_send",
+    "context": "AcpThread > Editor && use_modifier_to_send && !showing_completions",
     "use_key_equivalents": true,
     "bindings": {
       "cmd-enter": "agent::Chat",
