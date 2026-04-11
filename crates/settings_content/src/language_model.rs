@@ -10,6 +10,7 @@ use std::sync::Arc;
 pub struct AllLanguageModelSettingsContent {
     pub anthropic: Option<AnthropicSettingsContent>,
     pub azure_anthropic: Option<AnthropicSettingsContent>,
+    pub azure_openai: Option<AzureOpenAiSettingsContent>,
     pub bedrock: Option<AmazonBedrockSettingsContent>,
     pub deepseek: Option<DeepseekSettingsContent>,
     pub google: Option<GoogleSettingsContent>,
@@ -23,6 +24,27 @@ pub struct AllLanguageModelSettingsContent {
     pub x_ai: Option<XAiSettingsContent>,
     #[serde(rename = "zed.dev")]
     pub zed_dot_dev: Option<ZedDotDevSettingsContent>,
+}
+
+#[with_fallible_options]
+#[derive(Default, Clone, Debug, Serialize, Deserialize, PartialEq, JsonSchema, MergeFrom)]
+pub struct AzureOpenAiSettingsContent {
+    pub api_url: Option<String>,
+    pub api_version: Option<String>,
+    pub available_models: Option<Vec<AzureOpenAiAvailableModel>>,
+}
+
+#[with_fallible_options]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom)]
+pub struct AzureOpenAiAvailableModel {
+    pub name: String,
+    pub display_name: Option<String>,
+    pub max_tokens: u64,
+    pub max_output_tokens: Option<u64>,
+    pub max_completion_tokens: Option<u64>,
+    pub reasoning_effort: Option<OpenAiReasoningEffort>,
+    #[serde(default)]
+    pub capabilities: OpenAiModelCapabilities,
 }
 
 #[with_fallible_options]
@@ -235,12 +257,15 @@ pub struct OpenAiCompatibleSettingsContent {
 pub struct OpenAiModelCapabilities {
     #[serde(default = "default_true")]
     pub chat_completions: bool,
+    #[serde(default = "default_true")]
+    pub tool_use: bool,
 }
 
 impl Default for OpenAiModelCapabilities {
     fn default() -> Self {
         Self {
             chat_completions: default_true(),
+            tool_use: default_true(),
         }
     }
 }

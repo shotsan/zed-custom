@@ -500,7 +500,16 @@ pub fn into_open_ai(
         stream,
         stop: request.stop,
         temperature: request.temperature.or(Some(1.0)),
-        max_completion_tokens: max_output_tokens,
+        max_tokens: if model_id.starts_with("o1-") || model_id.starts_with("o3-") {
+            None
+        } else {
+            max_output_tokens
+        },
+        max_completion_tokens: if model_id.starts_with("o1-") || model_id.starts_with("o3-") {
+            max_output_tokens
+        } else {
+            None
+        },
         parallel_tool_calls: if supports_parallel_tool_calls && !request.tools.is_empty() {
             // Disable parallel tool calls, as the Agent currently expects a maximum of one per turn.
             Some(false)

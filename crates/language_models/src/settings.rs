@@ -7,6 +7,7 @@ use crate::provider::{
     anthropic::AnthropicSettings, bedrock::AmazonBedrockSettings, cloud::ZedDotDevSettings,
     deepseek::DeepSeekSettings, google::GoogleSettings, lmstudio::LmStudioSettings,
     mistral::MistralSettings, ollama::OllamaSettings, open_ai::OpenAiSettings,
+    azure_openai::AzureOpenAiSettings,
     open_ai_compatible::OpenAiCompatibleSettings, open_router::OpenRouterSettings,
     vercel::VercelSettings, x_ai::XAiSettings,
 };
@@ -15,6 +16,7 @@ use crate::provider::{
 pub struct AllLanguageModelSettings {
     pub anthropic: AnthropicSettings,
     pub azure_anthropic: AnthropicSettings,
+    pub azure_openai: AzureOpenAiSettings,
     pub bedrock: AmazonBedrockSettings,
     pub deepseek: DeepSeekSettings,
     pub google: GoogleSettings,
@@ -44,6 +46,7 @@ impl settings::Settings for AllLanguageModelSettings {
         let ollama = language_models.ollama.unwrap_or_default();
         let open_router = language_models.open_router.unwrap_or_default();
         let openai = language_models.openai.unwrap_or_default();
+        let azure_openai = language_models.azure_openai.unwrap_or_default();
         let openai_compatible = language_models.openai_compatible.unwrap_or_default();
         let vercel = language_models.vercel.unwrap_or_default();
         let x_ai = language_models.x_ai.unwrap_or_default();
@@ -97,6 +100,7 @@ impl settings::Settings for AllLanguageModelSettings {
                 api_url: openai.api_url.unwrap_or_default(),
                 available_models: openai.available_models.unwrap_or_default(),
             },
+            azure_openai,
             openai_compatible: openai_compatible
                 .into_iter()
                 .map(|(key, value)| {

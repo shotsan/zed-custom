@@ -15,6 +15,7 @@ pub use crate::extension::init_proxy as init_extension_proxy;
 
 use crate::provider::anthropic::AnthropicLanguageModelProvider;
 use crate::provider::azure_anthropic::AzureAnthropicLanguageModelProvider;
+use crate::provider::azure_openai::AzureOpenAiLanguageModelProvider;
 use crate::provider::bedrock::BedrockLanguageModelProvider;
 use crate::provider::cloud::CloudLanguageModelProvider;
 use crate::provider::copilot_chat::CopilotChatLanguageModelProvider;
@@ -172,6 +173,13 @@ fn register_language_model_providers(
     );
     registry.register_provider(
         Arc::new(AzureAnthropicLanguageModelProvider::new(
+            client.http_client(),
+            cx,
+        )),
+        cx,
+    );
+    registry.register_provider(
+        Arc::new(AzureOpenAiLanguageModelProvider::new(
             client.http_client(),
             cx,
         )),

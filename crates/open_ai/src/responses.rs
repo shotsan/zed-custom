@@ -256,18 +256,28 @@ pub async fn stream_response(
     api_key: &str,
     request: Request,
 ) -> Result<BoxStream<'static, Result<StreamEvent>>, RequestError> {
-    let uri = format!("{api_url}/responses");
+    let uri = if api_url.contains("/responses") {
+        api_url.to_string()
+    } else if let Some((base, query)) = api_url.split_once('?') {
+        format!("{base}/responses?{query}")
+    } else {
+        format!("{api_url}/responses")
+    };
+    
+    let request_body_str = serde_json::to_string(&request).map_err(|e| RequestError::Other(e.into()))?;
+    log::error!("DEBUG (open_ai_responses): Hitting URI: {}", uri);
+    log::error!("DEBUG (open_ai_responses): Payload: {}", request_body_str);
+    
     let request_builder = HttpRequest::builder()
         .method(Method::POST)
         .uri(uri)
         .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", api_key.trim()));
+        .header("Authorization", format!("Bearer {}", api_key.trim()))
+        .header("api-key", api_key.trim());
 
     let is_streaming = request.stream;
     let request = request_builder
-        .body(AsyncBody::from(
-            serde_json::to_string(&request).map_err(|e| RequestError::Other(e.into()))?,
-        ))
+        .body(AsyncBody::from(request_body_str))
         .map_err(|e| RequestError::Other(e.into()))?;
 
     let mut response = client.send(request).await?;

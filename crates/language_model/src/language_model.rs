@@ -51,6 +51,11 @@ pub const AZURE_ANTHROPIC_PROVIDER_ID: LanguageModelProviderId =
 pub const AZURE_ANTHROPIC_PROVIDER_NAME: LanguageModelProviderName =
     LanguageModelProviderName::new("Azure Anthropic");
 
+pub const AZURE_OPENAI_PROVIDER_ID: LanguageModelProviderId =
+    LanguageModelProviderId::new("azure_openai");
+pub const AZURE_OPENAI_PROVIDER_NAME: LanguageModelProviderName =
+    LanguageModelProviderName::new("Azure OpenAI");
+
 
 pub const GOOGLE_PROVIDER_ID: LanguageModelProviderId = LanguageModelProviderId::new("google");
 pub const GOOGLE_PROVIDER_NAME: LanguageModelProviderName =
@@ -185,8 +190,11 @@ pub enum LanguageModelCompletionError {
         provider: LanguageModelProviderName,
         message: String,
     },
-    #[error("language model provider API endpoint not found")]
-    ApiEndpointNotFound { provider: LanguageModelProviderName },
+    #[error("language model provider API endpoint not found: {message}")]
+    ApiEndpointNotFound {
+        provider: LanguageModelProviderName,
+        message: String,
+    },
     #[error("I/O error reading response from {provider}'s API")]
     ApiReadResponseError {
         provider: LanguageModelProviderName,
@@ -289,7 +297,7 @@ impl LanguageModelCompletionError {
             StatusCode::BAD_REQUEST => Self::BadRequestFormat { provider, message },
             StatusCode::UNAUTHORIZED => Self::AuthenticationError { provider, message },
             StatusCode::FORBIDDEN => Self::PermissionError { provider, message },
-            StatusCode::NOT_FOUND => Self::ApiEndpointNotFound { provider },
+            StatusCode::NOT_FOUND => Self::ApiEndpointNotFound { provider, message },
             StatusCode::PAYLOAD_TOO_LARGE => Self::PromptTooLarge {
                 tokens: parse_prompt_too_long(&message),
             },
@@ -365,7 +373,10 @@ impl From<anthropic::ApiError> for LanguageModelCompletionError {
                     provider,
                     message: error.message,
                 },
-                NotFoundError => Self::ApiEndpointNotFound { provider },
+                NotFoundError => Self::ApiEndpointNotFound {
+                    provider,
+                    message: error.message,
+                },
                 RequestTooLarge => Self::PromptTooLarge {
                     tokens: parse_prompt_too_long(&error.message),
                 },

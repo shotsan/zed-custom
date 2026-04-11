@@ -22,7 +22,7 @@ impl SlashCommand for DeepResearchSlashCommand {
     }
 
     fn icon(&self) -> IconName {
-        IconName::ZedXCopilot // Good icon for agentic search
+        IconName::MagnifyingGlass
     }
 
     fn menu_text(&self) -> String {

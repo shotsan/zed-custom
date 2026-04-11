@@ -307,6 +307,8 @@ pub struct Request {
     pub messages: Vec<RequestMessage>,
     pub stream: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_completion_tokens: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stop: Vec<String>,
@@ -383,15 +385,27 @@ impl MessageContent {
 
     pub fn push_part(&mut self, part: MessagePart) {
         match self {
-            MessageContent::Plain(text) => {
-                *self =
-                    MessageContent::Multipart(vec![MessagePart::Text { text: text.clone() }, part]);
-            }
+            MessageContent::Plain(text) => match part {
+                MessagePart::Text { text: new_text } => {
+                    text.push_str(&new_text);
+                }
+                _ => {
+                    *self = MessageContent::Multipart(vec![
+                        MessagePart::Text { text: text.clone() },
+                        part,
+                    ]);
+                }
+            },
             MessageContent::Multipart(parts) if parts.is_empty() => match part {
                 MessagePart::Text { text } => *self = MessageContent::Plain(text),
-                MessagePart::Image { .. } => *self = MessageContent::Multipart(vec![part]),
+                _ => parts.push(part),
             },
-            MessageContent::Multipart(parts) => parts.push(part),
+            MessageContent::Multipart(parts) => match (parts.last_mut(), part) {
+                (Some(MessagePart::Text { text: last_text }), MessagePart::Text { text }) => {
+                    last_text.push_str(&text);
+                }
+                (_, part) => parts.push(part),
+            },
         }
     }
 }
@@ -536,7 +550,11 @@ pub async fn non_streaming_completion(
     api_key: &str,
     request: Request,
 ) -> Result<Response, RequestError> {
-    let uri = format!("{api_url}/chat/completions");
+    let uri = if let Some((base, query)) = api_url.split_once('?') {
+        format!("{base}/chat/completions?{query}")
+    } else {
+        format!("{api_url}/chat/completions")
+    };
     let request_builder = HttpRequest::builder()
         .method(Method::POST)
         .uri(uri)
@@ -583,17 +601,25 @@ pub async fn stream_completion(
     api_key: &str,
     request: Request,
 ) -> Result<BoxStream<'static, Result<ResponseStreamEvent>>, RequestError> {
-    let uri = format!("{api_url}/chat/completions");
+    let uri = if let Some((base, query)) = api_url.split_once('?') {
+        format!("{base}/chat/completions?{query}")
+    } else {
+        format!("{api_url}/chat/completions")
+    };
+    
+    let request_body_str = serde_json::to_string(&request).map_err(|e| RequestError::Other(e.into()))?;
+    log::error!("DEBUG (open_ai_chat_completions): Hitting URI: {}", uri);
+    log::error!("DEBUG (open_ai_chat_completions): Payload: {}", request_body_str);
+    
     let request_builder = HttpRequest::builder()
         .method(Method::POST)
         .uri(uri)
         .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", api_key.trim()));
+        .header("Authorization", format!("Bearer {}", api_key.trim()))
+        .header("api-key", api_key.trim());
 
     let request = request_builder
-        .body(AsyncBody::from(
-            serde_json::to_string(&request).map_err(|e| RequestError::Other(e.into()))?,
-        ))
+        .body(AsyncBody::from(request_body_str))
         .map_err(|e| RequestError::Other(e.into()))?;
 
     let mut response = client.send(request).await?;
