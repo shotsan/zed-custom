@@ -55,3 +55,4 @@ crates/docs_preprocessor/actions.json
 /docs/december-2025-documentation-gaps.md
 .zed/agent_logs/
 local_secrets.env
+test_azure_model.sh
