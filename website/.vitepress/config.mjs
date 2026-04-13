@@ -30,6 +30,7 @@ export default defineConfig({
                     { text: 'Quick Web Search', link: '/features/search' },
                     { text: 'Deep Research Tool', link: '/features/tools/deep-research' },
                     { text: 'Azure Anthropic Caching', link: '/features/azure-anthropic' },
+                    { text: 'Azure OpenAI', link: '/features/azure-openai' },
                     { text: 'LSP Symbol Search', link: '/features/lsp' },
                     { text: 'System Prompts & Persona', link: '/features/system-prompts' },
                     { text: 'Full Message Interception', link: '/features/message-interception' }
