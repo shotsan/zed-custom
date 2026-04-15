@@ -265,8 +265,8 @@ pub async fn stream_response(
     };
     
     let request_body_str = serde_json::to_string(&request).map_err(|e| RequestError::Other(e.into()))?;
-    log::error!("DEBUG (open_ai_responses): Hitting URI: {}", uri);
-    log::error!("DEBUG (open_ai_responses): Payload: {}", request_body_str);
+    log::debug!("DEBUG (open_ai_responses): Hitting URI: {}", uri);
+    log::debug!("DEBUG (open_ai_responses): Payload: {}", request_body_str);
     
     let request_builder = HttpRequest::builder()
         .method(Method::POST)

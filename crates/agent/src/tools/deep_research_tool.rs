@@ -117,25 +117,22 @@ impl AgentTool for DeepResearchTool {
             let model_clone = model.clone();
             let mut async_cx_recursive = async_cx.clone();
             
-            let tokio_handle_inner = tokio_handle.clone();
-            let raw_report = {
-                let _guard = tokio_handle_inner.enter();
-                run_deep_research_bg(
-                    http_client.clone(),
-                    input.topic.clone(),
-                    queries,
-                    input.domains.clone(),
-                    settings.max_concurrent_tabs,
-                    settings.max_depth,
-                    Some(event_stream_clone),
-                    model_clone.clone(),
-                    &mut async_cx_recursive,
-                    tokio_handle_inner.clone(),
-                    settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string()),
-                    settings.search_provider,
-                    settings.use_headed_browser,
-                ).await?
-            };
+            let _tokio_guard = tokio_handle.enter();
+            let raw_report = run_deep_research_bg(
+                http_client.clone(),
+                input.topic.clone(),
+                queries,
+                input.domains.clone(),
+                settings.max_concurrent_tabs,
+                settings.max_depth,
+                Some(event_stream_clone),
+                model_clone.clone(),
+                &mut async_cx_recursive,
+                tokio_handle.clone(),
+                settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string()),
+                settings.search_provider,
+                settings.use_headed_browser,
+            ).await?;
 
             let event_stream = event_stream.clone();
             let topic = input.topic.clone();
@@ -144,20 +141,18 @@ impl AgentTool for DeepResearchTool {
             let model_for_synthesis = model.clone();
             let mut async_cx_for_synthesis = async_cx.clone();
             
-            let summary_result = {
-                let _guard = tokio_handle.enter();
-                tokio::time::timeout(std::time::Duration::from_secs(120), async move {
-                     event_stream.push_log("🧠 Synthesizing final research report...".to_string());
-                     condense_report(
-                        http_client,
-                        &topic,
-                        &report_for_synthesis,
-                        condensation_prompt.as_deref(),
-                        model_for_synthesis,
-                        &mut async_cx_for_synthesis
-                    ).await
-                }).await
-            };
+            let summary_result = tokio::time::timeout(std::time::Duration::from_secs(120), async move {
+                 event_stream.push_log("🧠 Synthesizing final research report...".to_string());
+                 condense_report(
+                    http_client,
+                    &topic,
+                    &report_for_synthesis,
+                    condensation_prompt.as_deref(),
+                    model_for_synthesis,
+                    &mut async_cx_for_synthesis
+                ).await
+            }).await;
+            drop(_tokio_guard);
 
             let final_report = match summary_result {
                 Ok(Ok(summary)) => summary,
@@ -279,11 +274,54 @@ pub async fn run_deep_research_bg(
         agent_settings::SearchProvider::Google => "Google Search",
     }), None);
 
-    // 1. Fetch raw candidates
+    // 1. Initialize the persistent research browser
+    let mut builder = BrowserConfig::builder();
+    
+    // Use a dedicated research profile folder
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            let profile_path = std::path::PathBuf::from(&home)
+                .join("Library/Application Support/zed-custom/deep-research-profile");
+            let _ = std::fs::create_dir_all(&profile_path);
+            builder = builder.user_data_dir(profile_path);
+        }
+    }
+
+    if use_headed_browser || true { // Force headed for visibility
+        builder = builder.with_head();
+    }
+    
+    builder = builder
+        .arg("--disable-blink-features=AutomationControlled")
+        .arg("--excludeSwitches=enable-automation")
+        .arg("--use-mock-keychain");
+
+    // Attempt to find Chrome on macOS if it's not in the PATH
+    #[cfg(target_os = "macos")]
+    {
+        let common_paths = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"];
+        for path in common_paths {
+            if std::path::Path::new(path).exists() {
+                builder = builder.chrome_executable(path);
+                break;
+            }
+        }
+    }
+
+    let config = builder.build().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let (browser, mut handler) = Browser::launch(config).await.map_err(|e| anyhow::anyhow!("Failed to launch persistent research browser: {e}"))?;
+    
+    let _handler_task = tokio::spawn(async move {
+        while let Some(_event) = handler.next().await {}
+    });
+    let browser = Arc::new(browser);
+
+    // 2. Fetch raw candidates using the persistent browser
     let mut results = Vec::new();
     
     if search_provider == agent_settings::SearchProvider::Google {
-        log_message("🔍 Google Search: Sequential stealth mode...".to_string(), None);
+        log_message("🔍 Google Search: Using persistent research window...".to_string(), None);
         for (idx, q) in queries.iter().enumerate() {
             let search_candidates = vec![DeepResearchSearchResult {
                 id: idx,
@@ -292,19 +330,15 @@ pub async fn run_deep_research_bg(
                 snippet: String::new(),
                 score: 0,
             }];
-            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone(), true, use_headed_browser).await {
+            
+            if let Ok(html_responses) = browse_parallel(browser.clone(), search_candidates, event_stream.clone(), true).await {
                 if let Some(html) = html_responses.first() {
                     let parsed = parse_google_results(html);
-                    log::info!("✅ Google Scraper: Finished query '{}'. Parsed {} items from {} bytes of HTML.", q, parsed.len(), html.len());
-                    if parsed.is_empty() {
-                         let safe_len = html.char_indices().map(|(i, _)| i).find(|&i| i >= 500).unwrap_or(html.len());
-                         log::debug!("⚠️ Empty results. Raw HTML snippet: {}", &html[..safe_len]);
-                    }
+                    log::info!("✅ Google Scraper: Finished query '{}'. Parsed {} items.", q, parsed.len());
                     results.extend(parsed);
                 }
             }
-            // Add jitter to avoid bot pattern
-            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
         }
     } else {
         let mut search_futures = Vec::new();
@@ -374,7 +408,7 @@ pub async fn run_deep_research_bg(
     }
 
     let mut iteration = 1;
-    while iteration <= max_iterations && successful_results.len() < max_concurrent_tabs && !research_pool.is_empty() {
+    while iteration <= max_iterations && !research_pool.is_empty() {
         let mut candidates_to_fetch = Vec::new();
         while candidates_to_fetch.len() < max_concurrent_tabs && !research_pool.is_empty() {
             candidates_to_fetch.push(research_pool.remove(0));
@@ -386,11 +420,11 @@ pub async fn run_deep_research_bg(
         log_message(format!("🚀 Iteration {}: Launching {} parallel research tabs...", iteration, candidates_to_fetch.len()), None);
 
         let summaries = {
-             let http_client = http_client.clone();
+             let browser = browser.clone();
              let event_stream = event_stream.clone();
              let candidates = candidates_to_fetch.clone();
              tokio_handle.spawn(async move {
-                 browse_parallel(http_client, candidates, event_stream.clone(), false, use_headed_browser).await
+                 browse_parallel(browser, candidates, event_stream.clone(), false).await
              }).await??
         };
         
@@ -450,12 +484,12 @@ pub async fn run_deep_research_bg(
                                 snippet: String::new(),
                                 score: 0,
                             }];
-                            if let Ok(html_responses) = browse_parallel(http_client.clone(), search_candidates, event_stream.clone(), true, use_headed_browser).await {
+                            if let Ok(html_responses) = browse_parallel(browser.clone(), search_candidates, event_stream.clone(), true).await {
                                 if let Some(html) = html_responses.first() {
                                     follow_up_results.extend(parse_google_results(html));
                                 }
                             }
-                            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                            tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
                         }
                     } else {
                         let mut follow_up_futures = Vec::new();
@@ -492,8 +526,8 @@ pub async fn run_deep_research_bg(
                 }
             }
         
-        iteration += 1;
-    }
+    iteration += 1;
+}
 
     log_message("✅ Data collection complete. Finalizing report...".to_string(), Some("Synthesizing...".to_string()));
 
@@ -932,99 +966,60 @@ fn url_decode(input: &str) -> Result<String> {
         .map(|c: std::borrow::Cow<'_, str>| c.to_string())
         .map_err(|e| anyhow::anyhow!("URL Decode Error: {}", e))
 }
-async fn browse_parallel(
-    http_client: Arc<HttpClientWithUrl>, 
+
+pub async fn browse_parallel(
+    browser: Arc<Browser>,
     candidates: Vec<DeepResearchSearchResult>,
     event_stream: Option<ToolCallEventStream>,
     rip_raw_html: bool,
-    use_headed_browser: bool,
 ) -> Result<Vec<String>> {
 
-    let mut builder = BrowserConfig::builder();
-    builder = builder.no_sandbox();
+    let mut tab_futures = Vec::new();
     
-    // Create a unique temporary user data directory to avoid "SingletonLock" errors
-    // when running multiple researches or when a previous session didn't clean up.
-    let user_data_dir = std::env::temp_dir().join(format!("zed-research-profile-{}-{}", std::process::id(), uuid::Uuid::new_v4()));
-    builder = builder.user_data_dir(user_data_dir);
-
-    let modern_ua = if cfg!(target_os = "macos") {
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    } else {
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    };
-
-    if use_headed_browser {
-        builder = builder.with_head();
-    } else {
-        builder = builder.args(["--headless=new"]);
-    }
-
-    builder = builder
-        .window_size(1920, 1080)
-        .arg(format!("--user-agent={}", modern_ua))
-        .arg("--disable-blink-features=AutomationControlled")
-        .arg("--disable-extensions")
-        .arg("--no-first-run");
-    
-    // Attempt to find Chrome on macOS if it's not in the PATH
-    #[cfg(target_os = "macos")]
-    {
-        let common_paths = [
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "/Applications/Chromium.app/Contents/MacOS/Chromium",
-            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-        ];
-        for path in common_paths {
-            if std::path::Path::new(path).exists() {
-                builder = builder.chrome_executable(path);
-                break;
+    for res in candidates.clone() {
+        let url = res.url.clone();
+        let title = res.title.clone();
+        let b = browser.clone();
+        let event_stream = event_stream.clone();
+        let future = async move {
+            if let Some(event_stream) = &event_stream {
+                event_stream.push_log(format!("🌐 Fetching: {} ({})", title, url));
             }
-        }
-    }
-
-    let config = builder.build().map_err(|e| anyhow::anyhow!("{e}"))?;
-    
-    match Browser::launch(config).await {
-        Ok((browser, mut handler)) => {
-            let _handler_task = tokio::spawn(async move {
-                while let Some(_event) = handler.next().await {
-                    log::trace!("Browser event: {:?}", _event);
-                }
-            });
-
-            let browser = Arc::new(browser);
-            let mut tab_futures = Vec::new();
             
-            for res in candidates.clone() {
-                let url = res.url.clone();
-                let title = res.title.clone();
-                let b = Arc::clone(&browser);
-                let event_stream = event_stream.clone();
-                let future = async move {
-                    if let Some(event_stream) = &event_stream {
-                        event_stream.push_log(format!("🌐 Fetching: {} ({})", title, url));
-                    }
-                    
-                    let fetch_result = tokio::time::timeout(std::time::Duration::from_secs(45), async {
-                        let mut page = match b.new_page("about:blank").await {
-                            Ok(p) => {
-                                // Mask the webdriver flag to hide headless Chromium (Stealth) BEFORE navigation
-                                use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
-                                let script = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});";
-                                let _ = p.evaluate_on_new_document(AddScriptToEvaluateOnNewDocumentParams::builder().source(script).build().unwrap()).await;
-                                let _ = p.goto(&url).await;
-                                p
-                            },
-                            Err(e) => return Ok::<String, anyhow::Error>(format!("(Failed to open page for {}: {})", url, e)),
-                        };
+            let fetch_result = tokio::time::timeout(std::time::Duration::from_secs(45), async {
+                let mut page = match b.new_page("about:blank").await {
+                    Ok(p) => {
+                        // Inject script to delete navigator.webdriver for stealth
+                        let _ = p.execute(chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams::new(
+                            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})".to_string()
+                        )).await;
+
+                        // For real profiles, we need a small delay for the browser to stabilize
+                        // and be ready for remote commands.
+                        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                        if let Err(e) = p.goto(&url).await {
+                             log::warn!("Goto failed for {}: {}", url, e);
+                        }
+                        p
+                    },
+                    Err(e) => return Ok::<String, anyhow::Error>(format!("(Failed to open page for {}: {})", url, e)),
+                };
 
                         // Wait for navigation and initial load
                         let _ = page.wait_for_navigation().await;
                         
-                        // If we are searching Google, wait for the actual results to render on screen.
+                        // If we are searching Google, detect CAPTCHA redirects
+                        // and wait for h3 result elements.
                         if url.contains("google.com/search") {
+                           let current_url = page.url().await.ok().flatten().unwrap_or_default();
+                           if current_url.contains("/sorry") || current_url.contains("consent.google") {
+                               log::warn!("⚠️ Google CAPTCHA/consent redirect detected: {}", current_url);
+                               // Back off 10s and retry once
+                               tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                               let _ = page.goto(&url).await;
+                               let _ = page.wait_for_navigation().await;
+                               tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                           }
                            log::info!("🔍 Google Search: Waiting for result elements (h3) to appear...");
                            let wait_result = tokio::time::timeout(std::time::Duration::from_secs(15), page.find_element("h3")).await;
                            match wait_result {
@@ -1135,69 +1130,7 @@ async fn browse_parallel(
                  }
             }
 
-            if let Ok(mut browser) = Arc::try_unwrap(browser) {
-                let _ = browser.close().await;
-            }
-
             Ok(results)
-        }
-        Err(e) => {
-            log::error!("Browser launch failed: {:#}", e);
-            // FALLBACK: Use raw HTTP fetch if browser launch fails
-            let mut results = Vec::new();
-            for res in candidates {
-                let url_str = res.url.clone();
-                if let Some(event_stream) = &event_stream {
-                    event_stream.update_fields(acp::ToolCallUpdateFields::new().title(format!("Fetching {} (HTTP Fallback)...", url_str)));
-                }
-
-                let response_result = match http_client::Url::parse(&url_str) {
-                    Ok(parsed_url) => {
-                        let request = http_client::Builder::new()
-                            .uri(parsed_url.to_string())
-                            .method(http_client::Method::GET)
-                            .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-                            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-                            .header("Accept-Language", "en-US,en;q=0.9")
-                            .follow_redirects(http_client::RedirectPolicy::FollowAll)
-                            .body(http_client::AsyncBody::empty());
-
-                        match request {
-                            Ok(req) => http_client.send(req).await,
-                            Err(e) => Err(anyhow::anyhow!("Request Builder Error for {}: {}", url_str, e)),
-                        }
-                    }
-                    Err(e) => Err(anyhow::anyhow!("Invalid URL {}: {}", url_str, e)),
-                };
-
-                match response_result {
-                    Ok(mut response) => {
-                        let status = response.status();
-                        if !status.is_success() {
-                             results.push(format!("(Server returned HTTP {} for {})", status, url_str));
-                             continue;
-                        }
-                        
-                        let mut body = Vec::new();
-                        if response.body_mut().read_to_end(&mut body).await.is_ok() {
-                            if let Ok(markdown) = html_to_clean_markdown(&body, &url_str) {
-                                if markdown.trim().len() > 100 {
-                                    results.push(markdown);
-                                    continue;
-                                }
-                            }
-                        }
-                        results.push(format!("(Fetched content from {} but it was unreadable or too thin - possible bot protection)", url_str));
-                    }
-                    Err(err) => {
-                        results.push(format!("(HTTP Fetch Error: {})", err));
-                    }
-                }
-            }
-            Ok(results)
-
-        }
-    }
 }
 
 fn html_to_clean_markdown(html_body: &[u8], _url: &str) -> Result<String> {
