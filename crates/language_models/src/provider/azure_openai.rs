@@ -95,14 +95,18 @@ impl AzureOpenAiLanguageModelProvider {
     }
 
     fn api_url(cx: &App) -> SharedString {
-        let api_url = Self::settings(cx).api_url.unwrap_or_default();
-        SharedString::new(api_url)
+        let settings = Self::settings(cx);
+        let api_url = settings
+            .api_url
+            .clone()
+            .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+        SharedString::from(api_url)
     }
 
-    fn api_version(cx: &App) -> SharedString {
-        let api_version = Self::settings(cx).api_version.unwrap_or_default();
-        SharedString::new(api_version)
+    fn api_version(cx: &App) -> Option<String> {
+        Self::settings(cx).api_version.clone()
     }
+
 }
 
 impl LanguageModelProviderState for AzureOpenAiLanguageModelProvider {
@@ -127,11 +131,27 @@ impl LanguageModelProvider for AzureOpenAiLanguageModelProvider {
     }
 
     fn default_model(&self, cx: &App) -> Option<Arc<dyn LanguageModel>> {
-        Self::settings(cx)
-            .available_models
-            .unwrap_or_default()
-            .first()
-            .map(|model| self.create_language_model(model.clone()))
+        let settings = Self::settings(cx);
+        if let Some(deployment_name) = &settings.deployment_name {
+            Some(self.create_language_model(AvailableModel {
+                name: deployment_name.clone(),
+                display_name: Some(deployment_name.clone()),
+                max_tokens: 128000,
+                max_output_tokens: Some(16384),
+                max_completion_tokens: None,
+                reasoning_effort: None,
+                capabilities: ModelCapabilities {
+                    chat_completions: true,
+                    tool_use: true,
+                },
+            }))
+        } else {
+            settings
+                .available_models
+                .unwrap_or_default()
+                .first()
+                .map(|model| self.create_language_model(model.clone()))
+        }
     }
 
     fn default_fast_model(&self, _cx: &App) -> Option<Arc<dyn LanguageModel>> {
@@ -139,12 +159,32 @@ impl LanguageModelProvider for AzureOpenAiLanguageModelProvider {
     }
 
     fn provided_models(&self, cx: &App) -> Vec<Arc<dyn LanguageModel>> {
-        Self::settings(cx)
-            .available_models
-            .unwrap_or_default()
-            .iter()
-            .map(|model| self.create_language_model(model.clone()))
-            .collect()
+        let settings = Self::settings(cx);
+        let mut models = Vec::new();
+        
+        if let Some(deployment_name) = &settings.deployment_name {
+            models.push(self.create_language_model(AvailableModel {
+                name: deployment_name.clone(),
+                display_name: Some(deployment_name.clone()),
+                max_tokens: 128000,
+                max_output_tokens: Some(16384),
+                max_completion_tokens: None,
+                reasoning_effort: None,
+                capabilities: ModelCapabilities {
+                    chat_completions: true,
+                    tool_use: true,
+                },
+            }));
+        }
+
+        let available_models = settings.available_models.unwrap_or_default();
+        for model in available_models {
+            if !models.iter().any(|m| m.id().0 == model.name) {
+                models.push(self.create_language_model(model.clone()));
+            }
+        }
+        
+        models
     }
 
     fn is_authenticated(&self, cx: &App) -> bool {
@@ -194,28 +234,34 @@ impl AzureOpenAiLanguageModel {
         let http_client = self.http_client.clone();
 
         let (api_key, api_url) = self.state.read_with(cx, |state, _cx| {
+            let settings = AzureOpenAiLanguageModelProvider::settings(_cx);
             let base_url = AzureOpenAiLanguageModelProvider::api_url(_cx);
+            let api_key = settings.api_key.clone().or_else(|| state.api_key_state.key(&base_url).map(|key| key.to_string()));
             let api_version = AzureOpenAiLanguageModelProvider::api_version(_cx);
-            let deployment_name = &self.model.name;
 
-            let mut full_url = base_url.trim_end_matches('/').to_string();
-            if !full_url.contains("/openai/deployments/") {
-                full_url.push_str("/openai/deployments/");
-                full_url.push_str(deployment_name);
+            let mut full_url = base_url.to_string();
+            // If the URL already contains key segments, treat it as a direct link and stop appending.
+            let is_direct_link = full_url.contains("/v1/") || full_url.contains("/openai/") || full_url.contains("/chat/completions") || full_url.contains("/responses");
+            
+            if !is_direct_link {
+                let deployment_name = &self.model.name;
+                let trimmed = full_url.trim_end_matches('/');
+                full_url = format!("{trimmed}/openai/deployments/{deployment_name}/chat/completions");
             }
-            if !api_version.is_empty() {
-                full_url.push_str("?api-version=");
-                full_url.push_str(&api_version);
+            
+            if let Some(api_version) = api_version.as_deref() {
+                if !full_url.contains("api-version=") {
+                    full_url.push_str(if full_url.contains('?') { "&" } else { "?" });
+                    full_url.push_str("api-version=");
+                    full_url.push_str(api_version);
+                }
             }
-
-            (
-                state.api_key_state.key(&base_url),
-                SharedString::from(full_url),
-            )
+            
+            (api_key, SharedString::from(full_url))
         });
 
         let provider = PROVIDER_NAME.clone();
-        if request.messages.is_empty() {
+        if request.messages.is_empty() && request.input.as_ref().map_or(true, |i| i.is_empty()) {
             return async move { Err(anyhow!("messages must not be empty").into()) }.boxed();
         }
         let future = self.request_limiter.stream(async move {
@@ -245,25 +291,30 @@ impl AzureOpenAiLanguageModel {
         let http_client = self.http_client.clone();
 
         let (api_key, api_url) = self.state.read_with(cx, |state, _cx| {
+            let settings = AzureOpenAiLanguageModelProvider::settings(_cx);
             let base_url = AzureOpenAiLanguageModelProvider::api_url(_cx);
+            let api_key = settings.api_key.clone().or_else(|| state.api_key_state.key(&base_url).map(|key| key.to_string()));
             let api_version = AzureOpenAiLanguageModelProvider::api_version(_cx);
 
-            let mut full_url = base_url.trim_end_matches('/').to_string();
-            // Azure's Responses API is at the resource level, not deployment-scoped.
-            // Correct: {base}/openai/responses?api-version=...
-            if !full_url.ends_with("/openai") {
-                full_url.push_str("/openai");
+            let mut full_url = base_url.to_string();
+            // If the URL already contains key segments, treat it as a direct link and stop appending.
+            let is_direct_link = full_url.contains("/v1/") || full_url.contains("/openai/") || full_url.contains("/chat/completions") || full_url.contains("/responses");
+            
+            if !is_direct_link {
+                let trimmed = full_url.trim_end_matches('/');
+                // Default to the modern Responses API path
+                full_url = format!("{trimmed}/openai/v1/responses");
             }
-            full_url.push_str("/responses");
-            if !api_version.is_empty() {
-                full_url.push_str("?api-version=");
-                full_url.push_str(&api_version);
+            
+            if let Some(api_version) = api_version.as_deref() {
+                if !full_url.contains("api-version=") {
+                    full_url.push_str(if full_url.contains('?') { "&" } else { "?" });
+                    full_url.push_str("api-version=");
+                    full_url.push_str(api_version);
+                }
             }
 
-            (
-                state.api_key_state.key(&base_url),
-                SharedString::from(full_url),
-            )
+            (api_key, SharedString::from(full_url))
         });
 
         let provider = PROVIDER_NAME.clone();
@@ -348,13 +399,17 @@ impl LanguageModel for AzureOpenAiLanguageModel {
         request: LanguageModelRequest,
         cx: &App,
     ) -> BoxFuture<'static, Result<u64>> {
-        let max_token_count = self.max_token_count();
+        let deployment_name = self.model.name.clone();
         cx.background_spawn(async move {
             let messages = crate::provider::open_ai::collect_tiktoken_messages(request);
-            let model = if max_token_count >= 100_000 {
+            let model = if deployment_name.contains("gpt-4o") {
                 "gpt-4o"
-            } else {
+            } else if deployment_name.contains("gpt-4") {
                 "gpt-4"
+            } else if deployment_name.contains("o1") {
+                "o1-preview"
+            } else {
+                "gpt-4o"
             };
             tiktoken_rs::num_tokens_from_messages(model, &messages).map(|tokens| tokens as u64)
         })
@@ -375,7 +430,14 @@ impl LanguageModel for AzureOpenAiLanguageModel {
             LanguageModelCompletionError,
         >,
     > {
-        if self.model.capabilities.chat_completions {
+        let use_responses_api = self.state.read_with(cx, |_, _cx| {
+            let api_url = AzureOpenAiLanguageModelProvider::api_url(_cx);
+            // Default to Responses API for Azure unless chat/completions is explicitly requested
+            let explicitly_chat = api_url.contains("/chat/completions");
+            (api_url.contains("/responses") || !explicitly_chat) || !self.model.capabilities.chat_completions
+        });
+
+        if !use_responses_api {
             let request = into_open_ai(
                 request,
                 &self.model.name,
@@ -414,67 +476,43 @@ use language_model::ConfigurationViewTargetAgent;
 struct ConfigurationView {
     api_key_editor: Entity<InputField>,
     api_url_editor: Entity<InputField>,
-    api_version_editor: Entity<InputField>,
     deployment_name_editor: Entity<InputField>,
-    max_tokens_editor: Entity<InputField>,
-    max_output_tokens_editor: Entity<InputField>,
     state: Entity<State>,
     load_credentials_task: Option<Task<()>>,
     target_agent: ConfigurationViewTargetAgent,
-    chat_completions: bool,
-    tool_use: bool,
 }
 
 impl ConfigurationView {
     fn new(state: Entity<State>, target_agent: ConfigurationViewTargetAgent, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let settings = AzureOpenAiLanguageModelProvider::settings(cx);
+        
         let api_key_editor = cx.new(|cx| {
-            InputField::new(
+            let input = InputField::new(
                 window,
                 cx,
                 "000000000000000000000000000000000000000000000000000",
             ).label("API Key")
+            .password(true, window, cx);
+            if let Some(api_key) = &settings.api_key {
+                input.set_text(api_key, window, cx);
+            }
+            input
         });
 
         let api_url_editor = cx.new(|cx| {
-            let input = InputField::new(window, cx, "https://<resource>.cognitiveservices.azure.com/").label("API URL");
-            input.set_text(&AzureOpenAiLanguageModelProvider::api_url(cx), window, cx);
+            let input = InputField::new(window, cx, "https://<resource>.openai.azure.com/").label("API URL / Endpoint");
+            if let Some(api_url) = &settings.api_url {
+                input.set_text(api_url, window, cx);
+            }
             input
         });
-
-        let api_version_editor = cx.new(|cx| {
-            let input = InputField::new(window, cx, "2025-04-01-preview").label("API Version");
-            input.set_text(&AzureOpenAiLanguageModelProvider::api_version(cx), window, cx);
-            input
-        });
-
-        let model = AzureOpenAiLanguageModelProvider::settings(cx)
-            .available_models
-            .unwrap_or_default()
-            .first()
-            .cloned();
 
         let deployment_name_editor = cx.new(|cx| {
-            let editor = InputField::new(window, cx, "gpt-4o").label("Deployment Name");
-            if let Some(model) = &model {
+            let editor = InputField::new(window, cx, "gpt-4o").label("Deployment / Model Name");
+            if let Some(deployment_name) = &settings.deployment_name {
+                editor.set_text(deployment_name, window, cx);
+            } else if let Some(model) = settings.available_models.as_ref().and_then(|m| m.first()) {
                 editor.set_text(&model.name, window, cx);
-            }
-            editor
-        });
-
-        let max_tokens_editor = cx.new(|cx| {
-            let editor = InputField::new(window, cx, "128000").label("Max Tokens");
-            if let Some(model) = &model {
-                editor.set_text(&model.max_tokens.to_string(), window, cx);
-            }
-            editor
-        });
-
-        let max_output_tokens_editor = cx.new(|cx| {
-            let editor = InputField::new(window, cx, "16384").label("Max Output Tokens");
-            if let Some(model) = &model {
-                if let Some(max_output_tokens) = model.max_output_tokens {
-                    editor.set_text(&max_output_tokens.to_string(), window, cx);
-                }
             }
             editor
         });
@@ -501,74 +539,42 @@ impl ConfigurationView {
         Self {
             api_key_editor,
             api_url_editor,
-            api_version_editor,
             deployment_name_editor,
-            max_tokens_editor,
-            max_output_tokens_editor,
             state,
             load_credentials_task,
             target_agent,
-            chat_completions: model.as_ref().map_or(true, |m| m.capabilities.chat_completions),
-            tool_use: model.as_ref().map_or(true, |m| m.capabilities.tool_use),
         }
     }
 
     fn save_settings(&mut self, _: &menu::Confirm, window: &mut Window, cx: &mut Context<Self>) {
-        let api_key = self.api_key_editor.read(cx).text(cx);
+        let api_key = self.api_key_editor.read(cx).text(cx).trim().to_string();
         let api_url = self.api_url_editor.read(cx).text(cx).trim().to_string();
-        let api_version = self.api_version_editor.read(cx).text(cx).trim().to_string();
         let deployment_name = self.deployment_name_editor.read(cx).text(cx).trim().to_string();
-        let max_tokens = self.max_tokens_editor.read(cx).text(cx).trim().parse::<u64>().unwrap_or(128000);
-        let max_output_tokens = self.max_output_tokens_editor.read(cx).text(cx).trim().parse::<u64>().ok();
-
-        if !api_key.is_empty() {
-            let state = self.state.clone();
-            cx.spawn_in(window, async move |_, cx| {
-                state
-                    .update(cx, |state, cx| state.set_api_key(Some(api_key), cx))
-                    .await
-            })
-            .detach_and_log_err(cx);
-            self.api_key_editor
-                .update(cx, |editor, cx| editor.set_text("", window, cx));
-        }
 
         if !api_url.is_empty() && !deployment_name.is_empty() {
             let target_agent = self.target_agent.clone();
-            let chat_completions = self.chat_completions;
-            let tool_use = self.tool_use;
             let fs = <dyn Fs>::global(cx);
             update_settings_file(fs, cx, move |settings, _| {
                 let language_models = settings.language_models.get_or_insert_default();
                 let azure = language_models.azure_openai.get_or_insert_default();
                 
                 azure.api_url = Some(api_url);
+                azure.api_key = if api_key.is_empty() { None } else { Some(api_key) };
+                let deployment_name = deployment_name.clone();
+                azure.deployment_name = Some(deployment_name.clone());
                 
-                if !api_version.is_empty() {
-                    azure.api_version = Some(api_version);
-                }
-                
-                let models = azure.available_models.get_or_insert_default();
-                if let Some(model) = models.first_mut() {
-                    model.name = deployment_name.clone();
-                    model.display_name = Some(deployment_name.clone());
-                    model.max_tokens = max_tokens;
-                    model.max_output_tokens = max_output_tokens;
-                    model.capabilities = settings::OpenAiModelCapabilities {
-                        chat_completions,
-                        tool_use,
-                    };
-                } else {
-                    models.push(settings::AzureOpenAiAvailableModel {
+                let available_models = azure.available_models.get_or_insert_default();
+                if !available_models.iter().any(|m| m.name == deployment_name) {
+                    available_models.push(settings::AzureOpenAiAvailableModel {
                         name: deployment_name.clone(),
                         display_name: Some(deployment_name.clone()),
-                        max_tokens,
-                        max_output_tokens,
+                        max_tokens: 128000,
+                        max_output_tokens: Some(16384),
                         max_completion_tokens: None,
                         reasoning_effort: None,
                         capabilities: settings::OpenAiModelCapabilities {
-                            chat_completions,
-                            tool_use,
+                            chat_completions: true,
+                            tool_use: true,
                         },
                     });
                 }
@@ -602,8 +608,9 @@ impl ConfigurationView {
     }
 
     fn reset_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.api_key_editor
-            .update(cx, |editor, cx| editor.set_text("", window, cx));
+        self.api_key_editor.update(cx, |editor, cx| editor.set_text("", window, cx));
+        self.api_url_editor.update(cx, |editor, cx| editor.set_text("", window, cx));
+        self.deployment_name_editor.update(cx, |editor, cx| editor.set_text("", window, cx));
 
         let state = self.state.clone();
         cx.spawn_in(window, async move |_, cx| {
@@ -621,8 +628,8 @@ impl ConfigurationView {
                 .and_then(|models| models.azure_openai.as_mut())
             {
                 azure.api_url = None;
-                azure.api_version = None;
-                azure.available_models = None;
+                azure.api_key = None;
+                azure.deployment_name = None;
             }
         });
         cx.notify();
@@ -664,33 +671,8 @@ impl Render for ConfigurationView {
                     v_flex()
                         .gap_3()
                         .child(self.api_url_editor.clone())
-                        .child(self.api_version_editor.clone())
                         .child(self.api_key_editor.clone())
                         .child(self.deployment_name_editor.clone())
-                        .child(
-                            h_flex()
-                                .gap_3()
-                                .child(self.max_tokens_editor.clone())
-                                .child(self.max_output_tokens_editor.clone())
-                        )
-                )
-                .child(
-                    h_flex()
-                        .gap_4()
-                        .child(
-                            ui::checkbox("chat_completions", if self.chat_completions { ui::ToggleState::Selected } else { ui::ToggleState::Unselected })
-                                .label("Chat Model")
-                                .on_click(cx.listener(|this, state, _, _| {
-                                    this.chat_completions = *state == ui::ToggleState::Selected;
-                                }))
-                        )
-                        .child(
-                            ui::checkbox("tool_use", if self.tool_use { ui::ToggleState::Selected } else { ui::ToggleState::Unselected })
-                                .label("Support Tools")
-                                .on_click(cx.listener(|this, state, _, _| {
-                                    this.tool_use = *state == ui::ToggleState::Selected;
-                                }))
-                        )
                 )
                 .child(
                     h_flex()

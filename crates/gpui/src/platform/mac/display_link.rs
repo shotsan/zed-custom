@@ -213,7 +213,8 @@ mod sys {
     #[link(name = "CoreVideo", kind = "framework")]
     #[allow(improper_ctypes, unknown_lints, clippy::duplicated_attributes)]
     unsafe extern "C" {
-        pub fn CVDisplayLinkCreateWithActiveCGDisplays(
+        pub fn CVDisplayLinkCreateWithCGDisplay(
+            display_id: u32,
             display_link_out: *mut *mut CVDisplayLink,
         ) -> i32;
         pub fn CVDisplayLinkSetCurrentCGDisplay(
@@ -241,20 +242,13 @@ mod sys {
             unsafe {
                 let mut display_link: *mut CVDisplayLink = 0 as _;
 
-                let code = CVDisplayLinkCreateWithActiveCGDisplays(&mut display_link);
+                let code = CVDisplayLinkCreateWithCGDisplay(display_id, &mut display_link);
                 anyhow::ensure!(code == 0, "could not create display link, code: {}", code);
 
                 let mut display_link = DisplayLink::from_ptr(display_link);
 
                 let code = CVDisplayLinkSetOutputCallback(&mut display_link, callback, user_info);
                 anyhow::ensure!(code == 0, "could not set output callback, code: {}", code);
-
-                let code = CVDisplayLinkSetCurrentCGDisplay(&mut display_link, display_id);
-                anyhow::ensure!(
-                    code == 0,
-                    "could not assign display to display link, code: {}",
-                    code
-                );
 
                 Ok(display_link)
             }

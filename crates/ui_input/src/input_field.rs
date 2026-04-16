@@ -115,6 +115,11 @@ impl InputField {
     pub fn set_text(&self, text: &str, window: &mut Window, cx: &mut App) {
         self.editor().set_text(text, window, cx)
     }
+
+    pub fn password(self, masked: bool, window: &mut Window, cx: &mut App) -> Self {
+        self.editor().set_masked(masked, window, cx);
+        self
+    }
 }
 
 impl Render for InputField {

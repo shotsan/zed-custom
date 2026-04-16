@@ -31,6 +31,8 @@ pub struct AllLanguageModelSettingsContent {
 pub struct AzureOpenAiSettingsContent {
     pub api_url: Option<String>,
     pub api_version: Option<String>,
+    pub deployment_name: Option<String>,
+    pub api_key: Option<String>,
     pub available_models: Option<Vec<AzureOpenAiAvailableModel>>,
 }
 

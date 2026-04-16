@@ -56,3 +56,24 @@ crates/docs_preprocessor/actions.json
 .zed/agent_logs/
 local_secrets.env
 test_azure_model.sh
+.test.azureopenai.sh
+test_memory.sh
+scratch/
+
+# Ignore all dotfiles by default
+.*
+# But allow the ones required for the project
+!.gitignore
+!.github/
+!.cargo/
+!.zed/
+!.gitattributes
+!.mailmap
+!.prettierrc
+!.git-blame-ignore-revs
+!.rules
+!.python_rules
+!.cpp_rules
+!.config/
+!.factory/
+!.cloudflare/

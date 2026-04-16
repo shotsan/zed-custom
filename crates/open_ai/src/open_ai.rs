@@ -14,7 +14,30 @@ use std::{convert::TryFrom, future::Future};
 use strum::EnumIter;
 use thiserror::Error;
 
+
 pub const OPEN_AI_API_URL: &str = "https://api.openai.com/v1";
+
+fn build_uri(api_url: &str) -> String {
+    let api_url_trimmed = api_url.trim_end_matches('/');
+    if api_url_trimmed.ends_with("/chat/completions")
+        || api_url_trimmed.ends_with("/responses")
+        || api_url_trimmed.ends_with("/completions")
+    {
+        api_url.to_string()
+    } else if let Some((base, query)) = api_url.split_once('?') {
+        let base_trimmed = base.trim_end_matches('/');
+        if base_trimmed.ends_with("/chat/completions")
+            || base_trimmed.ends_with("/responses")
+            || base_trimmed.ends_with("/completions")
+        {
+            api_url.to_string()
+        } else {
+            format!("{base_trimmed}/chat/completions?{query}")
+        }
+    } else {
+        format!("{api_url_trimmed}/chat/completions")
+    }
+}
 
 fn is_none_or_empty<T: AsRef<[U]>, U>(opt: &Option<T>) -> bool {
     opt.as_ref().is_none_or(|v| v.as_ref().is_empty())
@@ -304,7 +327,10 @@ impl Model {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
     pub model: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub messages: Vec<RequestMessage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<Vec<RequestMessage>>,
     pub stream: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u64>,
@@ -550,11 +576,7 @@ pub async fn non_streaming_completion(
     api_key: &str,
     request: Request,
 ) -> Result<Response, RequestError> {
-    let uri = if let Some((base, query)) = api_url.split_once('?') {
-        format!("{base}/chat/completions?{query}")
-    } else {
-        format!("{api_url}/chat/completions")
-    };
+    let uri = build_uri(api_url);
     let request_builder = HttpRequest::builder()
         .method(Method::POST)
         .uri(uri)
@@ -601,11 +623,7 @@ pub async fn stream_completion(
     api_key: &str,
     request: Request,
 ) -> Result<BoxStream<'static, Result<ResponseStreamEvent>>, RequestError> {
-    let uri = if let Some((base, query)) = api_url.split_once('?') {
-        format!("{base}/chat/completions?{query}")
-    } else {
-        format!("{api_url}/chat/completions")
-    };
+    let uri = build_uri(api_url);
     
     let request_body_str = serde_json::to_string(&request).map_err(|e| RequestError::Other(e.into()))?;
     log::error!("DEBUG (open_ai_chat_completions): Hitting URI: {}", uri);

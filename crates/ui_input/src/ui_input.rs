@@ -28,6 +28,7 @@ pub trait ErasedEditor: 'static {
         window: &mut Window,
         cx: &mut App,
     ) -> Subscription;
+    fn set_masked(&self, masked: bool, window: &mut Window, cx: &mut App);
     fn render(&self, window: &mut Window, cx: &App) -> AnyElement;
     fn as_any(&self) -> &dyn Any;
 }

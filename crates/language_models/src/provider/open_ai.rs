@@ -500,12 +500,12 @@ pub fn into_open_ai(
         stream,
         stop: request.stop,
         temperature: request.temperature.or(Some(1.0)),
-        max_tokens: if model_id.starts_with("o1-") || model_id.starts_with("o3-") {
+        max_tokens: if model_id.starts_with("o1-") || model_id.starts_with("o3-") || model_id.contains("gpt-4o") || model_id.contains("gpt-5") {
             None
         } else {
             max_output_tokens
         },
-        max_completion_tokens: if model_id.starts_with("o1-") || model_id.starts_with("o3-") {
+        max_completion_tokens: if model_id.starts_with("o1-") || model_id.starts_with("o3-") || model_id.contains("gpt-4o") || model_id.contains("gpt-5") {
             max_output_tokens
         } else {
             None
@@ -538,6 +538,7 @@ pub fn into_open_ai(
             LanguageModelToolChoice::None => open_ai::ToolChoice::None,
         }),
         reasoning_effort,
+        input: None,
     }
 }
 

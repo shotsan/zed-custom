@@ -308,15 +308,15 @@ impl CompiledRegex {
 
 impl Settings for AgentSettings {
     fn from_settings(content: &settings::SettingsContent) -> Self {
-        let agent = content.agent.clone().unwrap();
+        let agent = content.agent.clone().unwrap_or_default();
         Self {
-            enabled: agent.enabled.unwrap(),
-            button: agent.button.unwrap(),
-            dock: agent.dock.unwrap(),
-            agents_panel_dock: agent.agents_panel_dock.unwrap(),
-            default_width: px(agent.default_width.unwrap()),
-            default_height: px(agent.default_height.unwrap()),
-            default_model: Some(agent.default_model.unwrap()),
+            enabled: agent.enabled.unwrap_or(true),
+            button: agent.button.unwrap_or(true),
+            dock: agent.dock.unwrap_or(DockPosition::Right),
+            agents_panel_dock: agent.agents_panel_dock.unwrap_or(DockSide::Left),
+            default_width: px(agent.default_width.unwrap_or(640.0)),
+            default_height: px(agent.default_height.unwrap_or(320.0)),
+            default_model: agent.default_model,
             inline_assistant_model: agent.inline_assistant_model,
             inline_assistant_use_streaming_tools: agent
                 .inline_assistant_use_streaming_tools
@@ -325,28 +325,28 @@ impl Settings for AgentSettings {
             thread_summary_model: agent.thread_summary_model,
             inline_alternatives: agent.inline_alternatives.unwrap_or_default(),
             favorite_models: agent.favorite_models,
-            default_profile: AgentProfileId(agent.default_profile.unwrap()),
-            default_view: agent.default_view.unwrap(),
+            default_profile: AgentProfileId(agent.default_profile.unwrap_or_else(|| Arc::from("write"))),
+            default_view: agent.default_view.unwrap_or(DefaultAgentView::Thread),
             profiles: agent
                 .profiles
-                .unwrap()
+                .unwrap_or_default()
                 .into_iter()
                 .map(|(key, val)| (AgentProfileId(key), val.into()))
                 .collect(),
-            always_allow_tool_actions: agent.always_allow_tool_actions.unwrap(),
-            notify_when_agent_waiting: agent.notify_when_agent_waiting.unwrap(),
-            play_sound_when_agent_done: agent.play_sound_when_agent_done.unwrap(),
-            single_file_review: agent.single_file_review.unwrap(),
+            always_allow_tool_actions: agent.always_allow_tool_actions.unwrap_or(false),
+            notify_when_agent_waiting: agent.notify_when_agent_waiting.unwrap_or(NotifyWhenAgentWaiting::PrimaryScreen),
+            play_sound_when_agent_done: agent.play_sound_when_agent_done.unwrap_or(false),
+            single_file_review: agent.single_file_review.unwrap_or(true),
             model_parameters: agent.model_parameters,
-            enable_feedback: agent.enable_feedback.unwrap(),
-            expand_edit_card: agent.expand_edit_card.unwrap(),
-            expand_terminal_card: agent.expand_terminal_card.unwrap(),
-            cancel_generation_on_terminal_stop: agent.cancel_generation_on_terminal_stop.unwrap(),
-            use_modifier_to_send: agent.use_modifier_to_send.unwrap(),
+            enable_feedback: agent.enable_feedback.unwrap_or(true),
+            expand_edit_card: agent.expand_edit_card.unwrap_or(true),
+            expand_terminal_card: agent.expand_terminal_card.unwrap_or(true),
+            cancel_generation_on_terminal_stop: agent.cancel_generation_on_terminal_stop.unwrap_or(true),
+            use_modifier_to_send: agent.use_modifier_to_send.unwrap_or(false),
             instructions: agent.instructions.map(|s| s.into()),
             system_prompt: agent.system_prompt.map(|s| s.into()),
-            message_editor_min_lines: agent.message_editor_min_lines.unwrap(),
-            show_turn_stats: agent.show_turn_stats.unwrap(),
+            message_editor_min_lines: agent.message_editor_min_lines.unwrap_or(4),
+            show_turn_stats: agent.show_turn_stats.unwrap_or(false),
             enable_prompt_caching: agent.enable_prompt_caching.unwrap_or(true),
             tool_permissions: compile_tool_permissions(agent.tool_permissions),
             custom_search: agent.custom_search.map(|v| CustomSearchSettings {

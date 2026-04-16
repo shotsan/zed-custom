@@ -27827,6 +27827,10 @@ impl ui_input::ErasedEditor for ErasedEditorImpl {
             (callback)(event, window, cx);
         })
     }
+
+    fn set_masked(&self, masked: bool, _: &mut Window, cx: &mut App) {
+        self.0.update(cx, |this, cx| this.set_masked(masked, cx));
+    }
 }
 impl<T> Default for InvalidationStack<T> {
     fn default() -> Self {

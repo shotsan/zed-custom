@@ -9,8 +9,7 @@ use crate::ExtendingVec;
 
 use crate::{DockPosition, DockSide};
 
-#[with_fallible_options]
-#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom, Debug, Default)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom, Debug)]
 pub struct AgentSettingsContent {
     /// Whether the Agent is enabled.
     ///
@@ -857,5 +856,48 @@ mod tests {
         let always_deny = terminal_rules.always_deny.as_ref().unwrap();
         assert_eq!(always_deny.0.len(), 1);
         assert_eq!(always_deny.0[0].pattern, "^rm\\s");
+    }
+}
+
+impl Default for AgentSettingsContent {
+    fn default() -> Self {
+        Self {
+            enabled: Some(true),
+            button: Some(true),
+            dock: Some(DockPosition::Right),
+            agents_panel_dock: Some(DockSide::Left),
+            default_width: Some(640.0),
+            default_height: Some(320.0),
+            default_model: None,
+            favorite_models: Vec::new(),
+            inline_assistant_model: None,
+            inline_assistant_use_streaming_tools: Some(true),
+            commit_message_model: None,
+            thread_summary_model: None,
+            inline_alternatives: None,
+            default_profile: Some(Arc::from("write")),
+            default_view: Some(DefaultAgentView::Thread),
+            profiles: None,
+            always_allow_tool_actions: Some(false),
+            notify_when_agent_waiting: Some(NotifyWhenAgentWaiting::PrimaryScreen),
+            play_sound_when_agent_done: Some(false),
+            single_file_review: Some(true),
+            model_parameters: Vec::new(),
+            enable_feedback: Some(true),
+            expand_edit_card: Some(true),
+            expand_terminal_card: Some(true),
+            cancel_generation_on_terminal_stop: Some(true),
+            use_modifier_to_send: Some(false),
+            instructions: None,
+            system_prompt: None,
+            message_editor_min_lines: Some(4),
+            show_turn_stats: Some(false),
+            enable_prompt_caching: Some(true),
+            tool_permissions: None,
+            custom_search: None,
+            elastic_search: None,
+            deep_research: None,
+            persona: Some(PersonaContent::Straightforward),
+        }
     }
 }
