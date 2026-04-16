@@ -3112,9 +3112,12 @@ impl Thread {
                 .context("failed to build system prompt")
                 .expect("Invalid template")
         };
+        let persona_instructions = AgentSettings::get_global(cx).persona.system_instructions();
+        let full_system_prompt = format!("{}\n\nPERSONA INSTRUCTIONS:\n{}", system_prompt, persona_instructions);
+
         let mut messages = vec![LanguageModelRequestMessage {
             role: Role::System,
-            content: vec![system_prompt.into()],
+            content: vec![full_system_prompt.into()],
             cache: AgentSettings::get_global(cx).enable_prompt_caching,
             reasoning_details: None,
         }];

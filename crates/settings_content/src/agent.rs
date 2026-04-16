@@ -145,6 +145,19 @@ pub struct AgentSettingsContent {
     pub elastic_search: Option<ElasticSearchSettingsContent>,
     /// Configuration for deep research.
     pub deep_research: Option<DeepResearchSettingsContent>,
+    /// The persona to use for the agent.
+    pub persona: Option<PersonaContent>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default, MergeFrom)]
+#[serde(rename_all = "snake_case")]
+pub enum PersonaContent {
+    #[default]
+    Straightforward,
+    Witty,
+    Funny,
+    Enjoyable,
+    Excited,
 }
 
 #[with_fallible_options]

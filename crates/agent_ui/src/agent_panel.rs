@@ -2709,8 +2709,81 @@ impl AgentPanel {
                             cx,
                         ))
                     })
+                    .child(self.render_persona_selector(window, cx))
                     .child(self.render_panel_options_menu(window, cx)),
             )
+    }
+
+    fn render_persona_selector(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let current_persona = AgentSettings::get_global(cx).persona;
+        
+        let icon = match current_persona {
+            agent_settings::Persona::Straightforward => IconName::Dash,
+            agent_settings::Persona::Witty => IconName::Sparkle,
+            agent_settings::Persona::Funny => IconName::FaceLaugh,
+            agent_settings::Persona::Enjoyable => IconName::FaceSmile,
+            agent_settings::Persona::Excited => IconName::Rocket,
+        };
+
+        PopoverMenu::new("persona_selector")
+            .trigger(
+                IconButton::new("persona_trigger", icon)
+                    .icon_size(IconSize::Small)
+                    .tooltip({
+                        let name = current_persona.name().to_string();
+                        move |window, cx| Tooltip::text(format!("Mood: {}", name))(window, cx)
+                    }),
+            )
+            .anchor(Corner::TopRight)
+            .menu({
+                let fs = self.fs.clone();
+                move |window, cx| {
+                    Some(ContextMenu::build(window, cx, |menu, _window, _cx| {
+                        let fs = fs.clone();
+                        menu.header("Select Persona")
+                            .item(ContextMenuEntry::new("Straightforward")
+                                .icon(IconName::Dash)
+                                .handler({
+                                    let fs = fs.clone();
+                                    move |_, cx| {
+                                        update_settings_file(fs.clone(), cx, |s, _| s.agent.get_or_insert_default().persona = Some(settings::PersonaContent::Straightforward));
+                                    }
+                                }))
+                            .item(ContextMenuEntry::new("Witty")
+                                .icon(IconName::Sparkle)
+                                .handler({
+                                    let fs = fs.clone();
+                                    move |_, cx| {
+                                        update_settings_file(fs.clone(), cx, |s, _| s.agent.get_or_insert_default().persona = Some(settings::PersonaContent::Witty));
+                                    }
+                                }))
+                            .item(ContextMenuEntry::new("Funny")
+                                .icon(IconName::FaceLaugh)
+                                .handler({
+                                    let fs = fs.clone();
+                                    move |_, cx| {
+                                        update_settings_file(fs.clone(), cx, |s, _| s.agent.get_or_insert_default().persona = Some(settings::PersonaContent::Funny));
+                                    }
+                                }))
+                            .item(ContextMenuEntry::new("Enjoyable")
+                                .icon(IconName::FaceSmile)
+                                .handler({
+                                    let fs = fs.clone();
+                                    move |_, cx| {
+                                        update_settings_file(fs.clone(), cx, |s, _| s.agent.get_or_insert_default().persona = Some(settings::PersonaContent::Enjoyable));
+                                    }
+                                }))
+                            .item(ContextMenuEntry::new("Excited")
+                                .icon(IconName::Rocket)
+                                .handler({
+                                    let fs = fs.clone();
+                                    move |_, cx| {
+                                        update_settings_file(fs.clone(), cx, |s, _| s.agent.get_or_insert_default().persona = Some(settings::PersonaContent::Excited));
+                                    }
+                                }))
+                    }))
+                }
+            })
     }
 
     fn should_render_trial_end_upsell(&self, cx: &mut Context<Self>) -> bool {

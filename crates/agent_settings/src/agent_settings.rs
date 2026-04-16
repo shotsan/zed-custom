@@ -57,6 +57,40 @@ pub struct AgentSettings {
     pub custom_search: Option<CustomSearchSettings>,
     pub elastic_search: Option<ElasticSearchSettings>,
     pub deep_research: DeepResearchSettings,
+    pub persona: Persona,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Persona {
+    #[default]
+    Straightforward,
+    Witty,
+    Funny,
+    Enjoyable,
+    Excited,
+}
+
+impl Persona {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Straightforward => "Straightforward",
+            Self::Witty => "Witty",
+            Self::Funny => "Funny",
+            Self::Enjoyable => "Enjoyable",
+            Self::Excited => "Excited",
+        }
+    }
+
+    pub fn system_instructions(&self) -> &'static str {
+        match self {
+            Self::Straightforward => "You are a straightforward, no-nonsense technical assistant. Stay extremely concise. Avoid small talk, conversational fillers, or unnecessary politeness. Focus purely on technical accuracy and utility.",
+            Self::Witty => "You are a witty and slightly sarcastic software engineer friend. Use clever language, technical puns, and a bit of dry humor. Be helpful but with a personality that shows you've spent too much time in the terminal.",
+            Self::Funny => "You are a funny and lighthearted coding buddy. Use jokes, occasional emojis, and a playful tone. Make the development process feel less like work and more like a fun collaboration.",
+            Self::Enjoyable => "You are an incredibly friendly and supportive partner. Be encouraging, warm, and easy to talk to. Focus on being a 'great pair programmer' who is genuinely happy to help.",
+            Self::Excited => "You are an extremely enthusiastic teammate! Use lots of exclamation marks, be high-energy, and act genuinely thrilled about the user's project and progress. Everything is awesome!",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, JsonSchema)]
@@ -340,15 +374,17 @@ impl Settings for AgentSettings {
                         condensation_system_prompt: v.condensation_system_prompt.map(Into::into),
                     }
                 })
-                .unwrap_or_else(|| DeepResearchSettings {
-                    max_concurrent_tabs: 10,
-                    max_depth: 3,
-                    use_headed_browser: false,
-                    search_provider: SearchProvider::Duckduckgo,
-                    search_system_prompt: None,
-                    gap_analysis_system_prompt: None,
-                    condensation_system_prompt: None,
-                }),
+                .unwrap_or_default(),
+            persona: agent
+                .persona
+                .map(|p| match p {
+                    settings::PersonaContent::Straightforward => Persona::Straightforward,
+                    settings::PersonaContent::Witty => Persona::Witty,
+                    settings::PersonaContent::Funny => Persona::Funny,
+                    settings::PersonaContent::Enjoyable => Persona::Enjoyable,
+                    settings::PersonaContent::Excited => Persona::Excited,
+                })
+                .unwrap_or_default(),
         }
     }
 }

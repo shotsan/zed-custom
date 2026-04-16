@@ -36,6 +36,9 @@ features:
   - title: 🧪 Deep Research Tool
     details: Multi-stage recursive research engine that identifies gaps, runs follow-up searches, and synthesizes reports autonomously.
     link: /features/tools/deep-research
+  - title: 🎭 AI Chat Personas
+    details: Hot-swap the Assistant's personality (Excited, Witty, Funny, Straightforward) in real-time with a dedicated Mood Picker.
+    link: /features/chat-personas
   - title: ☁️ Azure Anthropic
     details: Native Azure Anthropic deployment support with real-time Prompt Caching visualization.
     link: /features/azure-anthropic
