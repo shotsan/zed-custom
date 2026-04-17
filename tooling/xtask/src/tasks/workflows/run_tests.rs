@@ -293,6 +293,7 @@ fn check_workspace_binaries() -> NamedJob {
     named::job(
         release_job(&[])
             .runs_on(runners::LINUX_LARGE)
+            .add_step(steps::maximize_disk_space())
             .add_step(steps::checkout_repo())
             .add_step(steps::setup_cargo_config(Platform::Linux))
             .add_step(steps::cache_rust_dependencies_namespace())
@@ -323,6 +324,9 @@ pub(crate) fn clippy(platform: Platform) -> NamedJob {
                 platform == Platform::Linux,
                 steps::install_linux_dependencies,
             )
+            .when(platform == Platform::Linux, |this| {
+                this.add_step(steps::maximize_disk_space())
+            })
             .add_step(steps::clippy(platform)),
     }
 }
@@ -366,6 +370,9 @@ pub(crate) fn run_platform_tests(platform: Platform) -> NamedJob {
                 platform == Platform::Linux || platform == Platform::Mac,
                 |job| job.add_step(steps::cargo_install_nextest()),
             )
+            .when(platform == Platform::Linux, |job| {
+                job.add_step(steps::maximize_disk_space())
+            })
             .add_step(steps::clear_target_dir_if_large(platform))
             .add_step(steps::cargo_nextest(platform))
             .add_step(steps::cleanup_cargo_config(platform)),

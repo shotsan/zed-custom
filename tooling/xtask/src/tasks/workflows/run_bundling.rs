@@ -125,6 +125,8 @@ pub(crate) fn bundle_linux(
             .runs_on(arch.linux_bundler())
             .envs(bundle_envs(platform))
             .add_step(steps::checkout_repo())
+            .add_step(steps::maximize_disk_space())
+            .add_step(steps::clear_target_dir_if_large(platform))
             .when_some(release_channel, |job, release_channel| {
                 job.add_step(set_release_channel(platform, release_channel))
             })

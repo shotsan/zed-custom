@@ -1,4 +1,5 @@
 use gh_workflow::*;
+use indoc::indoc;
 
 use crate::tasks::workflows::{runners::Platform, vars, vars::StepOutput};
 
@@ -123,6 +124,16 @@ pub fn clear_target_dir_if_large(platform: Platform) -> Step<Run> {
         Platform::Linux => named::bash("./script/clear-target-dir-if-larger-than 250"),
         Platform::Mac => named::bash("./script/clear-target-dir-if-larger-than 300"),
     }
+}
+
+pub fn maximize_disk_space() -> Step<Run> {
+    named::bash(indoc! {r#"
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo docker image prune --all --force
+    "#})
 }
 
 pub fn clippy(platform: Platform) -> Step<Run> {
