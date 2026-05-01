@@ -13,7 +13,7 @@ use settings::{
     LanguageModelProviderSetting, LanguageModelSelection, Settings as _, update_settings_file,
 };
 use ui::{
-    ContextMenu, KeyBinding, ListItem, ListItemSpacing, ListSeparator, Navigable, NavigableEntry,
+    ContextMenu, ContextMenuEntry, KeyBinding, ListItem, ListItemSpacing, ListSeparator, Navigable, NavigableEntry,
     PopoverMenu, prelude::*,
 };
 use workspace::{Workspace, item::ItemEvent};
@@ -305,6 +305,8 @@ impl ManageProfilesModal {
                                     instructions: None,
                                     system_prompt: None,
                                     deep_research: None,
+                                    browser_user_data_dir: None,
+                                    browser_profile: None,
                                 }
                             });
                             profile.default_model = Some(LanguageModelSelection {
@@ -575,6 +577,8 @@ Provide ONLY the queries, one per line, with no extra text or formatting.".to_st
                             instructions: None,
                             system_prompt: None,
                             deep_research: None,
+                            browser_user_data_dir: None,
+                            browser_profile: None,
                         }
                     });
 
@@ -616,6 +620,8 @@ Provide ONLY the queries, one per line, with no extra text or formatting.".to_st
                             instructions: None,
                             system_prompt: None,
                             deep_research: None,
+                            browser_user_data_dir: None,
+                            browser_profile: None,
                         }
                     });
 
@@ -638,6 +644,18 @@ Provide ONLY the queries, one per line, with no extra text or formatting.".to_st
                         }
                         agent_settings::SearchProvider::Google => {
                             settings::SearchProviderContent::Google
+                        }
+                        agent_settings::SearchProvider::Serper => {
+                            settings::SearchProviderContent::Serper
+                        }
+                        agent_settings::SearchProvider::Tavily => {
+                            settings::SearchProviderContent::Tavily
+                        }
+                        agent_settings::SearchProvider::Exa => {
+                            settings::SearchProviderContent::Exa
+                        }
+                        agent_settings::SearchProvider::Brave => {
+                            settings::SearchProviderContent::Brave
                         }
                     });
                     deep_research.use_headed_browser = Some(use_headed_browser);
@@ -1437,6 +1455,10 @@ impl ManageProfilesModal {
                                                 Button::new("search-provider-button", match mode.search_provider {
                                                     agent_settings::SearchProvider::Duckduckgo => "DuckDuckGo",
                                                     agent_settings::SearchProvider::Google => "Google",
+                                                    agent_settings::SearchProvider::Serper => "Serper",
+                                                    agent_settings::SearchProvider::Tavily => "Tavily",
+                                                    agent_settings::SearchProvider::Exa => "Exa",
+                                                    agent_settings::SearchProvider::Brave => "Brave",
                                                 })
                                                 .style(ButtonStyle::Outlined)
                                                 .icon(IconName::ChevronDown)
@@ -1449,7 +1471,17 @@ impl ManageProfilesModal {
                                                 move |window, cx| {
                                                     let profile_id = profile_id.clone();
                                                     let this = this.clone();
-                                                    Some(ContextMenu::build(window, cx, move |menu: ContextMenu, _window, _cx| {
+                                                    Some(ContextMenu::build(window, cx, move |menu: ContextMenu, _window, cx| {
+                                                        let deep_research = AgentSettings::get_global(cx)
+                                                            .profiles
+                                                            .get(&profile_id)
+                                                            .map(|p| p.deep_research.clone())
+                                                            .unwrap_or_default();
+                                                        let has_serper = deep_research.serper_api_key.is_some();
+                                                        let has_tavily = deep_research.tavily_api_key.is_some();
+                                                        let has_exa = deep_research.exa_api_key.is_some();
+                                                        let has_brave = deep_research.brave_api_key.is_some();
+
                                                         menu.entry("DuckDuckGo", None, {
                                                             let profile_id = profile_id.clone();
                                                             let this = this.clone();
@@ -1478,7 +1510,73 @@ impl ManageProfilesModal {
                                                                 }).ok();
                                                             }
                                                         })
+                                                        .separator()
+                                                        .item(ContextMenuEntry::new(if has_serper { "Serper" } else { "Serper (API key required)" })
+                                                            .disabled(!has_serper)
+                                                            .handler({
+                                                                let profile_id = profile_id.clone();
+                                                                let this = this.clone();
+                                                                move |_window, cx: &mut App| {
+                                                                    this.update(cx, |this, cx| {
+                                                                        if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                                            if mode.profile_id == profile_id {
+                                                                                mode.search_provider = agent_settings::SearchProvider::Serper;
+                                                                                cx.notify();
+                                                                            }
+                                                                        }
+                                                                    }).ok();
+                                                                }
+                                                            }))
+                                                        .item(ContextMenuEntry::new(if has_tavily { "Tavily" } else { "Tavily (API key required)" })
+                                                            .disabled(!has_tavily)
+                                                            .handler({
+                                                                let profile_id = profile_id.clone();
+                                                                let this = this.clone();
+                                                                move |_window, cx: &mut App| {
+                                                                    this.update(cx, |this, cx| {
+                                                                        if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                                            if mode.profile_id == profile_id {
+                                                                                mode.search_provider = agent_settings::SearchProvider::Tavily;
+                                                                                cx.notify();
+                                                                            }
+                                                                        }
+                                                                    }).ok();
+                                                                }
+                                                            }))
+                                                        .item(ContextMenuEntry::new(if has_exa { "Exa" } else { "Exa (API key required)" })
+                                                            .disabled(!has_exa)
+                                                            .handler({
+                                                                let profile_id = profile_id.clone();
+                                                                let this = this.clone();
+                                                                move |_window, cx: &mut App| {
+                                                                    this.update(cx, |this, cx| {
+                                                                        if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                                            if mode.profile_id == profile_id {
+                                                                                mode.search_provider = agent_settings::SearchProvider::Exa;
+                                                                                cx.notify();
+                                                                            }
+                                                                        }
+                                                                    }).ok();
+                                                                }
+                                                            }))
+                                                        .item(ContextMenuEntry::new(if has_brave { "Brave" } else { "Brave (API key required)" })
+                                                            .disabled(!has_brave)
+                                                            .handler({
+                                                                let profile_id = profile_id.clone();
+                                                                let this = this.clone();
+                                                                move |_window, cx: &mut App| {
+                                                                    this.update(cx, |this, cx| {
+                                                                        if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
+                                                                            if mode.profile_id == profile_id {
+                                                                                mode.search_provider = agent_settings::SearchProvider::Brave;
+                                                                                cx.notify();
+                                                                            }
+                                                                        }
+                                                                    }).ok();
+                                                                }
+                                                            }))
                                                     }))
+
                                                 }
                                             })
                                     )

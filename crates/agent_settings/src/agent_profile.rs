@@ -78,8 +78,16 @@ impl AgentProfile {
             .and_then(|profile| profile.system_prompt.clone());
 
         let deep_research = base_profile
+            .as_ref()
             .map(|profile| profile.deep_research.clone())
             .unwrap_or_default();
+
+        let browser_user_data_dir = base_profile
+            .as_ref()
+            .and_then(|profile| profile.browser_user_data_dir.clone());
+        let browser_profile = base_profile
+            .as_ref()
+            .and_then(|profile| profile.browser_profile.clone());
 
         let profile_settings = AgentProfileSettings {
             name: name.into(),
@@ -90,6 +98,8 @@ impl AgentProfile {
             instructions,
             system_prompt,
             deep_research,
+            browser_user_data_dir,
+            browser_profile,
         };
 
         update_settings_file(fs, cx, {
@@ -125,6 +135,8 @@ pub struct AgentProfileSettings {
     pub instructions: Option<SharedString>,
     pub system_prompt: Option<SharedString>,
     pub deep_research: crate::DeepResearchSettings,
+    pub browser_user_data_dir: Option<std::path::PathBuf>,
+    pub browser_profile: Option<String>,
 }
 
 impl AgentProfileSettings {
@@ -182,14 +194,26 @@ impl AgentProfileSettings {
                     use_headed_browser: Some(self.deep_research.use_headed_browser),
                     search_provider: Some(match self.deep_research.search_provider {
                         crate::SearchProvider::Google => settings::SearchProviderContent::Google,
+                        crate::SearchProvider::Serper => settings::SearchProviderContent::Serper,
+                        crate::SearchProvider::Tavily => settings::SearchProviderContent::Tavily,
+                        crate::SearchProvider::Exa => settings::SearchProviderContent::Exa,
+                        crate::SearchProvider::Brave => settings::SearchProviderContent::Brave,
                         crate::SearchProvider::Duckduckgo => {
                             settings::SearchProviderContent::Duckduckgo
                         }
                     }),
+                    serper_api_key: self.deep_research.serper_api_key.clone(),
+                    tavily_api_key: self.deep_research.tavily_api_key.clone(),
+                    exa_api_key: self.deep_research.exa_api_key.clone(),
+                    brave_api_key: self.deep_research.brave_api_key.clone(),
                     search_system_prompt: self.deep_research.search_system_prompt.clone().map(|s| s.to_string()),
                     gap_analysis_system_prompt: self.deep_research.gap_analysis_system_prompt.clone().map(|s| s.to_string()),
                     condensation_system_prompt: self.deep_research.condensation_system_prompt.clone().map(|s| s.to_string()),
+                    browser_user_data_dir: self.deep_research.browser_user_data_dir.clone(),
+                    browser_profile: self.deep_research.browser_profile.clone(),
                 }),
+                browser_user_data_dir: self.browser_user_data_dir.clone(),
+                browser_profile: self.browser_profile.clone(),
             },
         );
 
@@ -208,6 +232,8 @@ impl From<AgentProfileContent> for AgentProfileSettings {
             instructions,
             system_prompt,
             deep_research,
+            browser_user_data_dir,
+            browser_profile,
         } = content;
 
         Self {
@@ -227,6 +253,18 @@ impl From<AgentProfileContent> for AgentProfileSettings {
                         Some(settings::SearchProviderContent::Google) => {
                             crate::SearchProvider::Google
                         }
+                        Some(settings::SearchProviderContent::Serper) => {
+                            crate::SearchProvider::Serper
+                        }
+                        Some(settings::SearchProviderContent::Tavily) => {
+                            crate::SearchProvider::Tavily
+                        }
+                        Some(settings::SearchProviderContent::Exa) => {
+                            crate::SearchProvider::Exa
+                        }
+                        Some(settings::SearchProviderContent::Brave) => {
+                            crate::SearchProvider::Brave
+                        }
                         _ => crate::SearchProvider::Duckduckgo,
                     };
                     crate::DeepResearchSettings {
@@ -234,12 +272,20 @@ impl From<AgentProfileContent> for AgentProfileSettings {
                         max_depth: v.max_depth.unwrap_or(3),
                         use_headed_browser: v.use_headed_browser.unwrap_or(false),
                         search_provider: provider,
+                        serper_api_key: v.serper_api_key,
+                        tavily_api_key: v.tavily_api_key,
+                        exa_api_key: v.exa_api_key,
+                        brave_api_key: v.brave_api_key,
                         search_system_prompt: v.search_system_prompt.map(Into::into),
                         gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),
                         condensation_system_prompt: v.condensation_system_prompt.map(Into::into),
+                        browser_user_data_dir: v.browser_user_data_dir,
+                        browser_profile: v.browser_profile,
                     }
                 })
                 .unwrap_or_default(),
+            browser_user_data_dir,
+            browser_profile,
         }
     }
 }

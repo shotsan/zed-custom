@@ -146,6 +146,10 @@ pub struct AgentSettingsContent {
     pub deep_research: Option<DeepResearchSettingsContent>,
     /// The persona to use for the agent.
     pub persona: Option<PersonaContent>,
+    /// The absolute path to a Chrome/Chromium user data directory for persistence.
+    pub browser_user_data_dir: Option<PathBuf>,
+    /// The specific Chrome profile name to use (e.g. \"Default\" or \"Profile 1\").
+    pub browser_profile: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default, MergeFrom)]
@@ -179,6 +183,10 @@ pub enum SearchProviderContent {
     #[default]
     Duckduckgo,
     Google,
+    Serper,
+    Tavily,
+    Exa,
+    Brave,
 }
 
 #[with_fallible_options]
@@ -188,9 +196,15 @@ pub struct DeepResearchSettingsContent {
     pub max_depth: Option<usize>,
     pub use_headed_browser: Option<bool>,
     pub search_provider: Option<SearchProviderContent>,
+    pub serper_api_key: Option<String>,
+    pub tavily_api_key: Option<String>,
+    pub exa_api_key: Option<String>,
+    pub brave_api_key: Option<String>,
     pub search_system_prompt: Option<String>,
     pub gap_analysis_system_prompt: Option<String>,
     pub condensation_system_prompt: Option<String>,
+    pub browser_user_data_dir: Option<PathBuf>,
+    pub browser_profile: Option<String>,
 }
 
 
@@ -320,6 +334,8 @@ pub struct AgentProfileContent {
     /// A custom system prompt for this profile that overrides the entire default prompt.
     pub system_prompt: Option<Arc<str>>,
     pub deep_research: Option<DeepResearchSettingsContent>,
+    pub browser_user_data_dir: Option<PathBuf>,
+    pub browser_profile: Option<String>,
 }
 
 #[with_fallible_options]
@@ -898,6 +914,8 @@ impl Default for AgentSettingsContent {
             elastic_search: None,
             deep_research: None,
             persona: Some(PersonaContent::Straightforward),
+            browser_user_data_dir: None,
+            browser_profile: None,
         }
     }
 }

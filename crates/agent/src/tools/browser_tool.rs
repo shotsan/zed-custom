@@ -5,7 +5,7 @@ use std::sync::Arc;
 use agent_client_protocol as acp;
 use agent_settings::AgentSettings;
 use anyhow::{Context as _, Result, anyhow, bail};
-use chromiumoxide::{Browser, BrowserConfig, Page};
+use chaser_oxide::{Browser, BrowserConfig, Page};
 use futures::{AsyncReadExt as _, FutureExt as _, StreamExt as _};
 use gpui::{App, AppContext as _, Task};
 use gpui_tokio::Tokio;
@@ -79,11 +79,23 @@ struct ChromeSession {
 }
 
 impl ChromeSession {
-    async fn launch() -> Result<Self> {
-        let user_data_dir = std::env::temp_dir().join(format!("zed-browser-tool-{}", uuid::Uuid::new_v4()));
-        let config = BrowserConfig::builder()
+    async fn launch(user_data_dir: Option<std::path::PathBuf>, profile: Option<String>) -> Result<Self> {
+        let user_data_dir = if let Some(dir) = user_data_dir {
+            dir
+        } else {
+             std::env::temp_dir().join(format!("zed-browser-tool-{}", uuid::Uuid::new_v4()))
+        };
+        
+        let mut builder = BrowserConfig::builder()
             .no_sandbox()
             .user_data_dir(user_data_dir)
+            .hide();
+            
+        if let Some(profile) = profile {
+            builder = builder.arg(format!("--profile-directory={}", profile));
+        }
+
+        let config = builder
             .build()
             .map_err(|error| anyhow!("Failed to build Chrome config: {error}"))?;
 
@@ -111,8 +123,9 @@ impl ChromeSession {
         let html = page
             .wait_for_navigation()
             .await
-            .context("Navigation failed")?
-            .content()
+            .context("Navigation failed")?;
+        
+        let html = html.content()
             .await
             .context("Failed to extract page content")?;
 
@@ -147,10 +160,12 @@ impl BrowserTool {
 
     async fn get_or_launch_chrome(
         session: &tokio::sync::Mutex<Option<ChromeSession>>,
+        user_data_dir: Option<std::path::PathBuf>,
+        profile: Option<String>,
     ) -> Result<()> {
         let mut guard = session.lock().await;
         if guard.is_none() {
-            *guard = Some(ChromeSession::launch().await?);
+            *guard = Some(ChromeSession::launch(user_data_dir, profile).await?);
         }
         Ok(())
     }
@@ -311,8 +326,14 @@ impl AgentTool for BrowserTool {
         event_stream: ToolCallEventStream,
         cx: &mut App,
     ) -> Task<Result<Self::Output>> {
-        let settings = AgentSettings::get_global(cx);
-        let decision = decide_permission_from_settings(Self::name(), &input.target, settings);
+        let (decision, browser_user_data_dir, browser_profile) = {
+            let settings = AgentSettings::get_global(cx);
+            (
+                decide_permission_from_settings(Self::name(), &input.target, settings),
+                settings.browser_user_data_dir.clone(),
+                settings.browser_profile.clone(),
+            )
+        };
 
         let authorize = match decision {
             ToolPermissionDecision::Allow => None,
@@ -356,7 +377,11 @@ impl AgentTool for BrowserTool {
                             urlencoding(&target)
                         );
                         // Try Chrome rendering first, fall back to HTTP
-                        let html = match Self::get_or_launch_chrome(&chrome_session).await {
+                        let html = match Self::get_or_launch_chrome(
+                            &chrome_session,
+                            browser_user_data_dir.clone(),
+                            browser_profile.clone(),
+                        ).await {
                             Ok(()) => {
                                 Self::render_with_chrome(&chrome_session, &search_url)
                                     .await
@@ -381,7 +406,11 @@ impl AgentTool for BrowserTool {
                                 target.clone()
                             };
 
-                        let html = match Self::get_or_launch_chrome(&chrome_session).await {
+                        let html = match Self::get_or_launch_chrome(
+                            &chrome_session,
+                            browser_user_data_dir.clone(),
+                            browser_profile.clone(),
+                        ).await {
                             Ok(()) => {
                                 Self::render_with_chrome(&chrome_session, &final_url)
                                     .await

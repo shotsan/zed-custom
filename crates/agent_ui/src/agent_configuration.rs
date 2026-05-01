@@ -1778,6 +1778,8 @@ async fn open_new_profile_in_settings_editor(
                             instructions: None,
                             system_prompt: None,
                             deep_research: None,
+                            browser_user_data_dir: None,
+                            browser_profile: None,
                         },
                     );
                 }

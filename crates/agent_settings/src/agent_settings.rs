@@ -58,6 +58,8 @@ pub struct AgentSettings {
     pub elastic_search: Option<ElasticSearchSettings>,
     pub deep_research: DeepResearchSettings,
     pub persona: Persona,
+    pub browser_user_data_dir: Option<std::path::PathBuf>,
+    pub browser_profile: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, JsonSchema)]
@@ -98,6 +100,10 @@ pub enum SearchProvider {
     #[default]
     Duckduckgo,
     Google,
+    Serper,
+    Tavily,
+    Exa,
+    Brave,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -106,9 +112,15 @@ pub struct DeepResearchSettings {
     pub max_depth: usize,
     pub use_headed_browser: bool,
     pub search_provider: SearchProvider,
+    pub serper_api_key: Option<String>,
+    pub tavily_api_key: Option<String>,
+    pub exa_api_key: Option<String>,
+    pub brave_api_key: Option<String>,
     pub search_system_prompt: Option<SharedString>,
     pub gap_analysis_system_prompt: Option<SharedString>,
     pub condensation_system_prompt: Option<SharedString>,
+    pub browser_user_data_dir: Option<std::path::PathBuf>,
+    pub browser_profile: Option<String>,
 }
 
 impl Default for DeepResearchSettings {
@@ -118,9 +130,15 @@ impl Default for DeepResearchSettings {
             max_depth: 3,
             use_headed_browser: false,
             search_provider: SearchProvider::default(),
+            serper_api_key: None,
+            tavily_api_key: None,
+            exa_api_key: None,
+            brave_api_key: None,
             search_system_prompt: None,
             gap_analysis_system_prompt: None,
             condensation_system_prompt: None,
+            browser_user_data_dir: None,
+            browser_profile: None,
         }
     }
 }
@@ -360,19 +378,29 @@ impl Settings for AgentSettings {
             deep_research: agent
                 .deep_research
                 .map(|v| {
-                    let provider = match v.search_provider {
-                        Some(settings::SearchProviderContent::Google) => SearchProvider::Google,
-                        _ => SearchProvider::Duckduckgo,
-                    };
-                    DeepResearchSettings {
-                        max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(10),
-                        max_depth: v.max_depth.unwrap_or(3),
-                        use_headed_browser: v.use_headed_browser.unwrap_or(false),
-                        search_provider: provider,
-                        search_system_prompt: v.search_system_prompt.map(Into::into),
-                        gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),
-                        condensation_system_prompt: v.condensation_system_prompt.map(Into::into),
-                    }
+                        let provider = match v.search_provider {
+                            Some(settings::SearchProviderContent::Google) => SearchProvider::Google,
+                            Some(settings::SearchProviderContent::Serper) => SearchProvider::Serper,
+                            Some(settings::SearchProviderContent::Tavily) => SearchProvider::Tavily,
+                            Some(settings::SearchProviderContent::Exa) => SearchProvider::Exa,
+                            Some(settings::SearchProviderContent::Brave) => SearchProvider::Brave,
+                            _ => SearchProvider::Duckduckgo,
+                        };
+                        DeepResearchSettings {
+                            max_concurrent_tabs: v.max_concurrent_tabs.unwrap_or(10),
+                            max_depth: v.max_depth.unwrap_or(3),
+                            use_headed_browser: v.use_headed_browser.unwrap_or(false),
+                            search_provider: provider,
+                            serper_api_key: v.serper_api_key,
+                            tavily_api_key: v.tavily_api_key,
+                            exa_api_key: v.exa_api_key,
+                            brave_api_key: v.brave_api_key,
+                            search_system_prompt: v.search_system_prompt.map(Into::into),
+                            gap_analysis_system_prompt: v.gap_analysis_system_prompt.map(Into::into),
+                            condensation_system_prompt: v.condensation_system_prompt.map(Into::into),
+                            browser_user_data_dir: v.browser_user_data_dir,
+                            browser_profile: v.browser_profile,
+                        }
                 })
                 .unwrap_or_default(),
             persona: agent
@@ -385,6 +413,8 @@ impl Settings for AgentSettings {
                     settings::PersonaContent::Excited => Persona::Excited,
                 })
                 .unwrap_or_default(),
+            browser_user_data_dir: agent.browser_user_data_dir,
+            browser_profile: agent.browser_profile,
         }
     }
 }

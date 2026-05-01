@@ -318,6 +318,8 @@ impl PickerDelegate for ToolPickerDelegate {
                         instructions: default_profile.instructions.clone().map(|s| s.into()),
                         system_prompt: default_profile.system_prompt.clone().map(|s| s.into()),
                         deep_research: None,
+                        browser_user_data_dir: None,
+                        browser_profile: None,
                     });
 
                 if let Some(server_id) = server_id {
