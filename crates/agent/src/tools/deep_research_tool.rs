@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use scraper::{Html, Selector, ElementRef};
 use serde::{Deserialize, Serialize};
 use http_client::{AsyncBody, Builder, HttpClientWithUrl, RedirectPolicy};
-use chromiumoxide::{Browser, BrowserConfig};
+use chaser_oxide::{Browser, BrowserConfig, cdp};
 use html_to_markdown::{TagHandler, convert_html_to_markdown, markdown};
 
 use crate::{AgentTool, ToolCallEventStream};
@@ -19,6 +19,7 @@ use settings::Settings;
 use futures::{AsyncReadExt, StreamExt as _};
 use std::fmt::Write as _;
 use http_client::HttpRequestExt as _;
+use regex::Regex;
 
 
 /// Perform a deep, multi-tab graph-based research dive on a complex topic.
@@ -82,7 +83,7 @@ impl AgentTool for DeepResearchTool {
         cx: &mut App,
     ) -> Task<Result<Self::Output>> {
         let global_settings = AgentSettings::get_global(cx);
-        let settings = if let Some(profile_id) = &self.profile_id {
+        let research_settings = if let Some(profile_id) = &self.profile_id {
             global_settings
                 .profiles
                 .get(profile_id)
@@ -102,13 +103,17 @@ impl AgentTool for DeepResearchTool {
             .map(|m| m.model);
         let mut async_cx = cx.to_async();
         let tokio_handle = gpui_tokio::Tokio::handle(cx);
+        
+        log::info!("Deep Research: Starting tool. Settings headed: {}, Profile ID: {:?}", 
+            research_settings.use_headed_browser, self.profile_id);
+            
         cx.foreground_executor().spawn(async move {
             event_stream.update_fields(acp::ToolCallUpdateFields::new().title("Expanding topic into search queries..."));
             let queries = expand_topic(
                 http_client.clone(),
                 &input.topic,
                 input.domains.as_ref(),
-                settings.search_system_prompt.as_ref().map(|s| s.as_ref()),
+                research_settings.search_system_prompt.as_ref().map(|s| s.as_ref()),
                 model.clone(),
                 &mut async_cx
             ).await.unwrap_or_else(|_| vec![input.topic.clone()]);
@@ -117,46 +122,52 @@ impl AgentTool for DeepResearchTool {
             let model_clone = model.clone();
             let mut async_cx_recursive = async_cx.clone();
             
-            let _tokio_guard = tokio_handle.enter();
             let raw_report = run_deep_research_bg(
                 http_client.clone(),
                 input.topic.clone(),
                 queries,
                 input.domains.clone(),
-                settings.max_concurrent_tabs,
-                settings.max_depth,
+                research_settings.max_concurrent_tabs,
+                research_settings.max_depth,
                 Some(event_stream_clone),
                 model_clone.clone(),
                 &mut async_cx_recursive,
                 tokio_handle.clone(),
-                settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string()),
-                settings.search_provider,
-                settings.use_headed_browser,
+                research_settings.gap_analysis_system_prompt.as_ref().map(|s| s.to_string()),
+                research_settings.search_provider,
+                research_settings.serper_api_key.clone(),
+                research_settings.tavily_api_key.clone(),
+                research_settings.exa_api_key.clone(),
+                research_settings.brave_api_key.clone(),
+                research_settings.use_headed_browser,
+                research_settings.browser_user_data_dir.clone(),
+                research_settings.browser_profile.clone(),
             ).await?;
 
             let event_stream = event_stream.clone();
             let topic = input.topic.clone();
-            let condensation_prompt = settings.condensation_system_prompt.as_ref().map(|s| s.to_string());
+            let condensation_prompt = research_settings.condensation_system_prompt.as_ref().map(|s| s.to_string());
             let report_for_synthesis = raw_report.clone();
             let model_for_synthesis = model.clone();
             let mut async_cx_for_synthesis = async_cx.clone();
             
-            let summary_result = tokio::time::timeout(std::time::Duration::from_secs(120), async move {
-                 event_stream.push_log("🧠 Synthesizing final research report...".to_string());
-                 condense_report(
-                    http_client,
-                    &topic,
-                    &report_for_synthesis,
-                    condensation_prompt.as_deref(),
-                    model_for_synthesis,
-                    &mut async_cx_for_synthesis
-                ).await
-            }).await;
-            drop(_tokio_guard);
-
-            let final_report = match summary_result {
-                Ok(Ok(summary)) => summary,
-                _ => raw_report,
+            // condense_report uses AsyncApp and must stay on the GPUI foreground executor.
+            // tokio::time::timeout cannot be used here (no reactor). LLM calls are bounded
+            // by the model's own timeout, so calling directly is safe.
+            event_stream.push_log("🧠 Synthesizing final research report...".to_string());
+            let final_report = match condense_report(
+                http_client,
+                &topic,
+                &report_for_synthesis,
+                condensation_prompt.as_deref(),
+                model_for_synthesis,
+                &mut async_cx_for_synthesis
+            ).await {
+                Ok(summary) => summary,
+                Err(e) => {
+                    log::warn!("Deep Research: Condensation failed, using raw report: {}", e);
+                    raw_report
+                }
             };
 
             Ok(DeepResearchToolOutput { report: final_report })
@@ -245,7 +256,13 @@ pub async fn run_deep_research_bg(
     tokio_handle: tokio::runtime::Handle,
     gap_analysis_custom_prompt: Option<String>,
     search_provider: agent_settings::SearchProvider,
+    serper_api_key: Option<String>,
+    tavily_api_key: Option<String>,
+    exa_api_key: Option<String>,
+    brave_api_key: Option<String>,
     use_headed_browser: bool,
+    browser_user_data_dir: Option<std::path::PathBuf>,
+    browser_profile: Option<String>,
 ) -> anyhow::Result<String> {
 
     let mut logs = if let Some(es) = &event_stream {
@@ -272,30 +289,55 @@ pub async fn run_deep_research_bg(
     log_message(format!("Searching {} for candidates...", match search_provider {
         agent_settings::SearchProvider::Duckduckgo => "DuckDuckGo",
         agent_settings::SearchProvider::Google => "Google Search",
+        agent_settings::SearchProvider::Serper => "Serper.dev",
+        agent_settings::SearchProvider::Tavily => "Tavily AI",
+        agent_settings::SearchProvider::Exa => "Exa AI",
+        agent_settings::SearchProvider::Brave => "Brave Search",
     }), None);
 
     // 1. Initialize the persistent research browser
     let mut builder = BrowserConfig::builder();
     
-    // Use a dedicated research profile folder
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            let profile_path = std::path::PathBuf::from(&home)
-                .join("Library/Application Support/zed-custom/deep-research-profile");
-            let _ = std::fs::create_dir_all(&profile_path);
-            builder = builder.user_data_dir(profile_path);
+    log::info!("Deep Research: Initializing browser. Headed: {}, UserDataDir: {:?}, Profile: {:?}", 
+        use_headed_browser, browser_user_data_dir, browser_profile);
+    
+    let user_data_dir = if let Some(dir) = browser_user_data_dir {
+        dir
+    } else {
+        #[cfg(target_os = "macos")]
+        {
+            let home = std::env::var("HOME").map_err(|_| anyhow::anyhow!("HOME not set"))?;
+            std::path::PathBuf::from(&home)
+                .join("Library/Application Support/zed-custom/deep-research-profile")
         }
-    }
+        #[cfg(not(target_os = "macos"))]
+        {
+            std::env::temp_dir().join("zed-custom/deep-research-profile")
+        }
+    };
+    
+    // Ensure the directory exists
+    let _ = std::fs::create_dir_all(&user_data_dir);
+    
+    builder = builder.user_data_dir(user_data_dir.clone());
+    
+    // Enable stealth mode to bypass "automated software" detection
+    builder = builder.hide();
 
-    if use_headed_browser || true { // Force headed for visibility
+    if use_headed_browser {
         builder = builder.with_head();
+    } else {
+        builder = builder.arg("--headless=new");
     }
     
+    if let Some(ref profile) = browser_profile {
+        builder = builder.arg(format!("--profile-directory={}", profile));
+    }
+
     builder = builder
-        .arg("--disable-blink-features=AutomationControlled")
-        .arg("--excludeSwitches=enable-automation")
-        .arg("--use-mock-keychain");
+        .arg("--disable-dev-shm-usage")
+        .arg("--no-first-run")
+        .arg("--no-default-browser-check");
 
     // Attempt to find Chrome on macOS if it's not in the PATH
     #[cfg(target_os = "macos")]
@@ -310,9 +352,20 @@ pub async fn run_deep_research_bg(
     }
 
     let config = builder.build().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let (browser, mut handler) = Browser::launch(config).await.map_err(|e| anyhow::anyhow!("Failed to launch persistent research browser: {e}"))?;
     
-    let _handler_task = tokio::spawn(async move {
+    // Launch browser on the tokio runtime directly to avoid context errors
+    let tokio_handle_for_launch = tokio_handle.clone();
+    let launch_result = tokio_handle_for_launch.spawn(async move {
+        Browser::launch(config).await
+    }).await.map_err(|e| anyhow::anyhow!("Background task join failed: {e}"))?;
+    
+    let (browser, mut handler) = match launch_result {
+        Ok(res) => res,
+        Err(e) => bail!("Failed to launch persistent research browser: {e}"),
+    };
+    
+    let tokio_handle_for_handler = tokio_handle.clone();
+    let _handler_task = tokio_handle_for_handler.spawn(async move {
         while let Some(_event) = handler.next().await {}
     });
     let browser = Arc::new(browser);
@@ -321,48 +374,166 @@ pub async fn run_deep_research_bg(
     let mut results = Vec::new();
     
     if search_provider == agent_settings::SearchProvider::Google {
-        log_message("🔍 Google Search: Using persistent research window...".to_string(), None);
+        log_message("🔍 Google Search: Using persistent research tab...".to_string(), None);
+        
+        let google_page = tokio_handle.spawn({
+            let browser = browser.clone();
+            async move { 
+                let p = browser.new_page("about:blank").await?;
+                // Set human-like viewport via CDP
+                let _ = p.execute(cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams::builder()
+                    .width(1920)
+                    .height(1080)
+                    .device_scale_factor(1.0)
+                    .mobile(false)
+                    .build()
+                    .map_err(|e| anyhow::anyhow!("{e}"))?).await?;
+                Ok::<_, anyhow::Error>(p)
+            }
+        }).await?.map_err(|e| anyhow::anyhow!("Failed to create Google tab: {e}"))?;
+
         for (idx, q) in queries.iter().enumerate() {
-            let search_candidates = vec![DeepResearchSearchResult {
-                id: idx,
-                title: q.clone(),
-                url: format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(q)),
-                snippet: String::new(),
-                score: 0,
-            }];
+            log_message(format!("🔍 Google: Query {}/{} - '{}'", idx+1, queries.len(), q), None);
             
-            if let Ok(html_responses) = browse_parallel(browser.clone(), search_candidates, event_stream.clone(), true).await {
-                if let Some(html) = html_responses.first() {
-                    let parsed = parse_google_results(html);
-                    log::info!("✅ Google Scraper: Finished query '{}'. Parsed {} items.", q, parsed.len());
-                    results.extend(parsed);
+            let url = format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(q));
+            
+            let html = tokio_handle.spawn({
+                let page = google_page.clone();
+                async move {
+                    page.goto(&url).await?;
+                    page.wait_for_navigation().await?;
+                    // Random human delay
+                    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let delay = 2000 + (now % 2000);
+                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                    page.content().await
+                }
+            }).await?.map_err(|e| anyhow::anyhow!("Google navigation failed: {e}"))?;
+
+            let parsed = parse_google_results(&html);
+            log::info!("✅ Google: Finished query '{}'. Parsed {} items.", q, parsed.len());
+            results.extend(parsed);
+            
+            if idx < queries.len() - 1 {
+                tokio_handle.spawn(async { 
+                    let jitter = 10 + (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() % 10);
+                    tokio::time::sleep(std::time::Duration::from_secs(jitter)).await 
+                }).await?;
+            }
+        }
+        let _ = tokio_handle.spawn(async move { google_page.close().await }).await;
+    } else {
+        match search_provider {
+            agent_settings::SearchProvider::Tavily => {
+                if let Some(api_key) = &tavily_api_key {
+                    log_message("🔍 Tavily AI: Searching...".to_string(), None);
+                    for q in &queries {
+                        match tavily_search(http_client.clone(), api_key, q).await {
+                            Ok(res) => {
+                                log_message(format!("🔍 Tavily: '{}' -> {} results", q, res.len()), None);
+                                results.extend(res);
+                            }
+                            Err(e) => log_message(format!("⚠️ Tavily search failed: {}", e), None),
+                        }
+                    }
+                } else {
+                    log_message("❌ Tavily API key missing. Get one at: https://tavily.com/".to_string(), Some("API Key Required".to_string()));
                 }
             }
-            tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
-        }
-    } else {
-        let mut search_futures = Vec::new();
-        for q in &queries {
-            let http_client = http_client.clone();
-            let q_clone = q.clone();
-            search_futures.push(async move {
-                match ddg_search(http_client, &q_clone).await {
-                    Ok(results) => {
-                        log::info!("DDG Search: Found {} sources for query '{}'", results.len(), q_clone);
-                        results
-                    },
-                    Err(e) => {
-                        log::warn!("Deep Research: DDG search query failed for '{}': {}", q_clone, e);
-                        Vec::new()
+            agent_settings::SearchProvider::Serper => {
+                if let Some(api_key) = &serper_api_key {
+                    log_message("🔍 Serper.dev: Searching...".to_string(), None);
+                    for q in &queries {
+                        match serper_search(http_client.clone(), api_key, q).await {
+                            Ok(res) => {
+                                log_message(format!("🔍 Serper: '{}' -> {} results", q, res.len()), None);
+                                results.extend(res);
+                            }
+                            Err(e) => log_message(format!("⚠️ Serper research failed: {}", e), None),
+                        }
+                    }
+                } else {
+                    log_message("❌ Serper API key missing. Get one at: https://serper.dev/".to_string(), Some("API Key Required".to_string()));
+                }
+            }
+            agent_settings::SearchProvider::Exa => {
+                if let Some(api_key) = &exa_api_key {
+                    log_message("🔍 Exa AI: Searching...".to_string(), None);
+                    for q in &queries {
+                        match exa_search(http_client.clone(), api_key, q).await {
+                            Ok(res) => {
+                                log_message(format!("🔍 Exa: '{}' -> {} results", q, res.len()), None);
+                                results.extend(res);
+                            }
+                            Err(e) => log_message(format!("⚠️ Exa research failed: {}", e), None),
+                        }
+                    }
+                } else {
+                    log_message("❌ Exa API key missing. Get one at: https://exa.ai/".to_string(), Some("API Key Required".to_string()));
+                }
+            }
+            agent_settings::SearchProvider::Brave => {
+                if let Some(api_key) = &brave_api_key {
+                    log_message("🔍 Brave Search: Searching...".to_string(), None);
+                    for q in &queries {
+                        match brave_search(http_client.clone(), api_key, q).await {
+                            Ok(res) => {
+                                log_message(format!("🔍 Brave: '{}' -> {} results", q, res.len()), None);
+                                results.extend(res);
+                            }
+                            Err(e) => log_message(format!("⚠️ Brave research failed: {}", e), None),
+                        }
+                    }
+                } else {
+                    log_message("❌ Brave API key missing. Get one at: https://api.search.brave.com/".to_string(), Some("API Key Required".to_string()));
+                }
+            }
+            _ => {
+                log_message("🔍 DuckDuckGo: Searching via API...".to_string(), None);
+                let mut first_query = true;
+                for q in &queries {
+                    if !first_query {
+                        log_message("⏳ DuckDuckGo: Cooling down (11s) to avoid rate limit...".to_string(), None);
+                        tokio_handle.spawn(async { tokio::time::sleep(std::time::Duration::from_secs(11)).await }).await?;
+                    }
+                    first_query = false;
+
+                    match ddg_search_api(http_client.clone(), q).await {
+                        Ok(res) => {
+                            log_message(format!("🔍 DDG: '{}' -> {} results", q, res.len()), None);
+                            results.extend(res);
+                        }
+                        Err(e) => {
+                             log::warn!("🔍 DDG API failed for '{}': {}. Falling back to browser scraper...", q, e);
+                             log_message(format!("⚠️ DDG API failed: {}. Falling back to browser...", e), None);
+                             
+                             let search_candidates = vec![DeepResearchSearchResult {
+                                 id: 0,
+                                 title: q.clone(),
+                                 url: format!("https://html.duckduckgo.com/html/?q={}&kl=us-en", url_encode(q)),
+                                 snippet: String::new(),
+                                 score: 0,
+                             }];
+
+                             let html_responses = tokio_handle.spawn({
+                                 let browser = browser.clone();
+                                 let event_stream = event_stream.clone();
+                                 async move { browse_parallel(browser, search_candidates, event_stream, true).await }
+                             }).await?;
+                             
+                             if let Ok(html_responses) = html_responses {
+                                 if let Some(html) = html_responses.first() {
+                                     let parsed = parse_ddg_browser_results(html);
+                                     log::info!("🔍 DDG Scraper: '{}' -> {} results", q, parsed.len());
+                                     results.extend(parsed);
+                                 }
+                             }
+                        }
                     }
                 }
-            });
+            }
         }
-        
-        log::info!("🔍 Deep Research: Executing {} search queries via DuckDuckGo...", queries.len());
-        for r in futures::future::join_all(search_futures).await {
-            results.extend(r);
-        }
+        log_message(format!("✅ Search complete: Found {} total raw sources.", results.len()), None);
     }
     log::info!("✅ Deep Research: Found {} raw candidate sources.", results.len());
     
@@ -484,30 +655,67 @@ pub async fn run_deep_research_bg(
                                 snippet: String::new(),
                                 score: 0,
                             }];
-                            if let Ok(html_responses) = browse_parallel(browser.clone(), search_candidates, event_stream.clone(), true).await {
+                            let html_responses = tokio_handle.spawn({
+                                let browser = browser.clone();
+                                let event_stream = event_stream.clone();
+                                async move { browse_parallel(browser, search_candidates, event_stream, true).await }
+                            }).await?;
+                            if let Ok(html_responses) = html_responses {
                                 if let Some(html) = html_responses.first() {
                                     follow_up_results.extend(parse_google_results(html));
                                 }
                             }
-                            tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+                            tokio_handle.spawn(async { 
+                                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                                let jitter = 8 + (now % 7);
+                                tokio::time::sleep(std::time::Duration::from_secs(jitter)).await 
+                            }).await?;
                         }
-                    } else {
-                        let mut follow_up_futures = Vec::new();
+                    } else if search_provider == agent_settings::SearchProvider::Google {
+                        log_message("🔍 Google: Sequential follow-up mode...".to_string(), None);
+                        let google_page = tokio_handle.spawn({
+                            let browser = browser.clone();
+                            async move { 
+                                let p = browser.new_page("about:blank").await?;
+                                let _ = p.execute(cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams::builder()
+                                    .width(1920)
+                                    .height(1080)
+                                    .device_scale_factor(1.0)
+                                    .mobile(false)
+                                    .build()
+                                    .map_err(|e| anyhow::anyhow!("{e}"))?).await?;
+                                Ok::<_, anyhow::Error>(p)
+                            }
+                        }).await?.map_err(|e| anyhow::anyhow!("Failed to create Google tab: {e}"))?;
+
                         for q in follow_up_queries {
-                            let http_client = http_client.clone();
-                            let q_clone = q.clone();
-                            follow_up_futures.push(async move {
-                                match ddg_search(http_client, &q_clone).await {
-                                    Ok(results) => results,
-                                    Err(e) => {
-                                        log::warn!("Deep Research: Gap search failed for '{}': {}", q_clone, e);
-                                        Vec::new()
-                                    }
+                            let url = format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(&q));
+                            let html = tokio_handle.spawn({
+                                let page = google_page.clone();
+                                async move {
+                                    page.goto(&url).await?;
+                                    page.wait_for_navigation().await?;
+                                    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                                    let delay = 2000 + (now % 2000);
+                                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                                    page.content().await
                                 }
-                            });
+                            }).await?.map_err(|e| anyhow::anyhow!("Google follow-up navigation failed: {e}"))?;
+
+                            follow_up_results.extend(parse_google_results(&html));
+                            
+                            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                            let jitter = 10 + (now % 10);
+                            tokio_handle.spawn(async move { tokio::time::sleep(std::time::Duration::from_secs(jitter)).await }).await?;
                         }
-                        for r_set in futures::future::join_all(follow_up_futures).await {
-                            follow_up_results.extend(r_set);
+                        let _ = tokio_handle.spawn(async move { google_page.close().await }).await;
+                    } else {
+                        log_message("🔍 DuckDuckGo: Sequential follow-up mode...".to_string(), None);
+                        for q in follow_up_queries {
+                            if let Ok(res) = ddg_search_api(http_client.clone(), &q).await {
+                                follow_up_results.extend(res);
+                            }
+                            tokio_handle.spawn(async { tokio::time::sleep(std::time::Duration::from_secs(11)).await }).await?;
                         }
                     }
                     for mut r in follow_up_results {
@@ -563,15 +771,17 @@ pub async fn identify_gaps_and_relaunch(
 ) -> Result<Vec<String>> {
     let prompt = custom_prompt.map(|p| p.to_string()).unwrap_or_else(|| format!(
         "You are a world-class investigative researcher. You have been researching '{}'.\n\
-        Here is the content you have collected so far:\n\n\
+        Below is the exhaustive set of content you have collected so far. Read it carefully to identify what is ALREADY KNOWN.\n\n\
         [START COLLECTED CONTENT]\n\
         {}\n\
         [END COLLECTED CONTENT]\n\n\
-        Identify 3 critical information gaps or missing specific data points (e.g., hard numbers, specific projections, competitive nuances) that were NOT found in the content above.\n\
-        Generate 3 highly specific search queries to find this missing information.\n\
+        VERY IMPORTANT AND MUST FOLLOW TASKS:\n\
+        1. Identify 3 critical information gaps or missing specific data points (e.g., hard numbers, specific projections, competitive nuances) that are NOT present in the content above.\n\
+        2. Generate 3 highly specific search queries to find this missing information.\n\
+        3. CRITICAL: DO NOT repeat any of the previous angles or general information. Every query must target a NEW, undiscovered data point.\n\
         Return ONLY the 3 queries, one per line.",
         topic,
-        if collected_content.len() > 10000 { &collected_content[..10000] } else { collected_content }
+        if collected_content.len() > 100000 { &collected_content[..100000] } else { collected_content }
     ));
 
     let request = language_model::LanguageModelRequest {
@@ -603,6 +813,56 @@ pub async fn identify_gaps_and_relaunch(
     Ok(queries)
 }
 
+async fn ddg_search_api(http_client: Arc<HttpClientWithUrl>, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
+    let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:125.0) Gecko/20100101 Firefox/125.0";
+
+    // 1. Fetch the vqd token
+    let token_url = format!("https://duckduckgo.com/?q={}", url_encode(query));
+    let request = Builder::new()
+        .method(http_client::http::Method::GET)
+        .uri(token_url)
+        .header("User-Agent", ua)
+        .body(AsyncBody::default())?;
+    
+    let mut response = http_client.send(request).await?;
+    if !response.status().is_success() {
+        bail!("Failed to fetch DDG token page: {}", response.status());
+    }
+    
+    let mut body = String::new();
+    response.body_mut().read_to_string(&mut body).await?;
+    
+    let vqd_re = Regex::new(r#"vqd=['"]([^'"]+)['"]"#)?;
+    let vqd = vqd_re.captures(&body)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to extract vqd token from DuckDuckGo response"))?;
+    
+    // 2. Fetch search results using the token via POST to html endpoint (The 'ddgs' method)
+    let post_data = format!("q={}&vqd={}&kl=us-en", url_encode(query), vqd);
+    
+    let request = Builder::new()
+        .method(http_client::http::Method::POST)
+        .uri("https://html.duckduckgo.com/html/")
+        .header("User-Agent", ua)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Referer", "https://duckduckgo.com/")
+        .body(AsyncBody::from(post_data.into_bytes()))?;
+        
+    let mut response = http_client.send(request).await?;
+    if !response.status().is_success() {
+        bail!("DDG search API failed with status: {}", response.status());
+    }
+    
+    let mut html = String::new();
+    response.body_mut().read_to_string(&mut html).await?;
+    
+    // The response is pure HTML from the lite endpoint. Use our existing parser.
+    let results = parse_ddg_browser_results(&html);
+    
+    Ok(results)
+}
+
 pub async fn condense_report(
     _http_client: Arc<HttpClientWithUrl>,
     topic: &str,
@@ -614,9 +874,12 @@ pub async fn condense_report(
     if let Some(model) = model {
         let system_prompt = custom_prompt.unwrap_or(
             "You are an expert technical researcher synthesizing deep research data.\n\
-            Analyze the raw research material from MULTIPLE sources and provide a highly detailed, coherent, and comprehensive Markdown report. \
-            Citing multiple diverse sources is CRITICAL. Do not rely on just one primary source if others are available. \
-            Synthesize cross-source data points to provide the most authoritative view."
+            Analyze the raw research material from MULTIPLE sources and provide a highly detailed, coherent, and comprehensive Markdown report. \n\n\
+            VERY IMPORTANT AND MUST FOLLOW STRICT GUIDELINES:\n\
+            1. Citing multiple diverse sources is CRITICAL. \n\
+            2. SYNTHESIZE: Do not simply list findings source-by-source. Merge common data points into cohesive sections.\n\
+            3. DEDUPLICATE: Ensure there is NO redundancy or repetition in the final report. If two sources say the same thing, mention it once with both citations.\n\
+            4. TECHNICAL DENSITY: Prioritize hard data, specifications, and nuanced conclusions over general summaries."
         );
 
         let user_message = format!(
@@ -675,6 +938,18 @@ pub struct DeepResearchSearchResult {
 
 
 fn parse_google_results(html: &str) -> Vec<DeepResearchSearchResult> {
+    // Only block if we see the actual automated traffic redirect path.
+    // The generic "CAPTCHA" string is too prone to false positives in search results.
+    if html.contains("<title>Sorry...</title>") {
+        log::error!("🚫 Google rate-limiting (Sorry page) detected in search results.");
+        return Vec::new();
+    }
+    
+    // Check for a real CAPTCHA challenge form rather than just the word "CAPTCHA"
+    if html.contains("id=\"captcha-form\"") || html.contains("g-recaptcha") {
+        log::error!("🚫 Google CAPTCHA challenge detected in search results.");
+        return Vec::new();
+    }
     let document = Html::parse_document(html);
     let mut results = Vec::new();
     
@@ -760,28 +1035,202 @@ fn parse_google_results(html: &str) -> Vec<DeepResearchSearchResult> {
 }
 
 async fn ddg_search(http_client: Arc<HttpClientWithUrl>, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
+    let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
     let encoded_query = url_encode(query);
-    let url = format!("https://html.duckduckgo.com/html/?q={encoded_query}");
 
-    let request = Builder::new()
-        .uri(url)
-        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-        .header("Accept-Language", "en-US,en;q=0.9")
-        .follow_redirects(RedirectPolicy::FollowAll)
-        .body(AsyncBody::default())?;
+    let make_request = || -> Result<http_client::http::Request<AsyncBody>> {
+        Ok(Builder::new()
+            .uri(format!("https://html.duckduckgo.com/html/?q={encoded_query}&kl=us-en"))
+            .header("User-Agent", ua)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Referer", "https://duckduckgo.com/")
+            .follow_redirects(RedirectPolicy::FollowAll)
+            .body(AsyncBody::default())?)
+    };
 
-    let mut response = http_client.send(request).await?;
+    let mut response = http_client.send(make_request()?).await?;
+    let status = response.status();
+
+    // 202 means DDG rate-limited this request. Retry once after a short delay.
+    if status.as_u16() == 202 {
+        log::warn!("DDG Search: got 202 for '{}', retrying after 2s", query);
+        smol::Timer::after(std::time::Duration::from_secs(2)).await;
+        let mut retry_response = http_client.send(make_request()?).await?;
+        let retry_status = retry_response.status();
+        let mut body = Vec::new();
+        retry_response.body_mut().read_to_end(&mut body).await?;
+        let html = String::from_utf8_lossy(&body);
+        log::info!("DDG Search: retry for '{}' -> status={} results={}", query, retry_status, html.matches("result__a").count());
+        let results = parse_results(&html);
+        if results.is_empty() && (query.contains('"') || query.contains(" OR ")) {
+            let simplified = query.replace('"', "").replace(" OR ", " ");
+            return Box::pin(ddg_search(http_client, &simplified)).await;
+        }
+        return Ok(results);
+    }
+
+    if status.is_client_error() || status.is_server_error() {
+        bail!("Search failed with status: {}", status);
+    }
 
     let mut body = Vec::new();
     response.body_mut().read_to_end(&mut body).await?;
+    let html = String::from_utf8_lossy(&body);
+    let results = parse_results(&html);
 
-    if response.status().is_client_error() || response.status().is_server_error() {
-        bail!("Search failed with status: {}", response.status());
+    if results.is_empty() {
+        let snippet = html.chars().take(300).collect::<String>().replace('\n', " ");
+        log::warn!("DDG Search: 0 results for '{}'. Status: {}. Preview: {}", query, status, snippet);
+        if query.contains('"') || query.contains(" OR ") {
+            let simplified = query.replace('"', "").replace(" OR ", " ");
+            log::info!("DDG Search: Retrying simplified: '{}'", simplified);
+            return Box::pin(ddg_search(http_client, &simplified)).await;
+        }
     }
 
-    let html = String::from_utf8_lossy(&body);
-    Ok(parse_results(&html))
+    Ok(results)
+}
+
+
+async fn tavily_search(http_client: Arc<HttpClientWithUrl>, api_key: &str, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
+    let body = serde_json::json!({
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "advanced",
+        "include_answer": false,
+        "max_results": 10
+    });
+    
+    let request = Builder::new()
+        .method(http_client::http::Method::POST)
+        .uri("https://api.tavily.com/search")
+        .header("Content-Type", "application/json")
+        .body(AsyncBody::from(serde_json::to_vec(&body)?))?;
+        
+    let mut response = http_client.send(request).await?;
+    if !response.status().is_success() {
+        bail!("Tavily search failed with status: {}", response.status());
+    }
+    
+    let mut body_bytes = Vec::new();
+    response.body_mut().read_to_end(&mut body_bytes).await?;
+    let data: serde_json::Value = serde_json::from_slice(&body_bytes)?;
+    
+    let mut results = Vec::new();
+    if let Some(arr) = data["results"].as_array() {
+        for (idx, item) in arr.iter().enumerate() {
+            results.push(DeepResearchSearchResult {
+                id: idx,
+                title: item["title"].as_str().unwrap_or("No Title").to_string(),
+                url: item["url"].as_str().unwrap_or("").to_string(),
+                snippet: item["content"].as_str().unwrap_or("").to_string(),
+                score: 0,
+            });
+        }
+    }
+    Ok(results)
+}
+
+async fn serper_search(http_client: Arc<HttpClientWithUrl>, api_key: &str, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
+    let body = serde_json::json!({ "q": query });
+    let request = Builder::new()
+        .method(http_client::http::Method::POST)
+        .uri("https://google.serper.dev/search")
+        .header("X-API-KEY", api_key)
+        .header("Content-Type", "application/json")
+        .body(AsyncBody::from(serde_json::to_vec(&body)?))?;
+        
+    let mut response = http_client.send(request).await?;
+    if !response.status().is_success() {
+        bail!("Serper search failed with status: {}", response.status());
+    }
+    
+    let mut body_bytes = Vec::new();
+    response.body_mut().read_to_end(&mut body_bytes).await?;
+    let data: serde_json::Value = serde_json::from_slice(&body_bytes)?;
+    
+    let mut results = Vec::new();
+    if let Some(arr) = data["organic"].as_array() {
+        for (idx, item) in arr.iter().enumerate() {
+            results.push(DeepResearchSearchResult {
+                id: idx,
+                title: item["title"].as_str().unwrap_or("").to_string(),
+                url: item["link"].as_str().unwrap_or("").to_string(),
+                snippet: item["snippet"].as_str().unwrap_or("").to_string(),
+                score: 0,
+            });
+        }
+    }
+    Ok(results)
+}
+
+async fn exa_search(http_client: Arc<HttpClientWithUrl>, api_key: &str, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
+    let body = serde_json::json!({
+        "query": query,
+        "useAutoprompt": true,
+        "numResults": 10
+    });
+    let request = Builder::new()
+        .method(http_client::http::Method::POST)
+        .uri("https://api.exa.ai/search")
+        .header("x-api-key", api_key)
+        .header("Content-Type", "application/json")
+        .body(AsyncBody::from(serde_json::to_vec(&body)?))?;
+        
+    let mut response = http_client.send(request).await?;
+    if !response.status().is_success() {
+        bail!("Exa search failed with status: {}", response.status());
+    }
+    
+    let mut body_bytes = Vec::new();
+    response.body_mut().read_to_end(&mut body_bytes).await?;
+    let data: serde_json::Value = serde_json::from_slice(&body_bytes)?;
+    
+    let mut results = Vec::new();
+    if let Some(arr) = data["results"].as_array() {
+        for (idx, item) in arr.iter().enumerate() {
+            results.push(DeepResearchSearchResult {
+                id: idx,
+                title: item["title"].as_str().unwrap_or("").to_string(),
+                url: item["url"].as_str().unwrap_or("").to_string(),
+                snippet: item["text"].as_str().map(|s| s.chars().take(500).collect()).unwrap_or_default(),
+                score: 0,
+            });
+        }
+    }
+    Ok(results)
+}
+
+async fn brave_search(http_client: Arc<HttpClientWithUrl>, api_key: &str, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
+    let request = Builder::new()
+        .uri(format!("https://api.search.brave.com/res/v1/web/search?q={}", url_encode(query)))
+        .header("X-Subscription-Token", api_key)
+        .header("Accept", "application/json")
+        .body(AsyncBody::default())?;
+        
+    let mut response = http_client.send(request).await?;
+    if !response.status().is_success() {
+        bail!("Brave search failed with status: {}", response.status());
+    }
+    
+    let mut body_bytes = Vec::new();
+    response.body_mut().read_to_end(&mut body_bytes).await?;
+    let data: serde_json::Value = serde_json::from_slice(&body_bytes)?;
+    
+    let mut results = Vec::new();
+    if let Some(arr) = data["web"]["results"].as_array() {
+        for (idx, item) in arr.iter().enumerate() {
+            results.push(DeepResearchSearchResult {
+                id: idx,
+                title: item["title"].as_str().unwrap_or("").to_string(),
+                url: item["url"].as_str().unwrap_or("").to_string(),
+                snippet: item["description"].as_str().unwrap_or("").to_string(),
+                score: 0,
+            });
+        }
+    }
+    Ok(results)
 }
 
 fn score_results_heuristic(results: &mut [DeepResearchSearchResult], topic: &str, domains: Option<&[String]>) {
@@ -839,14 +1288,14 @@ pub async fn rank_results_with_llm(
 ) -> Result<()> {
     if results.is_empty() { return Ok(()); }
 
-    let candidate_count = results.len().min(40);
+    let candidate_count = results.len().min(60);
     let mut candidates_info = Vec::new();
     for (idx, res) in results.iter().take(candidate_count).enumerate() {
         candidates_info.push(format!("[{}] Title: {}\nURL: {}\nSnippet: {}\n", idx, res.title, res.url, res.snippet));
     }
 
     let mut prompt = format!("You are a world-class research analyst. Your task is to rank the following search results for the research topic: '{}'.\n\n", topic);
-    prompt.push_str("Pick the top 12 most authoritative and high-signal sources. Prioritize:\n");
+    prompt.push_str("VERY IMPORTANT AND MUST FOLLOW:\nPick the top 30 most authoritative and high-signal sources. Prioritize:\n");
     prompt.push_str("1. Official company documents (Investor Relations, SEC filings).\n");
     prompt.push_str("2. Primary technical documentation or direct source code repositories.\n");
     prompt.push_str("3. Authoritative, data-rich analysis (avoid generic marketing summaries like Zacks/SeekingAlpha).\n\n");
@@ -857,7 +1306,7 @@ pub async fn rank_results_with_llm(
         prompt.push_str("\n");
     }
     
-    prompt.push_str("\nRespond ONLY with a YAML-style list of indices of the top 12 results in order of relevance, like this:\nindices:\n  - 5\n  - 2\n  - 10\n...");
+    prompt.push_str("\nRespond ONLY with a YAML-style list of indices of the top 30 results in order of relevance, like this:\nindices:\n  - 5\n  - 2\n  - 10\n...");
 
     let request = language_model::LanguageModelRequest {
         messages: vec![language_model::LanguageModelRequestMessage {
@@ -906,17 +1355,68 @@ pub async fn rank_results_with_llm(
     }
 
     for r in results.iter_mut() {
-        r.score = 0;
+        r.score = -1000;
     }
 
     for (rank, &idx) in ranked_indices.iter().enumerate() {
         if idx < results.len() {
-            results[idx].score = 100 - (rank as i32 * 5);
+            results[idx].score = 1000 - (rank as i32);
         }
     }
     
     results.sort_by(|a, b| b.score.cmp(&a.score));
     Ok(())
+}
+
+fn parse_ddg_browser_results(html: &str) -> Vec<DeepResearchSearchResult> {
+    // Parses the html.duckduckgo.com/html page rendered by the browser.
+    // Classes used: .result, .result__a (title+href), .result__snippet
+    let document = Html::parse_document(html);
+    let Ok(result_sel) = Selector::parse(".result") else { return Vec::new(); };
+    let Ok(title_sel) = Selector::parse(".result__a") else { return Vec::new(); };
+    let Ok(snippet_sel) = Selector::parse(".result__snippet") else { return Vec::new(); };
+
+    let mut results = Vec::new();
+    for (idx, element) in document.select(&result_sel).enumerate() {
+        let title = element.select(&title_sel).next()
+            .map(|el| el.text().collect::<String>())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let mut url = element.select(&title_sel).next()
+            .and_then(|el| el.value().attr("href"))
+            .unwrap_or_default()
+            .to_string();
+        let snippet = element.select(&snippet_sel).next()
+            .map(|el| el.text().collect::<String>())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        if title.is_empty() || url.is_empty() {
+            continue;
+        }
+
+        // Unmask DDG redirect URLs (/l/?uddg=https%3A%2F%2F...)
+        if url.contains("/l/") && url.contains("uddg=") {
+            if let Some(pos) = url.find("uddg=") {
+                let rest = &url[pos + 5..];
+                let end = rest.find('&').unwrap_or(rest.len());
+                if let Ok(decoded) = url_decode(&rest[..end]) {
+                    url = decoded;
+                }
+            }
+        }
+
+        if url.starts_with("//") {
+            url = format!("https:{}", url);
+        } else if !url.starts_with("http") {
+            continue;
+        }
+
+        results.push(DeepResearchSearchResult { id: idx, title, url, snippet, score: 0 });
+    }
+    results
 }
 
 fn parse_results(html: &str) -> Vec<DeepResearchSearchResult> {
@@ -990,7 +1490,7 @@ pub async fn browse_parallel(
                 let mut page = match b.new_page("about:blank").await {
                     Ok(p) => {
                         // Inject script to delete navigator.webdriver for stealth
-                        let _ = p.execute(chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams::new(
+                        let _ = p.execute(cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams::new(
                             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})".to_string()
                         )).await;
 
@@ -1014,10 +1514,38 @@ pub async fn browse_parallel(
                            let current_url = page.url().await.ok().flatten().unwrap_or_default();
                            if current_url.contains("/sorry") || current_url.contains("consent.google") {
                                log::warn!("⚠️ Google CAPTCHA/consent redirect detected: {}", current_url);
-                               // Back off 10s and retry once
-                               tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-                               let _ = page.goto(&url).await;
-                               let _ = page.wait_for_navigation().await;
+                               
+                               if current_url.contains("consent.google") {
+                                   log::info!("Trying to bypass Google consent page...");
+                                   // Try to find and click the "Accept all" button. 
+                                   // We try a few common selectors for different languages/structures.
+                                   let _ = page.execute(cdp::js_protocol::runtime::EvaluateParams::new("
+                                           (function() {
+                                               const buttons = Array.from(document.querySelectorAll('button'));
+                                               const acceptButton = buttons.find(b => 
+                                                   b.innerText.includes('Accept all') || 
+                                                   b.innerText.includes('I agree') || 
+                                                   b.innerText.includes('Ich stimme zu') || 
+                                                   b.innerText.includes('Tout accepter') ||
+                                                   b.innerText.includes('Aceptar todo')
+                                               );
+                                               if (acceptButton) {
+                                                   acceptButton.click();
+                                                   return true;
+                                               }
+                                               return false;
+                                           })()
+                                       ".to_string())
+                                   ).await;
+                                   
+                                   tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                                   let _ = page.wait_for_navigation().await;
+                               } else {
+                                   // For /sorry (real CAPTCHA), we just have to back off and retry later
+                                   tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                                   let _ = page.goto(&url).await;
+                                   let _ = page.wait_for_navigation().await;
+                               }
                                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                            }
                            log::info!("🔍 Google Search: Waiting for result elements (h3) to appear...");
