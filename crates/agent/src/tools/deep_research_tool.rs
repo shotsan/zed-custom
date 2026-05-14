@@ -122,7 +122,7 @@ impl AgentTool for DeepResearchTool {
             let model_clone = model.clone();
             let mut async_cx_recursive = async_cx.clone();
             
-            let raw_report = run_deep_research_bg(
+            let raw_report = match run_deep_research_bg(
                 http_client.clone(),
                 input.topic.clone(),
                 queries,
@@ -142,7 +142,14 @@ impl AgentTool for DeepResearchTool {
                 research_settings.use_headed_browser,
                 research_settings.browser_user_data_dir.clone(),
                 research_settings.browser_profile.clone(),
-            ).await?;
+            ).await {
+                Ok(report) => report,
+                Err(e) => {
+                    log::error!("Deep Research background task failed: {:#}", e);
+                    event_stream.push_log(format!("❌ Deep Research failed: {:#}", e));
+                    return Err(e);
+                }
+            };
 
             let event_stream = event_stream.clone();
             let topic = input.topic.clone();
@@ -346,12 +353,23 @@ pub async fn run_deep_research_bg(
         for path in common_paths {
             if std::path::Path::new(path).exists() {
                 builder = builder.chrome_executable(path);
+                log::info!("Deep Research: Found browser executable at {}", path);
                 break;
             }
         }
     }
 
-    let config = builder.build().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let config = match builder.build() {
+        Ok(c) => c,
+        Err(e) => {
+            let err_msg = format!("Failed to build browser config: {e}");
+            log::error!("{}", err_msg);
+            if let Some(stream) = &event_stream {
+                stream.push_log(format!("❌ {}", err_msg));
+            }
+            return Err(anyhow::anyhow!(err_msg));
+        }
+    };
     
     // Launch browser on the tokio runtime directly to avoid context errors
     let tokio_handle_for_launch = tokio_handle.clone();
@@ -361,7 +379,19 @@ pub async fn run_deep_research_bg(
     
     let (browser, mut handler) = match launch_result {
         Ok(res) => res,
-        Err(e) => bail!("Failed to launch persistent research browser: {e}"),
+        Err(e) => {
+            let err_msg = format!("Failed to launch persistent research browser. Details: {e}");
+            log::error!("{}", err_msg);
+            if let Some(stream) = &event_stream {
+                stream.push_log(format!("❌ {}", err_msg));
+                stream.push_log("💡 Troubleshooting browser launch on macOS:".to_string());
+                stream.push_log(" 1. Verify Google Chrome is installed at: /Applications/Google Chrome.app".to_string());
+                stream.push_log(" 2. Open Chrome manually at least once to clear any 'Verifying...' macOS dialogs.".to_string());
+                stream.push_log(" 3. If macOS Gatekeeper is blocking the binary, run this in your terminal:".to_string());
+                stream.push_log("    xattr -cr \"/Applications/Google Chrome.app\"".to_string());
+            }
+            bail!("{}", err_msg);
+        }
     };
     
     let tokio_handle_for_handler = tokio_handle.clone();
