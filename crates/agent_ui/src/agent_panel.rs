@@ -21,8 +21,9 @@ use crate::{
     AddContextServer, AgentDiffPane, CopyThreadToClipboard, Follow, InlineAssistant,
     LoadThreadFromClipboard, NewTextThread, NewThread, OpenActiveThreadAsMarkdown, OpenAgentDiff,
     OpenHistory, ResetTrialEndUpsell, ResetTrialUpsell, ToggleNavigationMenu, ToggleNewThreadMenu,
-    NewProfile, NewProfileFromCurrent, ToggleOptionsMenu,
+    NewProfile, NewProfileFromCurrent, NewThreadInWorktree, ToggleOptionsMenu,
     acp::AcpThreadView,
+    acp::WorktreeThreadPicker,
     agent_configuration::{AgentConfiguration, AssistantConfigurationEvent, ManageProfilesModal},
     slash_command::SlashCommandCompletionProvider,
     text_thread_editor::{AgentPanelDelegate, TextThreadEditor, make_lsp_adapter_delegate},
@@ -136,7 +137,15 @@ pub fn init(cx: &mut App) {
                     if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
                         workspace.focus_panel::<AgentPanel>(window, cx);
                         panel.update(cx, |panel, cx| {
-                            panel.external_thread(action.agent.clone(), None, None, window, cx)
+                            panel.external_thread(action.agent.clone(), None, None, None, window, cx)
+                        });
+                    }
+                })
+                .register_action(|workspace, _: &NewThreadInWorktree, window, cx| {
+                    if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
+                        workspace.focus_panel::<AgentPanel>(window, cx);
+                        panel.update(cx, |panel, cx| {
+                            panel.new_thread_in_worktree(window, cx)
                         });
                     }
                 })
@@ -738,6 +747,7 @@ impl AgentPanel {
             Some(crate::ExternalAgent::NativeAgent),
             Some(thread),
             None,
+            None,
             window,
             cx,
         );
@@ -798,6 +808,7 @@ impl AgentPanel {
             Some(ExternalAgent::NativeAgent),
             None,
             Some(ExternalAgentInitialContent::ThreadSummary(thread)),
+            None,
             window,
             cx,
         );
@@ -851,6 +862,7 @@ impl AgentPanel {
         agent_choice: Option<crate::ExternalAgent>,
         resume_thread: Option<AgentSessionInfo>,
         initial_content: Option<ExternalAgentInitialContent>,
+        cwd_override: Option<std::path::PathBuf>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -916,6 +928,7 @@ impl AgentPanel {
                     workspace,
                     project,
                     ext_agent,
+                    cwd_override,
                     window,
                     cx,
                 );
@@ -924,6 +937,37 @@ impl AgentPanel {
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
+    }
+
+    /// Opens a picker to choose (or create) a git worktree, then starts a new
+    /// thread with the currently-selected agent rooted in that worktree, so it
+    /// is isolated from other parallel threads.
+    pub fn new_thread_in_worktree(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
+        let repository = self.project.read(cx).active_repository(cx);
+        let agent = self
+            .selected_external_agent()
+            .unwrap_or(ExternalAgent::NativeAgent);
+        let workspace_handle = self.workspace.clone();
+        let panel = cx.entity().downgrade();
+        let on_confirm: crate::acp::OnConfirmWorktree = Rc::new(
+            move |path: std::path::PathBuf, window: &mut Window, cx: &mut App| {
+                let agent = agent.clone();
+                panel
+                    .update(cx, |panel, cx| {
+                        panel.external_thread(Some(agent), None, None, Some(path), window, cx);
+                    })
+                    .ok();
+            },
+        );
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.toggle_modal(window, cx, |window, cx| {
+                WorktreeThreadPicker::new(repository, workspace_handle, on_confirm, window, cx)
+            });
+        });
     }
 
     fn deploy_rules_library(
@@ -1667,6 +1711,7 @@ impl AgentPanel {
             None,
             None,
             initial_text.map(ExternalAgentInitialContent::Text),
+            None,
             window,
             cx,
         );
@@ -1686,17 +1731,19 @@ impl AgentPanel {
                 Some(crate::ExternalAgent::NativeAgent),
                 None,
                 None,
+                None,
                 window,
                 cx,
             ),
             AgentType::Gemini => {
-                self.external_thread(Some(crate::ExternalAgent::Gemini), None, None, window, cx)
+                self.external_thread(Some(crate::ExternalAgent::Gemini), None, None, None, window, cx)
             }
             AgentType::ClaudeCode => {
                 self.selected_agent = AgentType::ClaudeCode;
                 self.serialize(cx);
                 self.external_thread(
                     Some(crate::ExternalAgent::ClaudeCode),
+                    None,
                     None,
                     None,
                     window,
@@ -1706,10 +1753,11 @@ impl AgentPanel {
             AgentType::Codex => {
                 self.selected_agent = AgentType::Codex;
                 self.serialize(cx);
-                self.external_thread(Some(crate::ExternalAgent::Codex), None, None, window, cx)
+                self.external_thread(Some(crate::ExternalAgent::Codex), None, None, None, window, cx)
             }
             AgentType::Custom { name } => self.external_thread(
                 Some(crate::ExternalAgent::Custom { name }),
+                None,
                 None,
                 None,
                 window,
@@ -1727,7 +1775,7 @@ impl AgentPanel {
         let Some(agent) = self.selected_external_agent() else {
             return;
         };
-        self.external_thread(Some(agent), Some(thread), None, window, cx);
+        self.external_thread(Some(agent), Some(thread), None, None, window, cx);
     }
 
     fn _external_thread(
@@ -1738,6 +1786,7 @@ impl AgentPanel {
         workspace: WeakEntity<Workspace>,
         project: Entity<Project>,
         ext_agent: ExternalAgent,
+        cwd_override: Option<std::path::PathBuf>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1762,6 +1811,7 @@ impl AgentPanel {
                 thread_store,
                 self.prompt_store.clone(),
                 self.acp_history.clone(),
+                cwd_override,
                 window,
                 cx,
             )
@@ -2434,6 +2484,32 @@ impl AgentPanel {
                                                                 AgentType::TextThread,
                                                                 window,
                                                                 cx,
+                                                            );
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }),
+                            )
+                            .separator()
+                            .item(
+                                ContextMenuEntry::new("New Thread in Worktree…")
+                                    .action(NewThreadInWorktree.boxed_clone())
+                                    .icon(IconName::GitBranch)
+                                    .icon_color(Color::Muted)
+                                    .disabled(is_via_collab)
+                                    .handler({
+                                        let workspace = workspace.clone();
+                                        move |window, cx| {
+                                            if let Some(workspace) = workspace.upgrade() {
+                                                workspace.update(cx, |workspace, cx| {
+                                                    if let Some(panel) =
+                                                        workspace.panel::<AgentPanel>(cx)
+                                                    {
+                                                        panel.update(cx, |panel, cx| {
+                                                            panel.new_thread_in_worktree(
+                                                                window, cx,
                                                             );
                                                         });
                                                     }

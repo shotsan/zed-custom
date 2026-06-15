@@ -1023,7 +1023,7 @@ async fn test_random_context_collaboration(cx: &mut TestAppContext, mut rng: Std
 
 #[gpui::test]
 fn test_mark_cache_anchors(cx: &mut App) {
-    let fs = FakeFs::new(cx.executor());
+    let fs = FakeFs::new(cx.background_executor().clone());
     init_test(fs.clone(), cx);
 
     let registry = Arc::new(LanguageRegistry::test(cx.background_executor().clone()));

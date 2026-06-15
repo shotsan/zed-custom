@@ -15,7 +15,7 @@ use sqlez::{
     connection::Connection,
     statement::Statement,
 };
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use ui::{App, SharedString};
 use zed_custom_env_vars::ZED_STATELESS;
 
@@ -52,6 +52,11 @@ pub struct DbThread {
     pub imported: bool,
     #[serde(default)]
     pub archive_summary: Option<String>,
+    /// Absolute path of the worktree/working directory this thread is bound to,
+    /// used to isolate parallel agent threads. `None` for threads created before
+    /// this field existed; deserializes via `serde(default)` without a version bump.
+    #[serde(default)]
+    pub cwd: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +95,7 @@ impl SharedThread {
             profile: None,
             imported: true,
             archive_summary: None,
+            cwd: None,
         }
     }
 
@@ -264,6 +270,7 @@ impl DbThread {
             profile: thread.profile,
             imported: false,
             archive_summary: None,
+            cwd: None,
         })
     }
 }
@@ -621,6 +628,7 @@ mod tests {
             profile: None,
             imported: false,
             archive_summary: None,
+            cwd: None,
         }
     }
 

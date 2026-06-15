@@ -331,6 +331,7 @@ impl ExampleContext {
                     ThreadEvent::Retry(status) => {
                         println!("{log_prefix} Got retry: {status:?}");
                     }
+                    ThreadEvent::TokenUsageUpdated(_) => {}
                     ThreadEvent::Stop(stop_reason) => match stop_reason {
                         acp::StopReason::EndTurn => {}
                         acp::StopReason::MaxTokens => {

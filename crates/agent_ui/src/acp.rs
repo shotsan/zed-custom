@@ -9,6 +9,7 @@ mod thread_view;
 mod teach_rule_modal;
 mod memory_manager_modal;
 mod custom_prompt_modal;
+mod worktree_thread_picker;
 
 pub use mode_selector::ModeSelector;
 pub use model_selector::AcpModelSelector;
@@ -18,3 +19,4 @@ pub use thread_view::AcpThreadView;
 pub use teach_rule_modal::TeachRuleModal;
 pub use memory_manager_modal::MemoryManagerModal;
 pub use custom_prompt_modal::CustomPromptModal;
+pub use worktree_thread_picker::{OnConfirmWorktree, WorktreeThreadPicker};

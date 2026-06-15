@@ -1,7 +1,7 @@
 use acp_thread::{AcpThread, AgentConnection, UserMessageId};
 use action_log::ActionLog;
 use agent_client_protocol as acp;
-use anyhow::{Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use collections::{BTreeMap, HashSet};
 use futures::{FutureExt, channel::mpsc};
 use gpui::{App, AppContext, AsyncApp, Entity, SharedString, Task, WeakEntity};
@@ -50,8 +50,11 @@ const CONTEXT_LOW_THRESHOLD: f32 = 0.25;
 /// Note:
 /// - Maximum 8 subagents can run in parallel
 /// - Subagents cannot use tools you don't have access to
-/// - If spawning multiple subagents that might write to the filesystem, provide
-///   guidance on how to avoid conflicts (e.g. assign each to different directories)
+/// - If you run multiple subagents that edit files in parallel, set
+///   `isolate_in_worktree: true` on each. This gives every subagent its own git
+///   worktree (a separate checkout on a new branch), so their edits never collide.
+///   Each subagent's changes land on its own branch for you to review and merge.
+///   Leave it off for read-only investigations, where isolation is unnecessary.
 /// - Instruct subagents to be concise in their summaries to conserve your context
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SubagentToolInput {
@@ -86,6 +89,13 @@ pub struct SubagentToolInput {
     /// Tools listed here must be a subset of the parent's available tools.
     #[serde(default)]
     pub allowed_tools: Option<Vec<String>>,
+
+    /// Optional: Run this subagent in its own isolated git worktree (a separate
+    /// checkout on a fresh branch). Set this to `true` for subagents that edit
+    /// files in parallel, so their changes don't collide. Each subagent's work
+    /// lands on its own branch for later review/merge. Defaults to `false`.
+    #[serde(default)]
+    pub isolate_in_worktree: Option<bool>,
 }
 
 /// Tool that spawns a subagent thread to work on a task.
@@ -272,6 +282,16 @@ impl AgentTool for SubagentTool {
                     parent_tools.clone()
                 };
 
+            // When requested, give this subagent its own git worktree so parallel
+            // subagents that edit files don't collide. The worktree is added to the
+            // shared project (so the subagent's file tools can resolve paths in it)
+            // and each subagent's edits land on a fresh branch for later review.
+            let worktree_root = if input.isolate_in_worktree.unwrap_or(false) {
+                Some(create_subagent_worktree(&project, &input.label, cx).await?)
+            } else {
+                None
+            };
+
             let subagent_thread: Entity<Thread> = cx.new(|cx| {
                 Thread::new_subagent(
                     project.clone(),
@@ -283,6 +303,7 @@ impl AgentTool for SubagentTool {
                     model.clone(),
                     subagent_context,
                     subagent_tools,
+                    worktree_root.clone(),
                     cx,
                 )
             });
@@ -358,9 +379,110 @@ impl AgentTool for SubagentTool {
                 });
             }
 
+            // Unregister the isolated worktree from the shared project now that the
+            // subagent is done. This keeps the project from staying permanently
+            // multi-root (which would break the parent's `cd: "."` terminal calls).
+            // The on-disk worktree and its branch are left intact for review/merge.
+            if let Some(root) = worktree_root {
+                cx.update(|cx| {
+                    project.update(cx, |project, cx| {
+                        let worktree_id = {
+                            let mut found = None;
+                            for worktree in project.worktrees(cx) {
+                                if worktree.read(cx).abs_path() == root {
+                                    found = Some(worktree.read(cx).id());
+                                    break;
+                                }
+                            }
+                            found
+                        };
+                        if let Some(worktree_id) = worktree_id {
+                            project.remove_worktree(worktree_id, cx);
+                        }
+                    });
+                });
+            }
+
             result
         })
     }
+}
+
+/// Turns a free-form subagent label into a filesystem/branch-safe slug.
+fn slugify(label: &str) -> String {
+    let mut slug = String::with_capacity(label.len());
+    let mut last_dash = false;
+    for ch in label.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            last_dash = false;
+        } else if !last_dash {
+            slug.push('-');
+            last_dash = true;
+        }
+    }
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        "subagent".to_string()
+    } else {
+        slug
+    }
+}
+
+/// Creates a fresh git worktree (on a new branch) next to the project's main
+/// worktree, registers it with the shared `project` as a visible worktree, and
+/// returns its absolute root path. The subagent's file tools are scoped to this
+/// path so parallel subagents operate on isolated checkouts.
+async fn create_subagent_worktree(
+    project: &Entity<Project>,
+    label: &str,
+    cx: &mut AsyncApp,
+) -> Result<Arc<Path>> {
+    // Gather the source repository, the directory to place the worktree in, and
+    // a unique branch name — all synchronously against the app.
+    let (repository, directory, branch, new_worktree_path) = cx.update(|cx| {
+        let project = project.read(cx);
+        let repository = project
+            .active_repository(cx)
+            .context("no active git repository to create a worktree from")?;
+        let repo_root = project
+            .visible_worktrees(cx)
+            .next()
+            .map(|worktree| worktree.read(cx).abs_path())
+            .context("project has no visible worktree")?;
+        let parent = repo_root
+            .parent()
+            .context("worktree root has no parent directory")?
+            .to_path_buf();
+        let repo_name = repo_root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("repo");
+        let unique = uuid::Uuid::new_v4().to_string();
+        let branch = format!("{}-agent-{}-{}", repo_name, slugify(label), &unique[..8]);
+        let new_worktree_path = parent.join(&branch);
+        anyhow::Ok((repository, parent, branch, new_worktree_path))
+    })?;
+
+    // `git worktree add <directory>/<branch> -b <branch>`
+    cx.update(|cx| {
+        repository.update(cx, |repository, _| {
+            repository.create_worktree(branch.clone(), directory.clone(), None)
+        })
+    })
+    .await??;
+
+    // Register the new checkout with the project so the subagent's tools can
+    // resolve paths inside it, then return its absolute root.
+    let worktree = cx
+        .update(|cx| {
+            project.update(cx, |project, cx| {
+                project.create_worktree(&new_worktree_path, true, cx)
+            })
+        })
+        .await?;
+    let root = cx.update(|cx| worktree.read(cx).abs_path());
+    Ok(root)
 }
 
 async fn run_subagent(
@@ -593,6 +715,14 @@ mod tests {
     #[test]
     fn test_subagent_tool_name() {
         assert_eq!(SubagentTool::name(), "subagent");
+    }
+
+    #[test]
+    fn test_slugify_produces_branch_safe_names() {
+        assert_eq!(super::slugify("Refactor the Parser!"), "refactor-the-parser");
+        assert_eq!(super::slugify("  spaced  out  "), "spaced-out");
+        assert_eq!(super::slugify("***"), "subagent");
+        assert_eq!(super::slugify(""), "subagent");
     }
 
     #[test]

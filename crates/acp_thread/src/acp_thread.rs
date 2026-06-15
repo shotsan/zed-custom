@@ -2,6 +2,7 @@ mod connection;
 mod diff;
 mod mention;
 mod terminal;
+mod acp_language_model;
 
 use agent_settings::AgentSettings;
 
@@ -35,6 +36,7 @@ use serde_json::to_string_pretty;
 use settings::Settings as _;
 use task::{Shell, ShellBuilder};
 pub use terminal::*;
+pub use acp_language_model::{AcpLanguageModel, ConnectionFactory};
 
 use action_log::{ActionLog, ActionLogTelemetry};
 use agent_client_protocol::{self as acp};
@@ -1428,7 +1430,6 @@ impl AcpThread {
             && *existing_indented == indented
         {
             let idx = entries_len - 1;
-            cx.emit(AcpThreadEvent::EntryUpdated(idx));
             match (chunks.last_mut(), is_thought) {
                 (Some(AssistantMessageChunk::Message { block }), false)
                 | (Some(AssistantMessageChunk::Thought { block }), true) => {
@@ -1443,6 +1444,7 @@ impl AcpThread {
                     }
                 }
             }
+            cx.emit(AcpThreadEvent::EntryUpdated(idx));
         } else {
             let block = ContentBlock::new(chunk, &language_registry, path_style, cx);
             let chunk = if is_thought {

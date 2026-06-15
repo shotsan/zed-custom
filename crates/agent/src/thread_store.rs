@@ -157,6 +157,7 @@ mod tests {
             profile: None,
             archive_summary: None,
             imported: false,
+            cwd: None,
         }
     }
 

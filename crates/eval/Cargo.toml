@@ -19,7 +19,7 @@ path = "src/explorer.rs"
 
 [dependencies]
 acp_thread.workspace = true
-agent = { workspace = true, features = ["eval"] }
+agent = { workspace = true, features = ["eval", "test-support"] }
 agent-client-protocol.workspace = true
 agent_settings.workspace = true
 agent_ui.workspace = true

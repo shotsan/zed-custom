@@ -64,6 +64,9 @@ actions!(
         NewTextThread,
         /// Toggles the menu to create new agent threads.
         ToggleNewThreadMenu,
+        /// Opens a picker to start a new agent thread in a chosen git worktree,
+        /// isolating it from other parallel threads.
+        NewThreadInWorktree,
         /// Toggles the navigation menu for switching between threads and views.
         ToggleNavigationMenu,
         /// Toggles the options menu for agent settings and preferences.
@@ -576,6 +579,11 @@ mod tests {
             enable_prompt_caching: false,
             tool_permissions: Default::default(),
             custom_search: None,
+            elastic_search: None,
+            deep_research: Default::default(),
+            persona: Default::default(),
+            browser_user_data_dir: None,
+            browser_profile: None,
         };
 
         cx.update(|cx| {

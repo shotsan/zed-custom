@@ -232,7 +232,7 @@ members = [
     #
 
     "tooling/perf",
-    "tooling/xtask",
+    "tooling/xtask", "slack_backend/axum_slack_proxy",
 ]
 default-members = ["crates/zed-custom"]
 

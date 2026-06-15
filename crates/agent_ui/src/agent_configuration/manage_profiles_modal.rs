@@ -295,9 +295,9 @@ impl ManageProfilesModal {
                         update_settings_file(fs.clone(), cx, move |settings, _cx| {
                             let agent_settings = settings.agent.get_or_insert_default();
                             let profiles = agent_settings.profiles.get_or_insert_default();
-                            let profile = profiles.entry(profile_id.0.clone().into()).or_insert_with(|| {
+                            let profile = profiles.entry(profile_id.0.clone()).or_insert_with(|| {
                                 settings::AgentProfileContent {
-                                    name: profile_id.0.clone().into(),
+                                    name: profile_id.0.clone(),
                                     tools: Default::default(),
                                     enable_all_context_servers: None,
                                     context_servers: Default::default(),
@@ -567,9 +567,9 @@ Provide ONLY the queries, one per line, with no extra text or formatting.".to_st
                 update_settings_file(fs, cx, move |settings, _| {
                     let agent_settings = settings.agent.get_or_insert_default();
                     let profiles = agent_settings.profiles.get_or_insert_default();
-                    let profile = profiles.entry(profile_id.0.clone().into()).or_insert_with(|| {
+                    let profile = profiles.entry(profile_id.0.clone()).or_insert_with(|| {
                         settings::AgentProfileContent {
-                            name: profile_id.0.clone().into(),
+                            name: profile_id.0.clone(),
                             tools: Default::default(),
                             enable_all_context_servers: None,
                             context_servers: Default::default(),
@@ -610,9 +610,9 @@ Provide ONLY the queries, one per line, with no extra text or formatting.".to_st
                 update_settings_file(fs, cx, move |settings, _cx| {
                     let agent_settings = settings.agent.get_or_insert_default();
                     let profiles = agent_settings.profiles.get_or_insert_default();
-                    let profile_content = profiles.entry(profile_id_for_closure.0.clone().into()).or_insert_with(|| {
+                    let profile_content = profiles.entry(profile_id_for_closure.0.clone()).or_insert_with(|| {
                         settings::AgentProfileContent {
-                            name: profile_id_for_closure.0.clone().into(),
+                            name: profile_id_for_closure.0.clone(),
                             tools: Default::default(),
                             enable_all_context_servers: None,
                             context_servers: Default::default(),
@@ -1563,7 +1563,6 @@ impl ManageProfilesModal {
                                                             .disabled(!has_brave)
                                                             .handler({
                                                                 let profile_id = profile_id.clone();
-                                                                let this = this.clone();
                                                                 move |_window, cx: &mut App| {
                                                                     this.update(cx, |this, cx| {
                                                                         if let Mode::ConfigureDeepResearch(mode) = &mut this.mode {
@@ -1575,6 +1574,7 @@ impl ManageProfilesModal {
                                                                     }).ok();
                                                                 }
                                                             }))
+
                                                     }))
 
                                                 }

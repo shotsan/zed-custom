@@ -269,6 +269,7 @@ impl ActiveThreadState {
 
         let text = message_editor.read(cx).text(cx);
         let text = text.trim();
+
         if text == "/login" || text == "/logout" {
             let connection = thread.read(cx).connection().clone();
             let can_login = !connection.auth_methods().is_empty() || login.is_some();

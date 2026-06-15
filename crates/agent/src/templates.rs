@@ -116,5 +116,27 @@ mod tests {
         let rendered = template.render(&templates).unwrap();
         assert!(rendered.contains("## Fixing Diagnostics"));
         assert!(rendered.contains("test-model"));
+        // Without the subagent tool, the parallel-subagent guidance is omitted.
+        assert!(!rendered.contains("## Parallel Subagents"));
+    }
+
+    #[test]
+    fn test_system_prompt_includes_subagent_guidance_when_available() {
+        let project = prompt_store::ProjectContext::default();
+        let template = SystemPromptTemplate {
+            project: &project,
+            available_tools: vec!["subagent".into()],
+            model_name: Some("test-model".to_string()),
+            has_cpp_files: false,
+            has_python_files: false,
+            memories: Vec::new(),
+            custom_instructions: None,
+            custom_system_prompt: None,
+            archive_summary: None,
+        };
+        let templates = Templates::new();
+        let rendered = template.render(&templates).unwrap();
+        assert!(rendered.contains("## Parallel Subagents"));
+        assert!(rendered.contains("isolate_in_worktree"));
     }
 }

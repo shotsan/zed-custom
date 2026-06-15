@@ -35,6 +35,29 @@ starts, run these operations sequentially instead. Never use placeholders or gue
 watchers), specify `timeout_ms` to bound runtime. If the command times out, the user can always ask you to run it again
 with a longer timeout or no timeout if they're willing to wait or cancel manually.
 - Avoid HTML entity escaping - use plain characters instead.
+{{#if (contains available_tools 'subagent')}}
+
+## Parallel Subagents
+
+When a task naturally splits into independent pieces of work, delegate them to multiple `subagent`
+tool calls issued in parallel (in a single response), rather than doing everything yourself
+sequentially. Good candidates: implementing several independent modules/files, applying the same
+change across unrelated areas, or running separate investigations.
+
+- For subagents that will EDIT files in parallel, set `isolate_in_worktree: true` on each. This gives
+every subagent its own git worktree (a separate checkout on a fresh branch), so their concurrent
+edits and shell commands never collide. Each subagent's changes land on its own branch for the user
+to review and merge.
+- Leave `isolate_in_worktree` off (or false) for read-only investigations — isolation is unnecessary
+there and just adds overhead.
+- Give each isolated subagent a precise, self-contained `task_prompt`, and instruct it to refer to
+files by plain repo-relative paths (e.g. `src/foo.rs`); its tools automatically operate inside its
+own worktree.
+- Keep subagents' `summary_prompt` focused so the returned summary is concise. After the subagents
+finish, synthesize their summaries for the user and tell them which branches hold the changes.
+- Do not exceed the parallel-subagent limit; if you have more independent pieces than that, run them
+in successive batches.
+{{/if}}
 
 ## Searching and Reading
 

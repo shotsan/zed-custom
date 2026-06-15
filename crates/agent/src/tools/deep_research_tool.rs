@@ -19,7 +19,6 @@ use settings::Settings;
 use futures::{AsyncReadExt, StreamExt as _};
 use std::fmt::Write as _;
 use http_client::HttpRequestExt as _;
-use regex::Regex;
 
 
 /// Perform a deep, multi-tab graph-based research dive on a complex topic.
@@ -45,11 +44,12 @@ impl From<DeepResearchToolOutput> for LanguageModelToolResultContent {
 pub struct DeepResearchTool {
     http_client: Arc<HttpClientWithUrl>,
     profile_id: Option<AgentProfileId>,
+    thread: gpui::WeakEntity<crate::Thread>,
 }
 
 impl DeepResearchTool {
-    pub fn new(http_client: Arc<HttpClientWithUrl>, profile_id: Option<AgentProfileId>) -> Self {
-        Self { http_client, profile_id }
+    pub fn new(http_client: Arc<HttpClientWithUrl>, profile_id: Option<AgentProfileId>, thread: gpui::WeakEntity<crate::Thread>) -> Self {
+        Self { http_client, profile_id, thread }
     }
 }
 
@@ -82,6 +82,7 @@ impl AgentTool for DeepResearchTool {
         event_stream: ToolCallEventStream,
         cx: &mut App,
     ) -> Task<Result<Self::Output>> {
+        println!("DEBUG: DeepResearchTool::run called with topic: {}", input.topic);
         let global_settings = AgentSettings::get_global(cx);
         let research_settings = if let Some(profile_id) = &self.profile_id {
             global_settings
@@ -95,12 +96,24 @@ impl AgentTool for DeepResearchTool {
         let http_client = self.http_client.clone();
         
         // 1. Prepare Expansion Prompt
-        // 1. Get the current active model from the LanguageModelRegistry
+        // 1. Get the current active model from the thread or fallback to LanguageModelRegistry
+        let thread_model = self.thread.upgrade().and_then(|thread| thread.read(cx).model().cloned());
+        let model = thread_model.or_else(|| {
+            language_model::LanguageModelRegistry::read_global(cx)
+                .default_model()
+                .map(|m| m.model)
+                .or_else(|| {
+                    language_model::LanguageModelRegistry::read_global(cx)
+                        .available_models(cx)
+                        .next()
+                })
+        });
 
-
-        let model = language_model::LanguageModelRegistry::read_global(cx)
-            .default_model()
-            .map(|m| m.model);
+        if let Some(ref m) = model {
+            log::info!("🔍 DeepResearchTool using language model: {}", m.telemetry_id());
+        } else {
+            log::warn!("🔍 DeepResearchTool has no language model available!");
+        }
         let mut async_cx = cx.to_async();
         let tokio_handle = gpui_tokio::Tokio::handle(cx);
         
@@ -108,7 +121,9 @@ impl AgentTool for DeepResearchTool {
             research_settings.use_headed_browser, self.profile_id);
             
         cx.foreground_executor().spawn(async move {
+            println!("DEBUG: DeepResearchTool::run spawn block entered");
             event_stream.update_fields(acp::ToolCallUpdateFields::new().title("Expanding topic into search queries..."));
+            event_stream.push_log("🔍 Expanding topic into search queries...".to_string());
             let queries = expand_topic(
                 http_client.clone(),
                 &input.topic,
@@ -117,6 +132,9 @@ impl AgentTool for DeepResearchTool {
                 model.clone(),
                 &mut async_cx
             ).await.unwrap_or_else(|_| vec![input.topic.clone()]);
+            
+            event_stream.push_log(format!("✅ Topic expanded into {} queries.", queries.len()));
+            event_stream.push_log("🌐 Starting background research task...".to_string());
             
             let event_stream_clone = event_stream.clone();
             let model_clone = model.clone();
@@ -168,6 +186,7 @@ impl AgentTool for DeepResearchTool {
                 &report_for_synthesis,
                 condensation_prompt.as_deref(),
                 model_for_synthesis,
+                Some(event_stream.clone()),
                 &mut async_cx_for_synthesis
             ).await {
                 Ok(summary) => summary,
@@ -176,6 +195,13 @@ impl AgentTool for DeepResearchTool {
                     raw_report
                 }
             };
+
+            let _ = self.thread.update(&mut async_cx_for_synthesis, |thread, cx| {
+                thread.push_acp_agent_block(
+                    acp::ContentBlock::Text(acp::TextContent::new(final_report.clone())),
+                    cx,
+                );
+            });
 
             Ok(DeepResearchToolOutput { report: final_report })
         })
@@ -227,20 +253,32 @@ pub async fn expand_topic(
             ..Default::default()
         };
         
-        if let Ok(mut stream) = model.stream_completion_text(request, async_cx).await {
-            let mut response_text = String::new();
-            use futures::StreamExt as _;
-            while let Some(chunk) = stream.stream.next().await {
-                if let Ok(text) = chunk {
-                    response_text.push_str(text.as_ref());
+        println!("DEBUG: expand_topic: sending completion request to language model...");
+        match model.stream_completion_text(request, async_cx).await {
+            Ok(mut stream) => {
+                let mut response_text = String::new();
+                use futures::StreamExt as _;
+                while let Some(chunk) = stream.stream.next().await {
+                    match chunk {
+                        Ok(text) => {
+                            response_text.push_str(text.as_ref());
+                        }
+                        Err(e) => {
+                            println!("DEBUG ERROR: chunk error in expand_topic: {:?}", e);
+                        }
+                    }
+                }
+                println!("DEBUG: expand_topic model response text: {:?}", response_text);
+                
+                for line in response_text.lines() {
+                    let clean_line = line.trim().trim_start_matches("- ").trim_start_matches("* ").trim_start_matches(|c: char| c.is_ascii_digit() || c == '.').trim().to_string();
+                    if !clean_line.is_empty() {
+                        queries.push(clean_line);
+                    }
                 }
             }
-            
-            for line in response_text.lines() {
-                let clean_line = line.trim().trim_start_matches("- ").trim_start_matches("* ").trim_start_matches(|c: char| c.is_ascii_digit() || c == '.').trim().to_string();
-                if !clean_line.is_empty() {
-                    queries.push(clean_line);
-                }
+            Err(e) => {
+                println!("DEBUG ERROR: stream_completion_text failed in expand_topic: {:?}", e);
             }
         }
     }
@@ -271,6 +309,7 @@ pub async fn run_deep_research_bg(
     browser_user_data_dir: Option<std::path::PathBuf>,
     browser_profile: Option<String>,
 ) -> anyhow::Result<String> {
+    println!("DEBUG: run_deep_research_bg entered");
 
     let mut logs = if let Some(es) = &event_stream {
         if let Some(sl) = &es.shared_logs {
@@ -302,7 +341,26 @@ pub async fn run_deep_research_bg(
         agent_settings::SearchProvider::Brave => "Brave Search",
     }), None);
 
+    let mut queries = queries;
+    if queries.is_empty() {
+        log_message("🧠 Expanding topic into search queries...".to_string(), None);
+        queries = expand_topic(
+            http_client.clone(),
+            &topic,
+            domains.as_ref(),
+            None,
+            model.clone(),
+            async_cx,
+        )
+        .await
+        .unwrap_or_else(|_| vec![topic.clone()]);
+        log_message(format!("✅ Topic expanded into {} queries.", queries.len()), None);
+    }
+
     // 1. Initialize the persistent research browser
+    if let Some(stream) = &event_stream {
+        stream.push_log("🛠️ Initializing research browser config...".to_string());
+    }
     let mut builder = BrowserConfig::builder();
     
     log::info!("Deep Research: Initializing browser. Headed: {}, UserDataDir: {:?}, Profile: {:?}", 
@@ -346,16 +404,31 @@ pub async fn run_deep_research_bg(
         .arg("--no-first-run")
         .arg("--no-default-browser-check");
 
+    let mut discovered_path = None;
     // Attempt to find Chrome on macOS if it's not in the PATH
     #[cfg(target_os = "macos")]
     {
-        let common_paths = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"];
+        let common_paths = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/opt/homebrew/bin/chromium",
+            "/usr/local/bin/chromium",
+        ];
         for path in common_paths {
             if std::path::Path::new(path).exists() {
                 builder = builder.chrome_executable(path);
                 log::info!("Deep Research: Found browser executable at {}", path);
+                if let Some(stream) = &event_stream {
+                    stream.push_log(format!("📂 Found Chrome at: {}", path));
+                }
+                discovered_path = Some(path.to_string());
                 break;
             }
+        }
+
+        if discovered_path.is_none() {
+            log::warn!("Deep Research: No Chrome/Chromium found in common /Applications paths. Will fallback to system PATH.");
         }
     }
 
@@ -372,16 +445,44 @@ pub async fn run_deep_research_bg(
     };
     
     // Launch browser on the tokio runtime directly to avoid context errors
+    if let Some(stream) = &event_stream {
+        stream.push_log("🚀 Launching browser process...".to_string());
+    }
     let tokio_handle_for_launch = tokio_handle.clone();
+    println!("DEBUG: Spawning browser launch task on tokio...");
     let launch_result = tokio_handle_for_launch.spawn(async move {
-        Browser::launch(config).await
+        println!("DEBUG: Browser::launch(config) starting...");
+        let res = Browser::launch(config).await;
+        println!("DEBUG: Browser::launch(config) finished with result: {:?}", res.as_ref().map(|_| "Ok").map_err(|e| e.to_string()));
+        res
     }).await.map_err(|e| anyhow::anyhow!("Background task join failed: {e}"))?;
     
     let (browser, mut handler) = match launch_result {
         Ok(res) => res,
         Err(e) => {
-            let err_msg = format!("Failed to launch persistent research browser. Details: {e}");
+            let mut err_msg = format!("Failed to launch persistent research browser. Details: {e}");
             log::error!("{}", err_msg);
+
+            // Sanity check: if we have a path, try to run it manually to see why it fails
+            if let Some(path) = discovered_path {
+                match smol::process::Command::new(&path).arg("--version").output().await {
+                    Ok(output) => {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        log::info!("Deep Research: Browser sanity check (--version) output: stdout={}, stderr={}", stdout, stderr);
+                        if !output.status.success() {
+                            err_msg.push_str(&format!("\nBinary exists but failed to run (status {}).\nstdout: {}\nstderr: {}", output.status, stdout, stderr));
+                        }
+                    }
+                    Err(spawn_err) => {
+                        log::error!("Deep Research: Failed to run browser sanity check: {}", spawn_err);
+                        err_msg.push_str(&format!("\nFailed to execute browser binary for diagnostic check: {}", spawn_err));
+                    }
+                }
+            } else {
+                err_msg.push_str("\nNo Chrome executable was found in common macOS locations, and launch from system PATH also failed.");
+            }
+
             if let Some(stream) = &event_stream {
                 stream.push_log(format!("❌ {}", err_msg));
                 stream.push_log("💡 Troubleshooting browser launch on macOS:".to_string());
@@ -389,6 +490,7 @@ pub async fn run_deep_research_bg(
                 stream.push_log(" 2. Open Chrome manually at least once to clear any 'Verifying...' macOS dialogs.".to_string());
                 stream.push_log(" 3. If macOS Gatekeeper is blocking the binary, run this in your terminal:".to_string());
                 stream.push_log("    xattr -cr \"/Applications/Google Chrome.app\"".to_string());
+                stream.push_log(" 4. Ensure you are not running in a restricted sandbox that blocks sub-process spawning.".to_string());
             }
             bail!("{}", err_msg);
         }
@@ -629,7 +731,7 @@ pub async fn run_deep_research_bg(
              }).await??
         };
         
-        for (res, summary) in candidates_to_fetch.into_iter().zip(summaries.into_iter()) {
+        for (res, summary) in candidates_to_fetch.into_iter().zip(summaries) {
             let is_failure = summary.starts_with('(');
             if is_failure {
                 log::warn!("❌ Deep Research: Blocked or Failed: {} ({})", res.url, summary);
@@ -676,32 +778,6 @@ pub async fn run_deep_research_bg(
                     let mut follow_up_results = Vec::new();
                     
                     if search_provider == agent_settings::SearchProvider::Google {
-                        log_message("🔍 Google: Sequential follow-up mode...".to_string(), None);
-                        for (idx, q) in follow_up_queries.iter().enumerate() {
-                            let search_candidates = vec![DeepResearchSearchResult {
-                                id: idx,
-                                title: q.clone(),
-                                url: format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(q)),
-                                snippet: String::new(),
-                                score: 0,
-                            }];
-                            let html_responses = tokio_handle.spawn({
-                                let browser = browser.clone();
-                                let event_stream = event_stream.clone();
-                                async move { browse_parallel(browser, search_candidates, event_stream, true).await }
-                            }).await?;
-                            if let Ok(html_responses) = html_responses {
-                                if let Some(html) = html_responses.first() {
-                                    follow_up_results.extend(parse_google_results(html));
-                                }
-                            }
-                            tokio_handle.spawn(async { 
-                                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                                let jitter = 8 + (now % 7);
-                                tokio::time::sleep(std::time::Duration::from_secs(jitter)).await 
-                            }).await?;
-                        }
-                    } else if search_provider == agent_settings::SearchProvider::Google {
                         log_message("🔍 Google: Sequential follow-up mode...".to_string(), None);
                         let google_page = tokio_handle.spawn({
                             let browser = browser.clone();
@@ -846,48 +922,21 @@ pub async fn identify_gaps_and_relaunch(
 async fn ddg_search_api(http_client: Arc<HttpClientWithUrl>, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
     let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:125.0) Gecko/20100101 Firefox/125.0";
 
-    // 1. Fetch the vqd token
-    let token_url = format!("https://duckduckgo.com/?q={}", url_encode(query));
+    let url = format!("https://html.duckduckgo.com/html/?q={}", url_encode(query));
     let request = Builder::new()
         .method(http_client::http::Method::GET)
-        .uri(token_url)
+        .uri(url)
         .header("User-Agent", ua)
         .body(AsyncBody::default())?;
     
     let mut response = http_client.send(request).await?;
     if !response.status().is_success() {
-        bail!("Failed to fetch DDG token page: {}", response.status());
-    }
-    
-    let mut body = String::new();
-    response.body_mut().read_to_string(&mut body).await?;
-    
-    let vqd_re = Regex::new(r#"vqd=['"]([^'"]+)['"]"#)?;
-    let vqd = vqd_re.captures(&body)
-        .and_then(|cap| cap.get(1))
-        .map(|m| m.as_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to extract vqd token from DuckDuckGo response"))?;
-    
-    // 2. Fetch search results using the token via POST to html endpoint (The 'ddgs' method)
-    let post_data = format!("q={}&vqd={}&kl=us-en", url_encode(query), vqd);
-    
-    let request = Builder::new()
-        .method(http_client::http::Method::POST)
-        .uri("https://html.duckduckgo.com/html/")
-        .header("User-Agent", ua)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Referer", "https://duckduckgo.com/")
-        .body(AsyncBody::from(post_data.into_bytes()))?;
-        
-    let mut response = http_client.send(request).await?;
-    if !response.status().is_success() {
-        bail!("DDG search API failed with status: {}", response.status());
+        bail!("DDG search failed with status: {}", response.status());
     }
     
     let mut html = String::new();
     response.body_mut().read_to_string(&mut html).await?;
     
-    // The response is pure HTML from the lite endpoint. Use our existing parser.
     let results = parse_ddg_browser_results(&html);
     
     Ok(results)
@@ -899,6 +948,7 @@ pub async fn condense_report(
     raw_report: &str,
     custom_prompt: Option<&str>,
     model: Option<Arc<dyn language_model::LanguageModel>>,
+    event_stream: Option<ToolCallEventStream>,
     async_cx: &mut gpui::AsyncApp,
 ) -> Result<String> {
     if let Some(model) = model {
@@ -938,12 +988,23 @@ pub async fn condense_report(
             ..Default::default()
         };
 
+        log::info!("🧠 DeepResearchTool: Submitting {} bytes of scraped HTML data to Claude for synthesis...", request.messages.iter().map(|m| m.string_contents().len()).sum::<usize>());
+
         if let Ok(mut stream) = model.stream_completion_text(request, async_cx).await {
             let mut response_text = String::new();
+            let mut last_logged_len = 0;
             use futures::StreamExt as _;
             while let Some(chunk) = stream.stream.next().await {
                 if let Ok(text) = chunk {
                     response_text.push_str(text.as_ref());
+                    
+                    // Log progress to UI every ~500 chars to show it's actively generating
+                    if response_text.len() > last_logged_len + 500 {
+                        last_logged_len = response_text.len();
+                        if let Some(es) = &event_stream {
+                            es.push_log(format!("⏳ Claude is synthesizing... generated {} bytes of final report so far", response_text.len()));
+                        }
+                    }
                 }
             }
             if !response_text.is_empty() {
@@ -1064,6 +1125,7 @@ fn parse_google_results(html: &str) -> Vec<DeepResearchSearchResult> {
     results
 }
 
+#[allow(dead_code)]
 async fn ddg_search(http_client: Arc<HttpClientWithUrl>, query: &str) -> Result<Vec<DeepResearchSearchResult>> {
     let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
     let encoded_query = url_encode(query);
@@ -1085,7 +1147,7 @@ async fn ddg_search(http_client: Arc<HttpClientWithUrl>, query: &str) -> Result<
     // 202 means DDG rate-limited this request. Retry once after a short delay.
     if status.as_u16() == 202 {
         log::warn!("DDG Search: got 202 for '{}', retrying after 2s", query);
-        smol::Timer::after(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         let mut retry_response = http_client.send(make_request()?).await?;
         let retry_status = retry_response.status();
         let mut body = Vec::new();
@@ -1307,7 +1369,7 @@ fn score_results_heuristic(results: &mut [DeepResearchSearchResult], topic: &str
     }
 
     // Sort descending by score
-    results.sort_by(|a, b| b.score.cmp(&a.score));
+    results.sort_by_key(|b| std::cmp::Reverse(b.score));
 }
 
 pub async fn rank_results_with_llm(
@@ -1394,7 +1456,7 @@ pub async fn rank_results_with_llm(
         }
     }
     
-    results.sort_by(|a, b| b.score.cmp(&a.score));
+    results.sort_by_key(|b| std::cmp::Reverse(b.score));
     Ok(())
 }
 
@@ -1449,6 +1511,7 @@ fn parse_ddg_browser_results(html: &str) -> Vec<DeepResearchSearchResult> {
     results
 }
 
+#[allow(dead_code)]
 fn parse_results(html: &str) -> Vec<DeepResearchSearchResult> {
     let document = Html::parse_document(html);
     let Ok(result_selector) = Selector::parse(".result") else { return Vec::new(); };

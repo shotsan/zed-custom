@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later"
 path = "src/agent.rs"
 
 [features]
-test-support = ["db/test-support"]
+test-support = ["db/test-support", "gpui/test-support"]
 eval = []
 unit-eval = []
 e2e = []

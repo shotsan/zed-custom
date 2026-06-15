@@ -24,7 +24,9 @@ use project::Project;
 use settings::SettingsStore;
 use std::{any::Any, path::Path, rc::Rc, sync::Arc};
 
-pub use acp::AcpConnection;
+pub use acp::{AcpConnection, connect};
+pub use project::agent_server_store::LocalClaudeCode;
+
 
 pub struct AgentServerDelegate {
     store: Entity<AgentServerStore>,

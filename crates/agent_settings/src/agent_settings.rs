@@ -97,8 +97,8 @@ impl Persona {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, JsonSchema)]
 pub enum SearchProvider {
-    #[default]
     Duckduckgo,
+    #[default]
     Google,
     Serper,
     Tavily,

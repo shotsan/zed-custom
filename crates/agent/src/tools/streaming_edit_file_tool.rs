@@ -578,7 +578,7 @@ fn apply_edits(
             buffer.update(cx, |buffer, cx| {
                 // Apply edits in reverse order so offsets remain valid
                 let mut edits_sorted: Vec<_> = resolved_edits.into_iter().collect();
-                edits_sorted.sort_by(|a, b| b.0.start.cmp(&a.0.start));
+                edits_sorted.sort_by_key(|b| std::cmp::Reverse(b.0.start));
                 for (range, new_text) in edits_sorted {
                     buffer.edit([(range, new_text.as_str())], None, cx);
                 }

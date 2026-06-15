@@ -1390,12 +1390,92 @@ impl ExternalAgentServer for LocalGemini {
     }
 }
 
-struct LocalClaudeCode {
+pub struct LocalClaudeCode {
     fs: Arc<dyn Fs>,
     node_runtime: NodeRuntime,
     project_environment: Entity<ProjectEnvironment>,
     custom_command: Option<AgentServerCommand>,
     settings_env: Option<HashMap<String, String>>,
+}
+
+impl LocalClaudeCode {
+    /// Resolves (and installs if needed) the claude-code-acp binary and returns the
+    /// `AgentServerCommand` needed to spawn a fresh subprocess. Intended for use by
+    /// `AcpLanguageModel`'s connection factory so that each `stream_completion` call
+    /// gets its own dedicated node process, avoiding the single-threaded deadlock.
+    pub async fn get_command_for_factory(
+        node_runtime: NodeRuntime,
+        fs: Arc<dyn Fs>,
+        project_environment: gpui::WeakEntity<ProjectEnvironment>,
+        custom_command: Option<AgentServerCommand>,
+        settings_env: Option<HashMap<String, String>>,
+        root_dir: Option<String>,
+        cx: &mut AsyncApp,
+    ) -> Result<(AgentServerCommand, String, Option<task::SpawnInTerminal>)> {
+        let root_dir: Arc<Path> = root_dir
+            .as_deref()
+            .map(Path::new)
+            .unwrap_or(paths::home_dir())
+            .into();
+
+        let mut env = project_environment
+            .update(cx, |project_environment, cx| {
+                project_environment.local_directory_environment(
+                    &Shell::System,
+                    root_dir.clone(),
+                    cx,
+                )
+            })?
+            .await
+            .unwrap_or_default();
+        env.insert("ANTHROPIC_API_KEY".into(), "".into());
+        env.extend(settings_env.unwrap_or_default());
+
+        let (command, login_command) = if let Some(mut custom_command) = custom_command {
+            custom_command.env = Some(env);
+            (custom_command, None)
+        } else {
+            let mut command = get_or_npm_install_builtin_agent(
+                "claude-code-acp".into(),
+                "@zed-industries/claude-code-acp".into(),
+                "node_modules/@zed-industries/claude-code-acp/dist/index.js".into(),
+                Some("0.5.2".parse().unwrap()),
+                None,
+                None,
+                fs,
+                node_runtime,
+                cx,
+            )
+            .await?;
+            command.env = Some(env);
+            let login = command
+                .args
+                .first()
+                .and_then(|path| {
+                    path.strip_suffix("/@zed-industries/claude-code-acp/dist/index.js")
+                })
+                .map(|path_prefix| task::SpawnInTerminal {
+                    command: Some(command.path.to_string_lossy().into_owned()),
+                    args: vec![
+                        Path::new(path_prefix)
+                            .join("@anthropic-ai/claude-agent-sdk/cli.js")
+                            .to_string_lossy()
+                            .to_string(),
+                        "/login".into(),
+                    ],
+                    env: command.env.clone().unwrap_or_default(),
+                    label: "claude /login".into(),
+                    ..Default::default()
+                });
+            (command, login)
+        };
+
+        Ok((
+            command,
+            root_dir.to_string_lossy().into_owned(),
+            login_command,
+        ))
+    }
 }
 
 impl ExternalAgentServer for LocalClaudeCode {
@@ -1484,6 +1564,7 @@ impl ExternalAgentServer for LocalClaudeCode {
         self
     }
 }
+
 
 struct LocalCodex {
     fs: Arc<dyn Fs>,

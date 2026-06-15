@@ -1153,6 +1153,9 @@ impl NativeAgentConnection {
                     }
                     Err(e) => {
                         log::error!("Error in model response stream: {:?}", e);
+                        acp_thread.update(cx, |thread, cx| {
+                            thread.push_assistant_content_block(format!("❌ Error: {e:#}").into(), false, cx)
+                        })?;
                         return Err(e);
                     }
                 }
@@ -1297,6 +1300,7 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
         cx: &mut App,
     ) -> Task<Result<Entity<acp_thread::AcpThread>>> {
         let agent = self.0.clone();
+        let cwd = cwd.to_path_buf();
         log::debug!("Creating new thread for project at: {:?}", cwd);
 
         cx.spawn(async move |cx| {
@@ -1316,7 +1320,7 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
                         .model_from_id(&LanguageModels::model_id(&default_model.model))
                 });
                 cx.new(|cx| {
-                    Thread::new(
+                    let mut thread = Thread::new(
                         project.clone(),
                         agent.project_context.clone(),
                         agent.context_server_registry.clone(),
@@ -1325,7 +1329,9 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
                         agent.semantic_index.clone(),
                         default_model,
                         cx,
-                    )
+                    );
+                    thread.set_cwd(Some(cwd.clone()));
+                    thread
                 })
             });
             Ok(agent.update(cx, |agent, cx| agent.register_session(thread, cx)))
@@ -1368,6 +1374,7 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
         params: acp::PromptRequest,
         cx: &mut App,
     ) -> Task<Result<acp::PromptResponse>> {
+        println!("DEBUG: handle_prompt called with {} blocks", params.prompt.len());
         let id = id.unwrap_or_else(acp_thread::UserMessageId::new);
         let session_id = params.session_id.clone();
         log::info!("Received prompt request for session: {}", session_id);
@@ -1438,6 +1445,7 @@ impl acp_thread::AgentConnection for NativeAgentConnection {
             };
 
             if parsed_command.prompt_name == "deep-research" && !parsed_command.arg_value.is_empty() {
+                println!("DEBUG: handle_prompt recognized deep-research command");
                 let topic = parsed_command.arg_value.to_string();
                 let path_style = self.0.read(cx).project.read(cx).path_style(cx);
                 let user_content: Vec<UserMessageContent> = params

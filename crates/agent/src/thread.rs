@@ -821,6 +821,9 @@ pub struct Thread {
     custom_system_prompt_template: Option<String>,
     /// Optional summary of pruned history to carry forward context
     pub archive_summary: Option<String>,
+    /// Absolute path of the worktree this thread is bound to, used to isolate
+    /// parallel agent threads. Persisted so the binding survives a reload.
+    cwd: Option<PathBuf>,
 }
 
 impl Thread {
@@ -852,6 +855,16 @@ impl Thread {
         &self.profile_id
     }
 
+    /// The worktree this thread is bound to, if any. Used to isolate parallel
+    /// agent threads onto separate working directories.
+    pub fn cwd(&self) -> Option<&PathBuf> {
+        self.cwd.as_ref()
+    }
+
+    pub fn set_cwd(&mut self, cwd: Option<PathBuf>) {
+        self.cwd = cwd;
+    }
+
     pub fn new(
         project: Entity<Project>,
         project_context: Entity<ProjectContext>,
@@ -866,6 +879,7 @@ impl Thread {
         let action_log = cx.new(|_cx| ActionLog::new(project.clone()));
         let (prompt_capabilities_tx, prompt_capabilities_rx) =
             watch::channel(Self::prompt_capabilities(model.as_deref()));
+
         Self {
             id: acp::SessionId::new(uuid::Uuid::new_v4().to_string()),
             prompt_id: PromptId::new(),
@@ -907,6 +921,7 @@ impl Thread {
             running_subagents: Vec::new(),
             custom_system_prompt_template: None,
             archive_summary: None,
+            cwd: None,
         }
     }
 
@@ -920,6 +935,7 @@ impl Thread {
         model: Arc<dyn LanguageModel>,
         subagent_context: SubagentContext,
         parent_tools: BTreeMap<SharedString, Arc<dyn AnyAgentTool>>,
+        worktree_root: Option<Arc<Path>>,
         cx: &mut Context<Self>,
     ) -> Self {
         let profile_id = AgentSettings::get_global(cx).default_profile.clone();
@@ -929,13 +945,19 @@ impl Thread {
 
         // Rebind tools that hold thread references to use this subagent's thread
         // instead of the parent's thread. This is critical for tools like EditFileTool
-        // that make model requests using the thread's ID.
+        // that make model requests using the thread's ID. When this subagent runs in an
+        // isolated worktree, additionally wrap each tool so its file paths resolve within
+        // that worktree, keeping parallel subagents from colliding on the same files.
         let weak_self = cx.weak_entity();
         let tools: BTreeMap<SharedString, Arc<dyn AnyAgentTool>> = parent_tools
             .into_iter()
             .map(|(name, tool)| {
                 let rebound = tool.rebind_thread(weak_self.clone()).unwrap_or(tool);
-                (name, rebound)
+                let scoped = match &worktree_root {
+                    Some(root) => WorktreeScoped::new(rebound, root.clone()),
+                    None => rebound,
+                };
+                (name, scoped)
             })
             .collect();
 
@@ -975,6 +997,7 @@ impl Thread {
             running_subagents: Vec::new(),
             custom_system_prompt_template: None,
             archive_summary: None,
+            cwd: worktree_root.map(|root| root.to_path_buf()),
         }
     }
 
@@ -1028,6 +1051,34 @@ impl Thread {
             model,
             subagent_context,
             parent_tools,
+            None,
+            cx,
+        )
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn from_db_for_test(
+        id: acp::SessionId,
+        db_thread: DbThread,
+        project: Entity<Project>,
+        project_context: Entity<ProjectContext>,
+        context_server_registry: Entity<ContextServerRegistry>,
+        templates: Arc<Templates>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let connection = sqlez::connection::Connection::open_memory(None);
+        let db = Arc::new(MemoryDatabase::new(cx.background_executor().clone(), connection).unwrap());
+        let memory_store = Arc::new(MemoryStore::new(db, std::path::PathBuf::from("/test")));
+        let semantic_index = Arc::new(parking_lot::RwLock::new(SemanticIndex::new()));
+        Self::from_db(
+            id,
+            db_thread,
+            project,
+            project_context,
+            context_server_registry,
+            templates,
+            memory_store,
+            semantic_index,
             cx,
         )
     }
@@ -1291,6 +1342,7 @@ impl Thread {
             running_subagents: Vec::new(),
             custom_system_prompt_template: None,
             archive_summary: db_thread.archive_summary,
+            cwd: db_thread.cwd,
         }
     }
 
@@ -1311,6 +1363,7 @@ impl Thread {
             profile: Some(self.profile_id.clone()),
             imported: self.imported,
             archive_summary: self.archive_summary.clone(),
+            cwd: self.cwd.clone(),
         };
 
         cx.background_spawn(async move {
@@ -1462,6 +1515,7 @@ impl Thread {
         self.add_tool(crate::DeepResearchTool::new(
             self.project.read(cx).client().http_client(),
             Some(self.profile_id.clone()),
+            cx.weak_entity(),
         ));
         self.add_tool(FindPathTool::new(self.project.clone()));
         self.add_tool(GrepTool::new(self.project.clone()));
@@ -1923,6 +1977,7 @@ impl Thread {
         tool_input: serde_json::Value,
         cx: &mut Context<Self>,
     ) -> Result<mpsc::UnboundedReceiver<Result<ThreadEvent>>> {
+        println!("DEBUG: start_direct_tool_run called for tool: {}", tool_name);
         self.flush_pending_message(cx);
         self.cancel(cx).detach();
 
@@ -1936,6 +1991,7 @@ impl Thread {
             .get(tool_name)
             .with_context(|| format!("Tool '{}' not found or not enabled in current profile", tool_name))?
             .clone();
+        println!("DEBUG: Found tool: {}", tool_name);
 
         self.messages.push(Message::User(UserMessage {
             id: user_message_id,
@@ -1966,7 +2022,7 @@ impl Thread {
         event_stream.send_tool_call(
             &tool_use_id,
             &tool_name_owned,
-            tool_title.clone(),
+            tool_title,
             acp::ToolKind::Execute,
             tool_input.clone(),
         );
@@ -1984,7 +2040,7 @@ impl Thread {
         );
 
         let tool_result_task = tool.run(tool_input, tool_event_stream, cx);
-        let tool_name_static = tool_name_owned.clone();
+        let tool_name_static = tool_name_owned;
 
         let running_task = cx.spawn({
             let event_stream = event_stream.clone();
@@ -3504,8 +3560,142 @@ where
     }
 }
 
+/// Input field names that carry a filesystem path across the file-manipulation
+/// tools. When a tool is worktree-scoped (see [`WorktreeScoped`]), relative
+/// values in these fields are rooted at the subagent's worktree so that
+/// parallel subagents operate on isolated checkouts instead of colliding on the
+/// first visible worktree.
+const TOOL_PATH_INPUT_KEYS: &[&str] = &[
+    "path",
+    "file_path",
+    "directory_path",
+    "old_path",
+    "new_path",
+    "source_path",
+    "destination_path",
+    "abs_path",
+];
+
+/// Input field names that name a working directory (e.g. the terminal tool's
+/// `cd`). For a worktree-scoped tool these are pinned to the subagent's worktree
+/// root, so its shell commands (builds, tests, git) run inside its own checkout
+/// instead of the shared project root — which is also now ambiguous, since the
+/// project holds every subagent's worktree.
+const TOOL_WORKDIR_INPUT_KEYS: &[&str] = &["cd"];
+
+/// Rewrites path-bearing values in `input` to point inside `worktree_root`.
+///
+/// - Relative values in [`TOOL_PATH_INPUT_KEYS`] are rooted at the worktree.
+///   `Project::find_project_path` resolves the resulting absolute path to the
+///   worktree whose root prefixes it, pinning the operation to the subagent's
+///   own checkout.
+/// - Working-directory values in [`TOOL_WORKDIR_INPUT_KEYS`] are forced to the
+///   worktree root unless they are already an absolute path within it (the
+///   subagent doesn't know its worktree's name, so `"."`/root-name values would
+///   otherwise resolve to the wrong worktree).
+fn rewrite_tool_input_paths(mut input: serde_json::Value, worktree_root: &Path) -> serde_json::Value {
+    let root_string = worktree_root.to_string_lossy().into_owned();
+    if let Some(object) = input.as_object_mut() {
+        for key in TOOL_PATH_INPUT_KEYS {
+            if let Some(serde_json::Value::String(value)) = object.get(*key) {
+                let candidate = Path::new(value);
+                if candidate.is_relative() {
+                    let rooted = worktree_root.join(candidate);
+                    object.insert(
+                        (*key).to_string(),
+                        serde_json::Value::String(rooted.to_string_lossy().into_owned()),
+                    );
+                }
+            }
+        }
+        for key in TOOL_WORKDIR_INPUT_KEYS {
+            if let Some(serde_json::Value::String(value)) = object.get(*key) {
+                let candidate = Path::new(value);
+                let already_scoped = candidate.is_absolute() && candidate.starts_with(worktree_root);
+                if !already_scoped {
+                    object.insert(
+                        (*key).to_string(),
+                        serde_json::Value::String(root_string.clone()),
+                    );
+                }
+            }
+        }
+    }
+    input
+}
+
+/// Wraps another tool so that file paths in its input are resolved within a
+/// specific git worktree. Used to isolate parallel subagents: each runs in its
+/// own worktree checkout, so concurrent edits never clobber one another.
+pub struct WorktreeScoped {
+    inner: Arc<dyn AnyAgentTool>,
+    worktree_root: Arc<Path>,
+}
+
+impl WorktreeScoped {
+    pub fn new(inner: Arc<dyn AnyAgentTool>, worktree_root: Arc<Path>) -> Arc<dyn AnyAgentTool> {
+        Arc::new(Self {
+            inner,
+            worktree_root,
+        })
+    }
+}
+
+impl AnyAgentTool for WorktreeScoped {
+    fn name(&self) -> SharedString {
+        self.inner.name()
+    }
+
+    fn description(&self) -> SharedString {
+        self.inner.description()
+    }
+
+    fn kind(&self) -> acp::ToolKind {
+        self.inner.kind()
+    }
+
+    fn initial_title(&self, input: serde_json::Value, cx: &mut App) -> SharedString {
+        self.inner.initial_title(input, cx)
+    }
+
+    fn input_schema(&self, format: LanguageModelToolSchemaFormat) -> Result<serde_json::Value> {
+        self.inner.input_schema(format)
+    }
+
+    fn supports_provider(&self, provider: &LanguageModelProviderId) -> bool {
+        self.inner.supports_provider(provider)
+    }
+
+    fn run(
+        self: Arc<Self>,
+        input: serde_json::Value,
+        event_stream: ToolCallEventStream,
+        cx: &mut App,
+    ) -> Task<Result<AgentToolOutput>> {
+        let input = rewrite_tool_input_paths(input, &self.worktree_root);
+        self.inner.clone().run(input, event_stream, cx)
+    }
+
+    fn replay(
+        &self,
+        input: serde_json::Value,
+        output: serde_json::Value,
+        event_stream: ToolCallEventStream,
+        cx: &mut App,
+    ) -> Result<()> {
+        let input = rewrite_tool_input_paths(input, &self.worktree_root);
+        self.inner.replay(input, output, event_stream, cx)
+    }
+
+    fn rebind_thread(&self, new_thread: WeakEntity<Thread>) -> Option<Arc<dyn AnyAgentTool>> {
+        self.inner
+            .rebind_thread(new_thread)
+            .map(|rebound| WorktreeScoped::new(rebound, self.worktree_root.clone()))
+    }
+}
+
 #[derive(Clone)]
-struct ThreadEventStream(mpsc::UnboundedSender<Result<ThreadEvent>>);
+pub struct ThreadEventStream(pub mpsc::UnboundedSender<Result<ThreadEvent>>);
 
 impl ThreadEventStream {
     fn send_user_message(&self, message: &UserMessage) {
@@ -3638,7 +3828,7 @@ impl ToolCallEventStream {
         cancellation_tx.send(true).ok();
     }
 
-    fn new(
+    pub fn new(
         tool_use_id: LanguageModelToolUseId,
         stream: ThreadEventStream,
         fs: Option<Arc<dyn Fs>>,
@@ -4101,5 +4291,61 @@ fn convert_image(image_content: acp::ImageContent) -> LanguageModelImage {
     LanguageModelImage {
         source: image_content.data.into(),
         size: None,
+    }
+}
+
+#[cfg(test)]
+mod worktree_scope_tests {
+    use super::rewrite_tool_input_paths;
+    use serde_json::json;
+    use std::path::Path;
+
+    fn root() -> &'static Path {
+        Path::new("/tmp/repo-agent-a")
+    }
+
+    #[test]
+    fn relative_file_path_is_rooted_at_worktree() {
+        let out = rewrite_tool_input_paths(json!({ "path": "src/foo.rs" }), root());
+        assert_eq!(out["path"], json!("/tmp/repo-agent-a/src/foo.rs"));
+    }
+
+    #[test]
+    fn absolute_file_path_is_left_untouched() {
+        let out = rewrite_tool_input_paths(json!({ "path": "/elsewhere/bar.rs" }), root());
+        assert_eq!(out["path"], json!("/elsewhere/bar.rs"));
+    }
+
+    #[test]
+    fn move_paths_are_both_rewritten() {
+        let out = rewrite_tool_input_paths(
+            json!({ "source_path": "a.rs", "destination_path": "b.rs" }),
+            root(),
+        );
+        assert_eq!(out["source_path"], json!("/tmp/repo-agent-a/a.rs"));
+        assert_eq!(out["destination_path"], json!("/tmp/repo-agent-a/b.rs"));
+    }
+
+    #[test]
+    fn terminal_cd_dot_is_forced_to_worktree_root() {
+        let out = rewrite_tool_input_paths(json!({ "command": "cargo test", "cd": "." }), root());
+        assert_eq!(out["cd"], json!("/tmp/repo-agent-a"));
+        // Non-path fields are untouched.
+        assert_eq!(out["command"], json!("cargo test"));
+    }
+
+    #[test]
+    fn terminal_cd_already_inside_worktree_is_kept() {
+        let out = rewrite_tool_input_paths(
+            json!({ "command": "ls", "cd": "/tmp/repo-agent-a/src" }),
+            root(),
+        );
+        assert_eq!(out["cd"], json!("/tmp/repo-agent-a/src"));
+    }
+
+    #[test]
+    fn terminal_cd_in_another_worktree_is_redirected() {
+        let out = rewrite_tool_input_paths(json!({ "cd": "/some/other/repo" }), root());
+        assert_eq!(out["cd"], json!("/tmp/repo-agent-a"));
     }
 }

@@ -31,7 +31,7 @@ impl Blame {
         let output =
             run_git_blame(git_binary, working_directory, path, content, line_ending).await?;
         let mut entries = parse_git_blame(&output)?;
-        entries.sort_unstable_by(|a, b| a.range.start.cmp(&b.range.start));
+        entries.sort_unstable_by_key(|entry| entry.range.start);
 
         let mut unique_shas = HashSet::default();
 

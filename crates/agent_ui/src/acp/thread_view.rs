@@ -9,7 +9,11 @@ use acp_thread::{AgentConnection, Plan};
 use action_log::{ActionLog, ActionLogTelemetry};
 use agent::{
     NativeAgentServer, NativeAgentSessionList, NativeAgentStatus, SharedThread, ThreadStore,
+    ThreadEvent, ThreadEventStream, ToolCallEventStream,
 };
+use futures::channel::mpsc;
+use futures::StreamExt;
+use watch;
 use agent_client_protocol::{self as acp, PromptCapabilities};
 use agent_servers::{AgentServer, AgentServerDelegate};
 use agent_settings::{AgentProfileId, AgentSettings};
@@ -45,7 +49,7 @@ use prompt_store::{PromptId, PromptStore};
 use rope::Point;
 use settings::{NotifyWhenAgentWaiting, Settings as _, SettingsStore, update_settings_file};
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use std::{collections::BTreeMap, rc::Rc, time::Duration};
@@ -356,6 +360,10 @@ pub struct AcpThreadView {
     add_context_menu_handle: PopoverMenuHandle<ContextMenu>,
     status: Option<NativeAgentStatus>,
     last_status_refresh: Option<std::time::Instant>,
+    /// Worktree directory this thread was explicitly created in, if the user
+    /// picked one. When set, it overrides the default first-worktree cwd so
+    /// parallel threads can be isolated onto separate working directories.
+    cwd_override: Option<PathBuf>,
 }
 
 impl AcpThreadView {
@@ -403,6 +411,7 @@ impl AcpThreadView {
         thread_store: Option<Entity<ThreadStore>>,
         prompt_store: Option<Entity<PromptStore>>,
         history: Entity<AcpThreadHistory>,
+        cwd_override: Option<PathBuf>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -564,9 +573,11 @@ impl AcpThreadView {
                 available_commands,
                 cached_user_commands,
                 cached_user_command_errors,
+                cwd_override.clone(),
                 window,
                 cx,
             ),
+            cwd_override,
             login: None,
             message_editor,
             notifications: Vec::new(),
@@ -622,6 +633,7 @@ impl AcpThreadView {
             available_commands,
             cached_user_commands,
             cached_user_command_errors,
+            self.cwd_override.clone(),
             window,
             cx,
         );
@@ -639,6 +651,7 @@ impl AcpThreadView {
         available_commands: Rc<RefCell<Vec<acp::AvailableCommand>>>,
         cached_user_commands: Rc<RefCell<HashMap<String, UserSlashCommand>>>,
         cached_user_command_errors: Rc<RefCell<Vec<CommandLoadError>>>,
+        cwd_override: Option<PathBuf>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> ThreadState {
@@ -667,6 +680,13 @@ impl AcpThreadView {
                 }
             })
             .next();
+        // When the user picked a specific worktree for this thread, use it as the
+        // root directory both for spawning the external agent process (its cwd is
+        // set from `root_dir`) and as the session cwd, isolating parallel threads.
+        let root_dir = match cwd_override {
+            Some(cwd) => Some(Arc::<Path>::from(cwd)),
+            None => root_dir,
+        };
         let fallback_cwd = root_dir
             .clone()
             .unwrap_or_else(|| paths::home_dir().as_path().into());
@@ -1289,6 +1309,299 @@ impl AcpThreadView {
         }
     }
 
+    fn log_deep_research_debug(message: &str) {
+        use std::fs::OpenOptions;
+        use std::io::Write;
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("deep_research_debug.log")
+        {
+            let _ = writeln!(
+                file,
+                "[{}] {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                message
+            );
+        }
+        eprintln!("DEEP_RESEARCH_DEBUG: {}", message);
+    }
+
+    pub fn start_deep_research(&mut self, topic: String, cx: &mut Context<Self>) {
+        Self::log_deep_research_debug(&format!("start_deep_research() triggered for topic: {:?}", topic));
+
+        if let Some(workspace) = self.workspace.upgrade() {
+            workspace.update(cx, |workspace, cx| {
+                struct StartResearchToast;
+                workspace.show_toast(
+                    Toast::new(
+                        NotificationId::unique::<StartResearchToast>(),
+                        format!("Starting deep research for: {}", topic),
+                    )
+                    .autohide(),
+                    cx,
+                );
+            });
+        }
+
+        let active_thread = if let Some(active) = self.as_active_thread() {
+            active.thread.clone()
+        } else {
+            Self::log_deep_research_debug("DEBUG ERROR: start_deep_research returned early because active_thread is None!");
+            if let Some(workspace) = self.workspace.upgrade() {
+                workspace.update(cx, |workspace, cx| {
+                    struct NoThreadToast;
+                    workspace.show_toast(
+                        Toast::new(
+                            NotificationId::unique::<NoThreadToast>(),
+                            "Deep Research Error: No active thread open.",
+                        )
+                        .autohide(),
+                        cx,
+                    );
+                });
+            }
+            return;
+        };
+
+        let project = self.project.clone();
+        let fs = project.read(cx).fs().clone();
+        
+        let language_model = {
+            let agent_server_store = project.read(cx).agent_server_store();
+            let node_runtime = agent_server_store.read(cx).node_runtime();
+            let fs = project.read(cx).fs().clone();
+            let project_environment = project.read(cx).environment().downgrade();
+
+            let root_dir = project
+                .read(cx)
+                .visible_worktrees(cx)
+                .into_iter()
+                .filter_map(|worktree| {
+                    if worktree.read(cx).is_single_file() {
+                        Some(worktree.read(cx).abs_path().parent()?.into())
+                    } else {
+                        Some(worktree.read(cx).abs_path())
+                    }
+                })
+                .next();
+            let cwd = root_dir
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| paths::home_dir().to_path_buf());
+
+            if let Some(node_runtime) = node_runtime {
+                let cwd_for_factory = cwd.clone();
+                let factory: acp_thread::ConnectionFactory = std::rc::Rc::new(move |cx: &mut gpui::AsyncApp| {
+                    let node_runtime = node_runtime.clone();
+                    let fs = fs.clone();
+                    let project_environment = project_environment.clone();
+                    let cwd_for_factory = cwd_for_factory.clone();
+                    cx.spawn(async move |cx| {
+                        let (command, root_dir_str, _login) = agent_servers::LocalClaudeCode::get_command_for_factory(
+                            node_runtime,
+                            fs,
+                            project_environment,
+                            None,
+                            None,
+                            cwd_for_factory.to_str().map(|s| s.to_string()),
+                            cx,
+                        ).await?;
+                        let root_dir = std::path::Path::new(&root_dir_str);
+                        agent_servers::connect(
+                            "claude-deep-research".into(),
+                            command,
+                            root_dir,
+                            None,
+                            None,
+                            collections::HashMap::default(),
+                            false,
+                            cx,
+                        ).await
+                    })
+                });
+                Some(std::sync::Arc::new(acp_thread::AcpLanguageModel {
+                    connection_factory: factory,
+                    project: project.clone(),
+                    cwd,
+                }) as std::sync::Arc<dyn language_model::LanguageModel>)
+            } else {
+                None
+            }
+        };
+
+        if language_model.is_none() {
+            Self::log_deep_research_debug("DEBUG WARNING: language_model is None! Deep research will proceed using fallback heuristic scoring and no LLM gap analysis/synthesis.");
+        } else if let Some(ref model) = language_model {
+            Self::log_deep_research_debug(&format!("DEBUG: Selected language model: {:?}", model.telemetry_id()));
+        }
+
+        let http_client = project.read(cx).client().http_client();
+        let settings = AgentSettings::get_global(cx).clone();
+        let tokio_handle = gpui_tokio::Tokio::handle(cx);
+
+        cx.spawn(async move |_this, cx| {
+            let tool_use_id = acp::ToolCallId::new(uuid::Uuid::new_v4().to_string());
+            let tool_name = "deep-research".to_string();
+            
+            AcpThreadView::log_deep_research_debug(&format!("DEBUG: Spawned deep research task in background with tool use ID: {:?}", tool_use_id));
+
+            let mut cx_init = cx.clone();
+            // Push initial tool call to thread
+            active_thread.update(&mut cx_init, |thread, cx| {
+                let tool_call = acp::ToolCall::new(tool_use_id.clone().0, format!("Deep Research: {}", topic))
+                    .kind(acp::ToolKind::Fetch)
+                    .content(vec![acp::ToolCallContent::from("Initializing deep research...")])
+                    .status(acp::ToolCallStatus::InProgress)
+                    .meta(acp_thread::meta_with_tool_name(&tool_name))
+                    .raw_input(serde_json::json!({ "topic": topic }));
+
+                thread.upsert_tool_call(tool_call, cx).ok();
+            });
+
+            let (events_tx, mut events_rx) = mpsc::unbounded::<Result<ThreadEvent>>();
+            let (_cancellation_tx, cancellation_rx) = watch::channel(false);
+            
+            let event_stream = ToolCallEventStream::new(
+                tool_use_id.clone().0.into(),
+                ThreadEventStream(events_tx),
+                Some(fs.clone()),
+                cancellation_rx,
+                Some(std::sync::Arc::new(parking_lot::Mutex::new(Vec::new()))),
+            );
+
+            let mut cx_research = cx.clone();
+            AcpThreadView::log_deep_research_debug("DEBUG: Launching run_deep_research_bg task...");
+            let research_task = agent::run_deep_research_bg(
+                http_client.clone(),
+                topic.clone(),
+                vec![], // initial queries
+                None, // domains
+                settings.deep_research.max_concurrent_tabs,
+                settings.deep_research.max_depth,
+                Some(event_stream),
+                language_model.clone(),
+                &mut cx_research,
+                tokio_handle,
+                None, // gap_analysis_custom_prompt
+                settings.deep_research.search_provider,
+                settings.deep_research.serper_api_key.clone(),
+                settings.deep_research.tavily_api_key.clone(),
+                settings.deep_research.exa_api_key.clone(),
+                settings.deep_research.brave_api_key.clone(),
+                settings.deep_research.use_headed_browser,
+                settings.deep_research.browser_user_data_dir.clone(),
+                settings.deep_research.browser_profile.clone(),
+            );
+
+            // Task to handle events and update UI
+            let mut cx_events = cx.clone();
+            let event_handler = async {
+                while let Some(event) = events_rx.next().await {
+                    if let Ok(event) = event {
+                        match event {
+                            ThreadEvent::ToolCallUpdate(update) => {
+                                AcpThreadView::log_deep_research_debug(&format!("DEBUG: Deep research event received: {:?}", update));
+                                active_thread.update(&mut cx_events, |thread, cx| {
+                                    thread.update_tool_call(update, cx).ok();
+                                });
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                anyhow::Ok(())
+            };
+
+            let (result, _) = futures::join!(research_task, event_handler);
+            
+            AcpThreadView::log_deep_research_debug(&format!("DEBUG: Deep research finished. Result success: {:?}", result.is_ok()));
+
+            let final_report_result = match result {
+                Ok(raw_report) => {
+                    let mut cx_condense = cx.clone();
+                    let topic_clone = topic.clone();
+                    let condensation_prompt = settings.deep_research.condensation_system_prompt.as_ref().map(|s| s.to_string());
+                    
+                    let tool_use_id_clone = tool_use_id.clone();
+                    let active_thread_clone = active_thread.clone();
+                    let _ = active_thread_clone.update(&mut cx_condense, |thread, cx| {
+                        let update = acp::ToolCallUpdate::new(
+                            tool_use_id_clone.0,
+                            acp::ToolCallUpdateFields::new()
+                                .title("Synthesizing...")
+                                .content(vec![acp::ToolCallContent::from("🧠 Synthesizing final research report...")])
+                        );
+                        thread.update_tool_call(update, cx).ok();
+                    });
+
+                    let mut cx_synthesis = cx.clone();
+                    let synthesis_res = agent::condense_report(
+                        http_client,
+                        &topic_clone,
+                        &raw_report,
+                        condensation_prompt.as_deref(),
+                        language_model,
+                        None,
+                        &mut cx_synthesis,
+                    ).await;
+                    
+                    match synthesis_res {
+                        Ok(summary) => Ok(summary),
+                        Err(e) => {
+                            AcpThreadView::log_deep_research_debug(&format!("DEBUG WARNING: Synthesis failed: {:?}", e));
+                            let mut cx_log = cx.clone();
+                            let tool_use_id_clone2 = tool_use_id.clone();
+                            let active_thread_clone2 = active_thread.clone();
+                            let _ = active_thread_clone2.update(&mut cx_log, |thread, cx| {
+                                let update = acp::ToolCallUpdate::new(
+                                    tool_use_id_clone2.0,
+                                    acp::ToolCallUpdateFields::new()
+                                        .content(vec![acp::ToolCallContent::from(format!("⚠️ Report synthesis failed: {}, using raw report", e))])
+                                );
+                                thread.update_tool_call(update, cx).ok();
+                            });
+                            Ok(raw_report)
+                        }
+                    }
+                }
+                Err(err) => Err(err),
+            };
+
+            let mut cx_final = cx.clone();
+            let topic_clone = topic.clone();
+            let tool_use_id_final = tool_use_id.clone();
+            let active_thread_final = active_thread.clone();
+            let _ = active_thread_final.update(&mut cx_final, |thread, cx| {
+                match final_report_result {
+                    Ok(report) => {
+                        let update = acp::ToolCallUpdate::new(
+                            tool_use_id_final.0,
+                            acp::ToolCallUpdateFields::new()
+                                .title(format!("Deep Research: {}", topic_clone))
+                                .status(acp::ToolCallStatus::Completed)
+                                .content(vec![acp::ToolCallContent::from(report)])
+                        );
+                        thread.upsert_tool_call_inner(update, acp_thread::ToolCallStatus::Completed, cx).ok();
+                    }
+                    Err(err) => {
+                         AcpThreadView::log_deep_research_debug(&format!("DEBUG ERROR: Deep research failed in background: {:?}", err));
+                         let update = acp::ToolCallUpdate::new(
+                            tool_use_id_final.0,
+                            acp::ToolCallUpdateFields::new()
+                                .title(format!("Deep Research: {}", topic_clone))
+                                .status(acp::ToolCallStatus::Failed)
+                                .content(vec![acp::ToolCallContent::from(format!("Error: {}", err))])
+                        );
+                        thread.upsert_tool_call_inner(update, acp_thread::ToolCallStatus::Failed, cx).ok();
+                    }
+                }
+            });
+
+            anyhow::Ok(())
+        }).detach();
+    }
+
+
     pub fn handle_entry_view_event(
         &mut self,
         _: &Entity<EntryViewState>,
@@ -1364,6 +1677,37 @@ impl AcpThreadView {
 
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let message_editor = self.message_editor.clone();
+
+        let text = message_editor.read(cx).text(cx);
+        let text = text.trim();
+        Self::log_deep_research_debug(&format!("send() triggered, text input length: {}, content: {:?}", text.len(), text));
+
+        if let Some(topic) = text.strip_prefix("/deep-research") {
+            let topic = topic.trim().to_string();
+            Self::log_deep_research_debug(&format!("Matched /deep-research prefix, topic: {:?}", topic));
+            if !topic.is_empty() {
+                message_editor.update(cx, |editor, cx| editor.clear(window, cx));
+                self.start_deep_research(topic, cx);
+                return;
+            } else {
+                Self::log_deep_research_debug("Matched /deep-research but topic is empty!");
+                if let Some(workspace) = self.workspace.upgrade() {
+                    workspace.update(cx, |workspace, cx| {
+                        struct EmptyTopicToast;
+                        workspace.show_toast(
+                            Toast::new(
+                                NotificationId::unique::<EmptyTopicToast>(),
+                                "Deep Research Error: Please specify a topic, e.g., /deep-research generative AI",
+                            )
+                            .autohide(),
+                            cx,
+                        );
+                    });
+                }
+                return;
+            }
+        }
+
         let agent = self.agent.clone();
         let login = self.login.clone();
 
@@ -9239,6 +9583,7 @@ pub(crate) mod tests {
                     Some(thread_store),
                     None,
                     history.clone(),
+                    None,
                     window,
                     cx,
                 )
@@ -9310,6 +9655,7 @@ pub(crate) mod tests {
                     Some(thread_store),
                     None,
                     history,
+                    None,
                     window,
                     cx,
                 )
@@ -9585,6 +9931,7 @@ pub(crate) mod tests {
                     Some(thread_store),
                     None,
                     history,
+                    None,
                     window,
                     cx,
                 )
@@ -9972,6 +10319,7 @@ pub(crate) mod tests {
                     Some(thread_store.clone()),
                     None,
                     history,
+                    None,
                     window,
                     cx,
                 )

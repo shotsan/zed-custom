@@ -304,7 +304,7 @@ impl ExampleInstance {
                         rules_file: None,
                     }
                 }).collect::<Vec<_>>();
-                let project_context = cx.new(|_cx| ProjectContext::new(worktrees, vec![]));
+                let project_context = cx.new(|_cx| ProjectContext::new(worktrees, vec![], None));
                 let context_server_registry = cx.new(|cx| ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
 
                 let thread = if let Some(json) = &meta.existing_thread_json {
@@ -317,9 +317,9 @@ impl ExampleInstance {
                     );
 
                     let db_thread = agent::DbThread::from_json(json.as_bytes()).expect("Can't read serialized thread");
-                    cx.new(|cx| agent::Thread::from_db(session_id, db_thread, project.clone(), project_context, context_server_registry, agent::Templates::new(), cx))
+                    cx.new(|cx| agent::Thread::from_db_for_test(session_id, db_thread, project.clone(), project_context, context_server_registry, agent::Templates::new(), cx))
                 } else {
-                    cx.new(|cx| agent::Thread::new(project.clone(), project_context, context_server_registry, agent::Templates::new(), None, cx))
+                    cx.new(|cx| agent::Thread::new_for_test(project.clone(), project_context, context_server_registry, agent::Templates::new(), None, cx))
                 };
 
                 thread.update(cx, |thread, cx| {

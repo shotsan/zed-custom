@@ -1891,7 +1891,7 @@ async fn test_remote_agent_fs_tool_calls(cx: &mut TestAppContext, server_cx: &mu
         cx.new(|cx| agent::ContextServerRegistry::new(project.read(cx).context_server_store(), cx));
     let model = Arc::new(FakeLanguageModel::default());
     let thread = cx.new(|cx| {
-        Thread::new(
+        Thread::new_for_test(
             project.clone(),
             cx.new(|_cx| ProjectContext::default()),
             context_server_registry,
