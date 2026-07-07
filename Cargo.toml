@@ -232,7 +232,7 @@ members = [
     #
 
     "tooling/perf",
-    "tooling/xtask", "slack_backend/axum_slack_proxy",
+    "tooling/xtask", "slack_backend/axum_slack_proxy", "crates/zed-custom-slack",
 ]
 default-members = ["crates/zed-custom"]
 
@@ -442,7 +442,6 @@ web_search_providers = { path = "crates/web_search_providers" }
 workspace = { path = "crates/workspace" }
 worktree = { path = "crates/worktree" }
 x_ai = { path = "crates/x_ai" }
-zed-custom = { path = "crates/zed-custom" }
 zed-custom-actions = { path = "crates/zed-custom-actions" }
 zed-custom-env-vars = { path = "crates/zed-custom-env-vars" }
 edit_prediction = { path = "crates/edit_prediction" }
@@ -500,7 +499,6 @@ cfg-if = "1.0.3"
 chardetng = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 chaser-oxide = "0.2.4"
-chromiumoxide = { version = "0.8.0", default-features = false, features = ["tokio-runtime"] }
 ciborium = "0.2"
 circular-buffer = "1.0"
 clap = { version = "4.4", features = ["derive", "wrap_help"] }
@@ -653,7 +651,6 @@ serde_json_lenient = { version = "0.2", features = [
     "raw_value",
 ] }
 serde_path_to_error = "0.1.17"
-serde_repr = "0.1"
 serde_urlencoded = "0.7"
 sha2 = "0.10"
 shellexpand = "2.1.0"
@@ -867,9 +864,6 @@ zed-custom-actions = { codegen-units = 1 }
 debug = "limited"
 lto = "thin"
 codegen-units = 1
-
-[profile.release.package]
-zed-custom = { codegen-units = 16 }
 
 [profile.release-fast]
 inherits = "release"

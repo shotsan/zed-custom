@@ -426,6 +426,7 @@ fn main() {
         trusted_worktrees::init(db_trusted_paths, cx);
         menu::init();
         zed_custom_actions::init();
+        zed_custom_slack::slack_store::SlackStore::init(cx);
 
         release_channel::init(app_version, cx);
         gpui_tokio::init(cx);
@@ -1169,6 +1170,7 @@ fn handle_open_request(request: OpenRequest, app_state: Arc<AppState>, cx: &mut 
                         ChannelView::open(
                             client::ChannelId(channel_id),
                             heading,
+                            channel::ChannelStore::global(cx),
                             workspace.clone(),
                             window,
                             cx,

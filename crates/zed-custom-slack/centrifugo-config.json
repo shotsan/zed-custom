@@ -1,0 +1,6 @@
+{
+  "admin_password": "admin",
+  "admin_secret": "secret",
+  "api_key": "api_key",
+  "client_insecure": true
+}

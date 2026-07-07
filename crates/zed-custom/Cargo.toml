@@ -225,6 +225,7 @@ zed-custom-env-vars.workspace = true
 zlog.workspace = true
 zlog_settings.workspace = true
 chrono.workspace = true
+zed-custom-slack = { version = "0.1.0", path = "../zed-custom-slack" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows.workspace = true

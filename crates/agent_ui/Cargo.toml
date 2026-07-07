@@ -113,6 +113,8 @@ util.workspace = true
 uuid.workspace = true
 watch.workspace = true
 workspace.workspace = true
+zed-custom-slack = { path = "../zed-custom-slack" }
+
 zed-custom-actions.workspace = true
 image.workspace = true
 async-fs.workspace = true

@@ -1,0 +1,49 @@
+name: Deploy Slack Backend to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'crates/zed-custom-slack/slack-backend/**'
+      - '.github/workflows/deploy_slack_backend.yml'
+  workflow_dispatch:
+
+env:
+  RESOURCE_GROUP: zed-custom-slack-rg
+  CONTAINER_APP_NAME: zed-slack-backend
+  REGISTRY_NAME: zedslackacr1781748782.azurecr.io
+  IMAGE_NAME: zed-slack-backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for Azure OIDC authentication
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name zedslackacr1781748782
+
+      - name: Build and push Docker image
+        run: |
+          cd crates/zed-custom-slack/slack-backend
+          docker build -t ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -t ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest -f Dockerfile ../../../
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}

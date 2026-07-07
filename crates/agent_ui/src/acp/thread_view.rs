@@ -355,6 +355,7 @@ pub struct AcpThreadView {
     slash_command_registry: Option<Entity<UserSlashCommandRegistry>>,
     auth_task: Option<Task<()>>,
     _subscriptions: [Subscription; 4],
+    _slack_subscription: Option<Subscription>,
     show_codex_windows_warning: bool,
     in_flight_prompt: Option<Vec<acp::ContentBlock>>,
     add_context_menu_handle: PopoverMenuHandle<ContextMenu>,
@@ -468,6 +469,18 @@ impl AcpThreadView {
             }
             editor
         });
+
+        let _slack_subscription = Some(cx.subscribe_in(
+            &zed_custom_slack::slack_store::SlackStore::global(cx),
+            window,
+            |this, _, event, window, cx| {
+                if let zed_custom_slack::slack_store::SlackEvent::MessageReceived(msg) = event {
+                    let text = format!("**Slack - {}**: {}\n", msg.user, msg.text);
+                    let content = vec![acp::ContentBlock::Text(acp::TextContent::new(text))];
+                    this.send_content(Task::ready(Ok(Some((content, Vec::new())))), window, cx);
+                }
+            },
+        ));
 
         let subscriptions = [
             cx.observe_global_in::<SettingsStore>(window, Self::agent_ui_font_size_changed),
@@ -589,6 +602,7 @@ impl AcpThreadView {
             _history_subscription: history_subscription,
             hovered_recent_history_item: None,
             _subscriptions: subscriptions,
+            _slack_subscription,
             focus_handle: cx.focus_handle(),
             show_codex_windows_warning,
             in_flight_prompt: None,
@@ -1682,6 +1696,15 @@ impl AcpThreadView {
         let text = text.trim();
         Self::log_deep_research_debug(&format!("send() triggered, text input length: {}, content: {:?}", text.len(), text));
 
+        if !text.is_empty() {
+            zed_custom_slack::slack_store::SlackStore::global(cx).update(cx, |store, cx| {
+                if *store.connection_state() == zed_custom_slack::slack_store::ConnectionState::Connected {
+                    store.send_message(format!("*User*: {}", text), cx);
+                }
+            });
+        }
+
+
         if let Some(topic) = text.strip_prefix("/deep-research") {
             let topic = topic.trim().to_string();
             Self::log_deep_research_debug(&format!("Matched /deep-research prefix, topic: {:?}", topic));
@@ -1986,6 +2009,19 @@ impl AcpThreadView {
                 if let Some(active) = self.as_active_thread_mut() {
                     active.thread_retry_status.take();
                 }
+
+                if let Some(last_entry) = thread.read(cx).entries().last() {
+                    let markdown = last_entry.to_markdown(cx);
+                    if !markdown.is_empty() {
+                        let clean_markdown = markdown.replace("## Assistant\n", "").replace("## Assistant", "").trim().to_string();
+                        zed_custom_slack::slack_store::SlackStore::global(cx).update(cx, |store, cx| {
+                            if *store.connection_state() == zed_custom_slack::slack_store::ConnectionState::Connected {
+                                store.send_message(format!("*Coder*:\n{}", clean_markdown), cx);
+                            }
+                        });
+                    }
+                }
+
                 let used_tools = thread.read(cx).used_tools_since_last_user_message();
                 self.notify_with_sound(
                     if used_tools {

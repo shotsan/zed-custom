@@ -1448,6 +1448,16 @@ impl MessageEditor {
             editor.insert(text, window, cx);
         });
     }
+
+    pub fn append_text(&mut self, text: &str, cx: &mut Context<Self>) {
+        self.editor.update(cx, |editor, cx| {
+            let buffer = editor.buffer().clone();
+            buffer.update(cx, |buf, cx| {
+                let len = buf.len(cx);
+                buf.edit([(len..len, text)], None, cx);
+            });
+        });
+    }
 }
 
 impl Focusable for MessageEditor {

@@ -57,6 +57,7 @@ impl ChannelView {
     pub fn open(
         channel_id: ChannelId,
         link_position: Option<String>,
+        channel_store: Entity<ChannelStore>,
         workspace: Entity<Workspace>,
         window: &mut Window,
         cx: &mut App,
@@ -65,6 +66,7 @@ impl ChannelView {
         let channel_view = Self::open_in_pane(
             channel_id,
             link_position,
+            channel_store,
             pane.clone(),
             workspace,
             window,
@@ -90,12 +92,13 @@ impl ChannelView {
     pub fn open_in_pane(
         channel_id: ChannelId,
         link_position: Option<String>,
+        channel_store: Entity<ChannelStore>,
         pane: Entity<Pane>,
         workspace: Entity<Workspace>,
         window: &mut Window,
         cx: &mut App,
     ) -> Task<Result<Entity<Self>>> {
-        let channel_view = Self::load(channel_id, workspace, window, cx);
+        let channel_view = Self::load(channel_id, channel_store, workspace, window, cx);
         window.spawn(cx, async move |cx| {
             let channel_view = channel_view.await?;
 
@@ -148,6 +151,7 @@ impl ChannelView {
 
     pub fn load(
         channel_id: ChannelId,
+        channel_store: Entity<ChannelStore>,
         workspace: Entity<Workspace>,
         window: &mut Window,
         cx: &mut App,
@@ -155,7 +159,6 @@ impl ChannelView {
         let weak_workspace = workspace.downgrade();
         let workspace = workspace.read(cx);
         let project = workspace.project().to_owned();
-        let channel_store = ChannelStore::global(cx);
         let language_registry = workspace.app_state().languages.clone();
         let markdown = language_registry.language_for_name("Markdown");
         let channel_buffer =
@@ -340,6 +343,10 @@ impl ChannelView {
 
     pub fn channel(&self, cx: &App) -> Option<Arc<Channel>> {
         self.channel_buffer.read(cx).channel(cx)
+    }
+
+    pub fn channel_buffer(&self) -> Entity<ChannelBuffer> {
+        self.channel_buffer.clone()
     }
 
     fn handle_channel_buffer_event(
@@ -597,7 +604,8 @@ impl FollowableItem for ChannelView {
             unreachable!()
         };
 
-        let open = ChannelView::load(ChannelId(state.channel_id), workspace, window, cx);
+        // We fall back to global if it's deserialized from state.
+        let open = ChannelView::load(ChannelId(state.channel_id), ChannelStore::global(cx), workspace, window, cx);
 
         Some(window.spawn(cx, async move |cx| {
             let this = open.await?;

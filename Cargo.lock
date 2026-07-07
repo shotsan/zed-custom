@@ -438,6 +438,7 @@ dependencies = [
  "watch",
  "workspace",
  "zed-custom-actions",
+ "zed-custom-slack",
 ]
 
 [[package]]
@@ -17710,6 +17711,7 @@ dependencies = [
  "futures-util",
  "log",
  "rustls 0.23.33",
+ "rustls-native-certs 0.8.2",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls 0.26.2",
@@ -21549,6 +21551,7 @@ dependencies = [
  "workspace",
  "zed-custom-actions",
  "zed-custom-env-vars",
+ "zed-custom-slack",
  "zed-reqwest",
  "zlog",
  "zlog_settings",
@@ -21570,6 +21573,35 @@ name = "zed-custom-env-vars"
 version = "0.1.0"
 dependencies = [
  "gpui",
+]
+
+[[package]]
+name = "zed-custom-slack"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-tungstenite",
+ "channel",
+ "collab_ui",
+ "collections",
+ "editor",
+ "futures 0.3.31",
+ "gpui",
+ "gpui_tokio",
+ "language",
+ "log",
+ "menu",
+ "serde",
+ "serde_json",
+ "settings",
+ "smol",
+ "theme",
+ "tokio-tungstenite 0.26.2",
+ "ui",
+ "url",
+ "util",
+ "workspace",
+ "zed-reqwest",
 ]
 
 [[package]]

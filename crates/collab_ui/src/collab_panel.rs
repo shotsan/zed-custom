@@ -101,7 +101,7 @@ pub fn init(cx: &mut App) {
             if let Some(channel_id) = channel_id {
                 let workspace = cx.entity();
                 window.defer(cx, move |window, cx| {
-                    ChannelView::open(channel_id, None, workspace, window, cx)
+                    ChannelView::open(channel_id, None, ChannelStore::global(cx), workspace, window, cx)
                         .detach_and_log_err(cx)
                 });
             }
@@ -2031,7 +2031,7 @@ impl CollabPanel {
         cx: &mut Context<Self>,
     ) {
         if let Some(workspace) = self.workspace.upgrade() {
-            ChannelView::open(channel_id, None, workspace, window, cx).detach();
+            ChannelView::open(channel_id, None, ChannelStore::global(cx), workspace, window, cx).detach();
         }
     }
 

@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    volumes:
+      - ./centrifugo_config.json:/centrifugo/config.json
+    command: centrifugo -c config.json
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis

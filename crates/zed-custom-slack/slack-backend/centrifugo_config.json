@@ -1,0 +1,9 @@
+{
+  "api_key": "my_api_key",
+  "client_anonymous": true,
+  "client_insecure": true,
+  "allow_subscribe_for_client": true,
+  "allow_publish_for_client": true,
+  "engine": "redis",
+  "redis_address": "redis:6379"
+}
