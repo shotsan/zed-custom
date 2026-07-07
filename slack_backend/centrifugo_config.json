@@ -1,0 +1,14 @@
+{
+  "v3_use_offset": true,
+  "namespaces": [
+    {
+      "name": "slack",
+      "history_size": 300,
+      "history_ttl": "24h",
+      "history_recover": true,
+      "allow_anonymous": true
+    }
+  ],
+  "engine": "redis",
+  "redis_address": "redis:6379"
+}

@@ -270,9 +270,21 @@ impl SlackStore {
                 });
             }
 
+            let (tx, mut rx) = futures::channel::mpsc::unbounded();
+
+            cx.update(|cx| {
+                gpui_tokio::Tokio::spawn(cx, async move {
+                    while let Some(Ok(Message::Text(text))) = read.next().await {
+                        if tx.unbounded_send(text).is_err() {
+                            break;
+                        }
+                    }
+                }).detach();
+            });
+
             // Slack -> Zed Relay Loop
             loop {
-                if let Some(Ok(Message::Text(text))) = read.next().await {
+                if let Some(text) = rx.next().await {
                     if let Ok(slack_msg) = serde_json::from_str::<SlackMessage>(&text) {
                         if let Some(this) = this.upgrade() {
                             this.update(cx, |this, cx| {

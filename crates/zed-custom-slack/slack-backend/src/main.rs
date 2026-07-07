@@ -172,13 +172,19 @@ async fn main() {
                                                                     }
                                                                     let user_id = event.get("user").and_then(|u| u.as_str()).unwrap_or("Unknown").to_string();
                                                                     
-                                                                    let mut display_name = user_id.clone();
-                                                                    if user_id != "Unknown" {
-                                                                        if let Some(cached_name) = user_cache.get(&user_id) {
-                                                                            display_name = cached_name.clone();
-                                                                        } else {
+                                                                    let ts = event.get("ts").and_then(|t| t.as_str()).unwrap_or("Now").to_string();
+                                                                    let channel = event.get("channel").and_then(|c| c.as_str()).unwrap_or("Unknown").to_string();
+                                                                    let team_id_str = team_id.to_string();
+                                                                    
+                                                                    let tx = tx.clone();
+                                                                    let socket_redis = socket_redis.clone();
+                                                                    let socket_client = socket_client.clone();
+                                                                    
+                                                                    tokio::spawn(async move {
+                                                                        let mut display_name = user_id.clone();
+                                                                        if user_id != "Unknown" {
                                                                             if let Ok(mut con) = socket_redis.get_multiplexed_async_connection().await {
-                                                                                let token_key = format!("slack_team_token:{}", team_id);
+                                                                                let token_key = format!("slack_team_token:{}", team_id_str);
                                                                                 if let Ok(bot_token) = con.get::<_, String>(&token_key).await {
                                                                                     if let Ok(res) = socket_client.get(format!("https://slack.com/api/users.info?user={}", user_id))
                                                                                         .header("Authorization", format!("Bearer {}", bot_token))
@@ -192,7 +198,6 @@ async fn main() {
                                                                                             
                                                                                             if let Some(best_name) = display_name_val.or(real_name_val).or(root_real_name).or(root_name) {
                                                                                                 display_name = best_name.to_string();
-                                                                                                user_cache.insert(user_id.clone(), best_name.to_string());
                                                                                             } else {
                                                                                                 tracing::warn!("Could not find name for user {}. Raw response: {:?}", user_id, user_info);
                                                                                             }
@@ -201,32 +206,30 @@ async fn main() {
                                                                                 }
                                                                             }
                                                                         }
-                                                                    }
 
-                                                                    let ts = event.get("ts").and_then(|t| t.as_str()).unwrap_or("Now").to_string();
-                                                                    let channel = event.get("channel").and_then(|c| c.as_str()).unwrap_or("Unknown").to_string();
+                                                                        let target_user = if channel.starts_with('D') {
+                                                                            Some(user_id.clone())
+                                                                        } else {
+                                                                            None
+                                                                        };
 
-                                                                    let target_user = if channel.starts_with('D') {
-                                                                        Some(user_id.clone())
-                                                                    } else {
-                                                                        None
-                                                                    };
+                                                                        let msg = Message {
+                                                                            id: ts.clone(),
+                                                                            user: display_name,
+                                                                            text,
+                                                                            timestamp: ts,
+                                                                            is_incoming: true,
+                                                                            team_id: team_id_str,
+                                                                            channel,
+                                                                            target_user,
+                                                                        };
 
-                                                                    let msg = Message {
-                                                                        id: ts.clone(),
-                                                                        user: display_name,
-                                                                        text,
-                                                                        timestamp: ts,
-                                                                        is_incoming: true,
-                                                                        team_id: team_id.to_string(),
-                                                                        channel,
-                                                                        target_user,
-                                                                    };
-
-                                                                    // Broadcast to any connected Zed clients
-                                                                    let _ = tx.send(msg);
+                                                                        // Broadcast to any connected Zed clients
+                                                                        let _ = tx.send(msg);
+                                                                    });
                                                                 }
                                                             }
+
                                                         }
                                                     }
                                                 }
