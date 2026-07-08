@@ -94,6 +94,7 @@ impl SlackStore {
     }
 
     pub fn send_message(&mut self, text: String, cx: &mut Context<Self>) {
+        let text = crate::markdown::format_for_slack(&text);
         let token = match &self.token {
             Some(t) => t.clone(),
             None => return,
