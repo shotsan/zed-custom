@@ -475,7 +475,7 @@ impl AcpThreadView {
             window,
             |this, _, event, window, cx| {
                 if let zed_custom_slack::slack_store::SlackEvent::MessageReceived(msg) = event {
-                    let text = format!("**Slack - {}**: {}\n", msg.user, msg.text);
+                    let text = format!("[Slack - {}]: {}\n", msg.user, msg.text);
                     let content = vec![acp::ContentBlock::Text(acp::TextContent::new(text))];
                     this.send_content(Task::ready(Ok(Some((content, Vec::new())))), window, cx);
                 }
