@@ -1611,6 +1611,11 @@ impl AcpThreadView {
                 }
             });
 
+            // Automatically trigger the LLM to read the newly completed tool call and generate a final response.
+            let _ = active_thread_final.update(&mut cx_final, |thread, cx| {
+                let _ = thread.send(vec![], cx);
+            });
+
             anyhow::Ok(())
         }).detach();
     }

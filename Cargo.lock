@@ -21597,6 +21597,7 @@ dependencies = [
  "settings",
  "smol",
  "theme",
+ "tokio",
  "tokio-tungstenite 0.26.2",
  "ui",
  "url",

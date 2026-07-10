@@ -36,4 +36,5 @@ collab_ui = { version = "0.1.0", path = "../collab_ui" }
 channel = { version = "0.1.0", path = "../channel" }
 language = { version = "0.1.0", path = "../language" }
 reqwest.workspace = true
+tokio = { workspace = true, features = ["time"] }
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-native-roots"] }

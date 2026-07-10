@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use gpui::{App, Context, Entity, Global, AppContext, WeakEntity, EventEmitter};
+use gpui::{App, Context, Entity, Global, AppContext, WeakEntity, EventEmitter, Task};
 use workspace::Workspace;
 use collab_ui::channel_view::ChannelView;
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,7 @@ pub struct SlackStore {
     token: Option<String>,
     error_message: Option<String>,
     active_channel: Option<String>,
+    _connection_task: Option<Task<()>>,
 }
 
 struct GlobalSlackStore(Entity<SlackStore>);
@@ -82,6 +83,7 @@ impl SlackStore {
             token: None,
             error_message: None,
             active_channel: None,
+            _connection_task: None,
         }
     }
 
@@ -210,7 +212,7 @@ impl SlackStore {
 
         let workspace_weak = workspace;
         
-        cx.spawn(async move |this, cx| {
+        self._connection_task = Some(cx.spawn(async move |this, mut cx| {
             let mut backoff_secs = 1;
             loop {
                 let connect_task = cx.update(|cx| {
@@ -224,7 +226,7 @@ impl SlackStore {
                 })
             });
 
-            let (ws_stream, _) = match connect_task.await {
+            let (mut ws_stream, _) = match connect_task.await {
                 Ok((res, resp)) => (res, resp),
                 Err(e) => {
                     eprintln!("Failed to connect WebSocket: {}", e);
@@ -249,8 +251,6 @@ impl SlackStore {
             backoff_secs = 1;
             
             eprintln!("WebSocket upgraded successfully!");
-            
-            let (_, mut read) = ws_stream.split();
 
             if let Some(this) = this.upgrade() {
                 this.update(cx, |this, cx| {
@@ -275,9 +275,21 @@ impl SlackStore {
 
             cx.update(|cx| {
                 gpui_tokio::Tokio::spawn(cx, async move {
-                    while let Some(Ok(Message::Text(text))) = read.next().await {
-                        if tx.unbounded_send(text).is_err() {
-                            break;
+                    while let Ok(Some(msg_res)) = tokio::time::timeout(std::time::Duration::from_secs(90), ws_stream.next()).await {
+                        match msg_res {
+                            Ok(Message::Text(text)) => {
+                                if tx.unbounded_send(text).is_err() {
+                                    break;
+                                }
+                            }
+                            Ok(_) => {
+                                // Ignore Ping, Pong, Close, and Binary frames.
+                                // Because we didn't split the stream, tokio-tungstenite will automatically
+                                // send a Pong response when it processes a Ping here.
+                            }
+                            Err(_) => {
+                                break; // Network error, exit loop
+                            }
                         }
                     }
                 }).detach();
@@ -312,7 +324,7 @@ impl SlackStore {
             // If the connection drops, apply a 1-second backoff immediately before the next attempt
             cx.background_executor().timer(std::time::Duration::from_secs(1)).await;
             }
-        }).detach();
+        }));
     }
 }
 

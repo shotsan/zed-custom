@@ -161,20 +161,41 @@ impl Render for SlackPanel {
                         div()
                             .flex()
                             .items_center()
-                            .gap_2()
+                            .gap_4()
                             .child(
                                 div()
-                                    .w_2()
-                                    .h_2()
-                                    .rounded_full()
-                                    .bg(status_color),
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .w_2()
+                                            .h_2()
+                                            .rounded_full()
+                                            .bg(status_color),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_color(gpui::rgb(0x94a3b8)) // Slate 400
+                                            .text_size(px(12.))
+                                            .child(status_text),
+                                    ),
                             )
-                            .child(
-                                div()
-                                    .text_color(gpui::rgb(0x94a3b8)) // Slate 400
-                                    .text_size(px(12.))
-                                    .child(status_text),
-                            ),
+                            .when_some(store_ref.token(), |this, token| {
+                                this.child(
+                                    Button::new("reconnect_header_btn", "Reconnect")
+                                        .style(ButtonStyle::Tinted(TintColor::Accent))
+                                        .size(ButtonSize::Compact)
+                                        .on_click(cx.listener({
+                                            let token = token.clone();
+                                            move |this, _, _window, cx| {
+                                                SlackStore::global(cx).update(cx, |store, cx| {
+                                                    store.connect(this.workspace.clone(), token.clone(), cx);
+                                                });
+                                            }
+                                        }))
+                                )
+                            }),
                     ),
             )
             .child(
