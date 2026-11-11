@@ -161,15 +161,15 @@ async fn test_channel_notes_participant_indices(
 
     // Clients A, B, and C open the channel notes
     let channel_view_a = cx_a
-        .update(|window, cx| ChannelView::open(channel_id, None, workspace_a.clone(), window, cx))
+        .update(|window, cx| ChannelView::open(channel_id, None, channel::ChannelStore::global(cx), workspace_a.clone(), window, cx))
         .await
         .unwrap();
     let channel_view_b = cx_b
-        .update(|window, cx| ChannelView::open(channel_id, None, workspace_b.clone(), window, cx))
+        .update(|window, cx| ChannelView::open(channel_id, None, channel::ChannelStore::global(cx), workspace_b.clone(), window, cx))
         .await
         .unwrap();
     let channel_view_c = cx_c
-        .update(|window, cx| ChannelView::open(channel_id, None, workspace_c.clone(), window, cx))
+        .update(|window, cx| ChannelView::open(channel_id, None, channel::ChannelStore::global(cx), workspace_c.clone(), window, cx))
         .await
         .unwrap();
 

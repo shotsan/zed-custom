@@ -37,6 +37,7 @@ axum-extra = { version = "0.4", features = ["erased-json"] }
 base64.workspace = true
 chrono.workspace = true
 clock.workspace = true
+cloud_llm_client.workspace = true
 collections.workspace = true
 dashmap.workspace = true
 envy = "0.4.2"
@@ -51,7 +52,7 @@ parking_lot.workspace = true
 prometheus = "0.14"
 prost.workspace = true
 rand.workspace = true
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json", "stream"] }
 rpc.workspace = true
 scrypt = "0.11"
 # sea-orm and sea-orm-macros versions must match exactly.
@@ -73,6 +74,7 @@ tower = "0.4"
 tower-http = { workspace = true, features = ["trace"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "registry", "tracing-log"] } # workaround for https://github.com/tokio-rs/tracing/issues/2927
+urlencoding.workspace = true
 util.workspace = true
 uuid.workspace = true
 

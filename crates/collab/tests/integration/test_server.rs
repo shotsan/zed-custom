@@ -55,7 +55,7 @@ pub struct TestServer {
     pub app_state: Arc<AppState>,
     pub test_livekit_server: Arc<LivekitTestServer>,
     pub test_db: TestDb,
-    server: Arc<Server>,
+    pub server: Arc<Server>,
     next_github_user_id: i32,
     connection_killers: Arc<Mutex<HashMap<PeerId, Arc<AtomicBool>>>>,
     forbid_connections: Arc<AtomicBool>,
@@ -606,6 +606,10 @@ impl TestServer {
                 kinesis_stream: None,
                 kinesis_access_key: None,
                 kinesis_secret_key: None,
+                azure_ad_client_id: None,
+                azure_ad_client_secret: None,
+                azure_ad_tenant_id: None,
+                azure_ad_url: None,
             },
         })
     }
@@ -934,7 +938,7 @@ pub fn open_channel_notes(
     let window = cx.update(|_, cx| cx.active_window().unwrap().downcast::<Workspace>().unwrap());
     let entity = window.root(cx).unwrap();
 
-    cx.update(|window, cx| ChannelView::open(channel_id, None, entity.clone(), window, cx))
+    cx.update(|window, cx| ChannelView::open(channel_id, None, channel::ChannelStore::global(cx), entity.clone(), window, cx))
 }
 
 impl Drop for TestClient {

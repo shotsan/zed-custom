@@ -4,7 +4,7 @@ use axum::{
     Extension, Router,
     extract::MatchedPath,
     http::{Request, Response},
-    routing::get,
+    routing::{get, post},
 };
 
 use collab::ServiceMode;
@@ -107,6 +107,8 @@ async fn main() -> Result<()> {
                     app = app
                         .merge(collab::api::events::router())
                         .merge(collab::api::extensions::router())
+                        .route("/models", get(collab::api::llm::get_models))
+                        .route("/completions", post(collab::api::llm::chat_completions))
                 }
 
                 app = app.layer(Extension(state.clone()));

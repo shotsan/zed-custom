@@ -3518,7 +3518,7 @@ impl AgentPanel {
         };
 
         self._external_thread(
-            server, None, None, workspace, project, ext_agent, window, cx,
+            server, None, None, workspace, project, ext_agent, None, window, cx,
         );
     }
 

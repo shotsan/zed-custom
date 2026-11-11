@@ -108,7 +108,7 @@ impl LanguageModel for AcpLanguageModel {
             let connection = connection_factory(&mut cx)
                 .await
                 .map_err(|e| {
-                    eprintln!("AcpLanguageModel: failed to spawn fresh connection: {:#}", e);
+                    log::error!("AcpLanguageModel: failed to spawn fresh connection: {:#}", e);
                     LanguageModelCompletionError::Other(e)
                 })?;
 
@@ -117,7 +117,7 @@ impl LanguageModel for AcpLanguageModel {
             })
             .await
             .map_err(|e| {
-                eprintln!("AcpLanguageModel: failed to create thread: {:#}", e);
+                log::error!("AcpLanguageModel: failed to create thread: {:#}", e);
                 LanguageModelCompletionError::Other(e)
             })?;
 
@@ -134,13 +134,29 @@ impl LanguageModel for AcpLanguageModel {
             // 5. Subscribe to thread events and forward new text deltas.
             let last_streamed_len = Rc::new(Cell::new(0usize));
             let last_streamed_index = Rc::new(Cell::new(None::<usize>));
+            let streamed_total = Rc::new(Cell::new(0usize));
+            // Counts how many distinct assistant entries the response spanned. If an agent answers
+            // in several entries, only the deltas of the one `rfind` lands on get forwarded, so
+            // this number explains a response that arrives shorter than what the agent produced.
+            let assistant_entries = Rc::new(Cell::new(0usize));
+            let streamed_text = Rc::new(std::cell::RefCell::new(String::new()));
             let tx_clone = tx.clone();
             let last_streamed_len_clone = last_streamed_len;
             let last_streamed_index_clone = last_streamed_index;
+            let streamed_total_clone = streamed_total.clone();
+            let assistant_entries_clone = assistant_entries.clone();
+            let streamed_text_clone = streamed_text.clone();
 
-            eprintln!("AcpLanguageModel: subscribing to thread events...");
+            // Dump the exact bytes going over the wire, so a failing completion can be replayed
+            // against the agent directly instead of reasoned about from sizes.
+            log::info!("AcpLanguageModel: sending {} bytes, tail: {:?}",
+                combined_prompt.len(),
+                combined_prompt.chars().rev().take(200).collect::<String>().chars().rev().collect::<String>());
+            if let Err(e) = std::fs::write("/tmp/acp_last_prompt.txt", &combined_prompt) {
+                log::warn!("AcpLanguageModel: could not dump prompt: {e}");
+            }
             let subscription = cx.subscribe(&thread, move |_thread, event, cx| {
-                eprintln!("AcpLanguageModel: received event: {:?}", event);
+                log::trace!("AcpLanguageModel: received event: {:?}", event);
                 match event {
                     AcpThreadEvent::NewEntry | AcpThreadEvent::EntryUpdated(_) => {
                         let entries = _thread.read(cx).entries();
@@ -161,19 +177,22 @@ impl LanguageModel for AcpLanguageModel {
                             if last_streamed_index_clone.get() != Some(index) {
                                 prev_len = 0;
                                 last_streamed_index_clone.set(Some(index));
+                                assistant_entries_clone.set(assistant_entries_clone.get() + 1);
                             }
-                            
+
                             if full_text.len() > prev_len {
                                 let new_text = full_text[prev_len..].to_string();
                                 last_streamed_len_clone.set(full_text.len());
-                                eprintln!("AcpLanguageModel: streaming {} bytes", new_text.len());
+                                streamed_total_clone.set(streamed_total_clone.get() + new_text.len());
+                                streamed_text_clone.borrow_mut().push_str(&new_text);
+                                log::trace!("AcpLanguageModel: streaming {} bytes", new_text.len());
                                 if let Err(e) = tx_clone.unbounded_send(Ok(LanguageModelCompletionEvent::Text(new_text))) {
-                                    eprintln!("AcpLanguageModel: receiver dropped! Error: {}", e);
                                     // Receiver dropped — normal on cancellation.
+                                    log::debug!("AcpLanguageModel: receiver dropped: {}", e);
                                 }
                             }
                         } else {
-                            eprintln!("AcpLanguageModel: No AssistantMessage found in entries yet.");
+                            log::trace!("AcpLanguageModel: no assistant message in entries yet");
                         }
                     }
                     _ => {}
@@ -193,18 +212,22 @@ impl LanguageModel for AcpLanguageModel {
             cx.spawn({
                 let thread = thread.clone();
                 async move |cx| {
-                    eprintln!("AcpLanguageModel: starting connection.prompt...");
+                    log::debug!("AcpLanguageModel: starting connection.prompt");
                     let prompt_task = cx.update(|cx| connection.prompt(None, acp_request, cx));
-                    eprintln!("AcpLanguageModel: prompt_task created, awaiting...");
                     if let Err(e) = prompt_task.await {
-                        eprintln!("AcpLanguageModel: prompt failed: {:#}", e);
+                        log::error!("AcpLanguageModel: prompt failed: {:#}", e);
                         tx.unbounded_send(Err(LanguageModelCompletionError::Other(e))).ok();
                     } else {
-                        eprintln!("AcpLanguageModel: prompt_task completed successfully!");
+                        // The single line that says what the model actually produced.
+                        log::info!("AcpLanguageModel: prompt complete, returned {} bytes across {} assistant entries",
+                            streamed_total.get(), assistant_entries.get());
+                        if let Err(e) = std::fs::write("/tmp/acp_last_response.txt", streamed_text.borrow().as_str()) {
+                            log::warn!("AcpLanguageModel: could not dump response: {e}");
+                        }
                     }
 
                     // Keep subscription and thread alive until the prompt completes.
-                    eprintln!("AcpLanguageModel: dropping subscription & thread (end of prompt).");
+                    log::trace!("AcpLanguageModel: dropping subscription & thread (end of prompt)");
                     drop(subscription);
                     drop(thread);
 

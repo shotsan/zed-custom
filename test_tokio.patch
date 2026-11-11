@@ -1,0 +1,30 @@
+--- crates/collab/tests/integration/azure_ad_tests.rs
++++ crates/collab/tests/integration/azure_ad_tests.rs
+@@ -70,16 +70,17 @@
+         .route("/userinfo", get(mock_userinfo_endpoint))
+         .with_state(mock_state);
+ 
+-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+-    let addr = listener.local_addr().unwrap();
+-    
+-    let axum_server = axum::Server::from_tcp(listener)
+-        .unwrap()
+-        .serve(mock_ad_router.into_make_service());
+-    
+-    cx.background_executor.spawn(async move {
+-        let _ = axum_server.await;
+-    }).detach();
++    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
++    listener.set_nonblocking(true).unwrap();
++    let addr = listener.local_addr().unwrap();
++    
++    cx.background_executor.spawn(async move {
++        let tokio_listener = tokio::net::TcpListener::from_std(listener).unwrap();
++        let axum_server = axum::Server::builder(axum::extract::connect_info::IntoMakeServiceWithConnectInfo::new(tokio_listener, mock_ad_router.into_make_service()));
++        // wait no, from_tcp takes std listener
++        let axum_server = axum::Server::from_tcp(tokio_listener.into_std().unwrap()).unwrap().serve(mock_ad_router.into_make_service());
++        let _ = axum_server.await;
++    }).detach();
+ 
+     let mock_url = format!("http://{}", addr);
+     unsafe { std::env::set_var("AZURE_AD_URL", &mock_url); }

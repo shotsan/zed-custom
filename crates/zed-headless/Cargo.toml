@@ -1,0 +1,20 @@
+[package]
+name = "zed-headless"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+client.workspace = true
+collab.workspace = true
+gpui.workspace = true
+project.workspace = true
+smol.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tracing.workspace = true
+settings.workspace = true
+collections.workspace = true
+
+
+[lints]
+workspace = true

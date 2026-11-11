@@ -212,8 +212,8 @@ impl HttpClientWithUrl {
     pub fn build_zed_api_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://zed.dev" => "https://api.zed.dev",
-            "https://staging.zed.dev" => "https://api-staging.zed.dev",
+            "https://zed.dev" => "https://api.zedcustom.dev",
+            "https://staging.zed.dev" => "https://api-staging.zedcustom.dev",
             "http://localhost:3000" => "http://localhost:8080",
             other => other,
         };
@@ -228,8 +228,8 @@ impl HttpClientWithUrl {
     pub fn build_zed_cloud_url(&self, path: &str) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://zed.dev" => "https://cloud.zed.dev",
-            "https://staging.zed.dev" => "https://cloud.zed.dev",
+            "https://zed.dev" => "https://api.zedcustom.dev",
+            "https://staging.zed.dev" => "https://api.zedcustom.dev",
             "http://localhost:3000" => "http://localhost:8787",
             other => other,
         };
@@ -241,8 +241,8 @@ impl HttpClientWithUrl {
     pub fn build_zed_cloud_url_with_query(&self, path: &str, query: impl Serialize) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://zed.dev" => "https://cloud.zed.dev",
-            "https://staging.zed.dev" => "https://cloud.zed.dev",
+            "https://zed.dev" => "https://api.zedcustom.dev",
+            "https://staging.zed.dev" => "https://api.zedcustom.dev",
             "http://localhost:3000" => "http://localhost:8787",
             other => other,
         };
@@ -254,8 +254,8 @@ impl HttpClientWithUrl {
     pub fn build_zed_llm_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://zed.dev" => "https://cloud.zed.dev",
-            "https://staging.zed.dev" => "https://llm-staging.zed.dev",
+            "https://zed.dev" => "https://api.zedcustom.dev",
+            "https://staging.zed.dev" => "https://api-staging.zedcustom.dev",
             "http://localhost:3000" => "http://localhost:8787",
             other => other,
         };

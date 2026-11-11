@@ -2038,7 +2038,7 @@ async fn test_following_to_channel_notes_without_a_shared_project(
 
     // Client A opens the notes for channel 1.
     let channel_notes_1_a = cx_a
-        .update(|window, cx| ChannelView::open(channel_1_id, None, workspace_a.clone(), window, cx))
+        .update(|window, cx| ChannelView::open(channel_1_id, None, channel::ChannelStore::global(cx), workspace_a.clone(), window, cx))
         .await
         .unwrap();
     channel_notes_1_a.update_in(cx_a, |notes, window, cx| {
@@ -2093,7 +2093,7 @@ async fn test_following_to_channel_notes_without_a_shared_project(
 
     //  Client A opens the notes for channel 2.
     let channel_notes_2_a = cx_a
-        .update(|window, cx| ChannelView::open(channel_2_id, None, workspace_a.clone(), window, cx))
+        .update(|window, cx| ChannelView::open(channel_2_id, None, channel::ChannelStore::global(cx), workspace_a.clone(), window, cx))
         .await
         .unwrap();
     channel_notes_2_a.update(cx_a, |notes, cx| {
@@ -2270,7 +2270,7 @@ async fn test_following_to_channel_notes_other_workspace(
     let (workspace_a2, cx_a2) = client_a.build_test_workspace(&mut cx_a2).await;
     cx_a2.update(|window, _| window.activate_window());
     cx_a2
-        .update(|window, cx| ChannelView::open(channel, None, workspace_a2, window, cx))
+        .update(|window, cx| ChannelView::open(channel, None, channel::ChannelStore::global(cx), workspace_a2, window, cx))
         .await
         .unwrap();
     cx_a2.run_until_parked();

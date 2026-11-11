@@ -2056,7 +2056,6 @@ impl Thread {
                         );
                         if let LanguageModelToolResultContent::Text(text) = output.llm_output {
                             let text = text.to_string();
-                            event_stream.send_text(&text);
                             this.update(cx, |thread, cx| {
                                 // Add result to the message that triggered the tool run.
                                 let mut result_found = false;
@@ -3889,6 +3888,12 @@ impl ToolCallEventStream {
     pub fn update_fields(&self, fields: acp::ToolCallUpdateFields) {
         self.stream
             .update_tool_call_fields(&self.tool_use_id, fields);
+    }
+
+    /// Renders text in the thread as agent output. Tools whose result is meant to be read by the
+    /// user need this: a tool result on its own only reaches the model.
+    pub fn push_agent_text(&self, text: &str) {
+        self.stream.send_text(text);
     }
 
     pub fn update_diff(&self, diff: Entity<acp_thread::Diff>) {

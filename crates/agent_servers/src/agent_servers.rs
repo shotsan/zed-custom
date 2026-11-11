@@ -24,7 +24,7 @@ use project::Project;
 use settings::SettingsStore;
 use std::{any::Any, path::Path, rc::Rc, sync::Arc};
 
-pub use acp::{AcpConnection, connect};
+pub use acp::{AcpConnection, connect, connect_with_session_meta};
 pub use project::agent_server_store::LocalClaudeCode;
 
 

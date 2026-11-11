@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::cell::RefCell;
 use std::rc::Rc;
 use anyhow::{Result, bail};
@@ -7,7 +8,7 @@ use schemars::JsonSchema;
 use scraper::{Html, Selector, ElementRef};
 use serde::{Deserialize, Serialize};
 use http_client::{AsyncBody, Builder, HttpClientWithUrl, RedirectPolicy};
-use chaser_oxide::{Browser, BrowserConfig, cdp};
+use chaser_oxide::{Browser, BrowserConfig, Page, cdp};
 use html_to_markdown::{TagHandler, convert_html_to_markdown, markdown};
 
 use crate::{AgentTool, ToolCallEventStream};
@@ -189,19 +190,25 @@ impl AgentTool for DeepResearchTool {
                 Some(event_stream.clone()),
                 &mut async_cx_for_synthesis
             ).await {
-                Ok(summary) => summary,
+                Ok(summary) => Some(summary),
                 Err(e) => {
-                    log::warn!("Deep Research: Condensation failed, using raw report: {}", e);
-                    raw_report
+                    log::warn!("Deep Research: synthesis failed, returning the collected material to the model: {e:#}");
+                    None
                 }
             };
 
-            let _ = self.thread.update(&mut async_cx_for_synthesis, |thread, cx| {
-                thread.push_acp_agent_block(
-                    acp::ContentBlock::Text(acp::TextContent::new(final_report.clone())),
-                    cx,
-                );
-            });
+            // The returned output only reaches the model. A report is worth rendering in the
+            // thread; the raw material is not, so that case gets one line instead of 240KB.
+            let final_report = match final_report {
+                Some(report) => {
+                    event_stream.push_agent_text(&report);
+                    report
+                }
+                None => {
+                    event_stream.push_log("⚠️ No report: synthesis did not return one. The collected material went to the model.".to_string());
+                    raw_report
+                }
+            };
 
             Ok(DeepResearchToolOutput { report: final_report })
         })
@@ -287,6 +294,35 @@ pub async fn expand_topic(
     Ok(queries)
 }
 
+
+/// Runs one Google search in `page` and returns the results page HTML.
+///
+/// The navigation is bounded because `wait_for_navigation` waits on a lifecycle event that a
+/// stalled page never fires, which would otherwise hang the research run indefinitely.
+async fn google_search_html(
+    tokio_handle: &tokio::runtime::Handle,
+    page: &Page,
+    query: &str,
+) -> Result<String> {
+    let url = format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(query));
+    let page = page.clone();
+    tokio_handle
+        .spawn(async move {
+            tokio::time::timeout(std::time::Duration::from_secs(45), async {
+                page.goto(&url).await?;
+                page.wait_for_navigation().await?;
+                // Random human delay
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                tokio::time::sleep(std::time::Duration::from_millis(2000 + (now % 2000))).await;
+                page.content().await
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("navigation timed out after 45s"))?
+            .map_err(|e| anyhow::anyhow!("{e}"))
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("search task aborted: {e}"))?
+}
 
 pub async fn run_deep_research_bg(
     http_client: Arc<HttpClientWithUrl>,
@@ -496,9 +532,24 @@ pub async fn run_deep_research_bg(
         }
     };
     
+    // Invalid CDP events are ignored by the handler, so the only error it yields is a lost
+    // connection, meaning Chrome is gone. Ending the loop then drops the handler, which makes
+    // later CDP calls fail immediately instead of waiting out the request timeout each time.
+    let browser_alive = Arc::new(AtomicBool::new(true));
     let tokio_handle_for_handler = tokio_handle.clone();
-    let _handler_task = tokio_handle_for_handler.spawn(async move {
-        while let Some(_event) = handler.next().await {}
+    let _handler_task = tokio_handle_for_handler.spawn({
+        let browser_alive = browser_alive.clone();
+        async move {
+            while let Some(event) = handler.next().await {
+                if let Err(err) = event {
+                    // Expected at the end of a run, when dropping the browser kills Chrome.
+                    // Mid-run it is reported where it has a consequence, by the search loops.
+                    log::warn!("Deep Research: browser connection closed: {err:?}");
+                    break;
+                }
+            }
+            browser_alive.store(false, Ordering::SeqCst);
+        }
     });
     let browser = Arc::new(browser);
 
@@ -526,26 +577,22 @@ pub async fn run_deep_research_bg(
 
         for (idx, q) in queries.iter().enumerate() {
             log_message(format!("🔍 Google: Query {}/{} - '{}'", idx+1, queries.len(), q), None);
-            
-            let url = format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(q));
-            
-            let html = tokio_handle.spawn({
-                let page = google_page.clone();
-                async move {
-                    page.goto(&url).await?;
-                    page.wait_for_navigation().await?;
-                    // Random human delay
-                    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                    let delay = 2000 + (now % 2000);
-                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
-                    page.content().await
-                }
-            }).await?.map_err(|e| anyhow::anyhow!("Google navigation failed: {e}"))?;
 
-            let parsed = parse_google_results(&html);
-            log::info!("✅ Google: Finished query '{}'. Parsed {} items.", q, parsed.len());
-            results.extend(parsed);
-            
+            match google_search_html(&tokio_handle, &google_page, q).await {
+                Ok(html) => {
+                    let parsed = parse_google_results(&html);
+                    log::info!("✅ Google: Finished query '{}'. Parsed {} items.", q, parsed.len());
+                    results.extend(parsed);
+                }
+                Err(e) => {
+                    log_message(format!("⚠️ Google query '{}' failed: {:#}", q, e), None);
+                    if !browser_alive.load(Ordering::SeqCst) {
+                        log_message("⚠️ Research browser exited. Continuing with the candidates found so far.".to_string(), None);
+                        break;
+                    }
+                }
+            }
+
             if idx < queries.len() - 1 {
                 tokio_handle.spawn(async { 
                     let jitter = 10 + (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() % 10);
@@ -711,7 +758,13 @@ pub async fn run_deep_research_bg(
     }
 
     let mut iteration = 1;
+    let mut collection_error: Option<String> = None;
     while iteration <= max_iterations && !research_pool.is_empty() {
+        if !browser_alive.load(Ordering::SeqCst) {
+            collection_error = Some("the research browser exited".to_string());
+            break;
+        }
+
         let mut candidates_to_fetch = Vec::new();
         while candidates_to_fetch.len() < max_concurrent_tabs && !research_pool.is_empty() {
             candidates_to_fetch.push(research_pool.remove(0));
@@ -722,15 +775,25 @@ pub async fn run_deep_research_bg(
         log::info!("🚀 Deep Research: Iteration {} launching {} parallel tabs.", iteration, candidates_to_fetch.len());
         log_message(format!("🚀 Iteration {}: Launching {} parallel research tabs...", iteration, candidates_to_fetch.len()), None);
 
-        let summaries = {
+        let fetched = {
              let browser = browser.clone();
              let event_stream = event_stream.clone();
              let candidates = candidates_to_fetch.clone();
              tokio_handle.spawn(async move {
                  browse_parallel(browser, candidates, event_stream.clone(), false).await
-             }).await??
+             }).await
+             .map_err(|e| anyhow::anyhow!("fetch task aborted: {e}"))
+             .and_then(|result| result)
         };
-        
+        let summaries = match fetched {
+            Ok(summaries) => summaries,
+            Err(e) => {
+                log_message(format!("⚠️ Fetch round failed: {:#}", e), None);
+                collection_error = Some(format!("{:#}", e));
+                break;
+            }
+        };
+
         for (res, summary) in candidates_to_fetch.into_iter().zip(summaries) {
             let is_failure = summary.starts_with('(');
             if is_failure {
@@ -765,14 +828,20 @@ pub async fn run_deep_research_bg(
                     collected_text.push_str("\n---\n");
                 }
                 
-                let follow_up_queries = identify_gaps_and_relaunch(
+                let follow_up_queries = match identify_gaps_and_relaunch(
                     &topic,
                     &collected_text,
                     model,
                     async_cx,
                     gap_analysis_custom_prompt.as_deref(),
-                ).await.unwrap_or_default();
-                
+                ).await {
+                    Ok(queries) => queries,
+                    Err(e) => {
+                        log_message(format!("⚠️ Gap analysis failed: {:#}", e), None);
+                        Vec::new()
+                    }
+                };
+
                 if !follow_up_queries.is_empty() {
                     log_message(format!("🔍 Launching {} targeted follow-up searches for missing data...", follow_up_queries.len()), None);
                     let mut follow_up_results = Vec::new();
@@ -781,7 +850,7 @@ pub async fn run_deep_research_bg(
                         log_message("🔍 Google: Sequential follow-up mode...".to_string(), None);
                         let google_page = tokio_handle.spawn({
                             let browser = browser.clone();
-                            async move { 
+                            async move {
                                 let p = browser.new_page("about:blank").await?;
                                 let _ = p.execute(cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams::builder()
                                     .width(1920)
@@ -792,29 +861,33 @@ pub async fn run_deep_research_bg(
                                     .map_err(|e| anyhow::anyhow!("{e}"))?).await?;
                                 Ok::<_, anyhow::Error>(p)
                             }
-                        }).await?.map_err(|e| anyhow::anyhow!("Failed to create Google tab: {e}"))?;
+                        }).await?;
 
-                        for q in follow_up_queries {
-                            let url = format!("https://www.google.com/search?q={}&hl=en&num=20", url_encode(&q));
-                            let html = tokio_handle.spawn({
-                                let page = google_page.clone();
-                                async move {
-                                    page.goto(&url).await?;
-                                    page.wait_for_navigation().await?;
+                        // Follow-up searches only add sources. If they fail there is still a
+                        // report to write from what the earlier iterations collected, so none of
+                        // this is allowed to abort the run.
+                        match google_page {
+                            Ok(google_page) => {
+                                for q in follow_up_queries {
+                                    match google_search_html(&tokio_handle, &google_page, &q).await {
+                                        Ok(html) => follow_up_results.extend(parse_google_results(&html)),
+                                        Err(e) => {
+                                            log_message(format!("⚠️ Follow-up search '{}' failed: {:#}", q, e), None);
+                                            if !browser_alive.load(Ordering::SeqCst) {
+                                                log_message("⚠️ Research browser exited. Skipping the remaining follow-up searches.".to_string(), None);
+                                                break;
+                                            }
+                                        }
+                                    }
+
                                     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                                    let delay = 2000 + (now % 2000);
-                                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
-                                    page.content().await
+                                    let jitter = 10 + (now % 10);
+                                    tokio_handle.spawn(async move { tokio::time::sleep(std::time::Duration::from_secs(jitter)).await }).await?;
                                 }
-                            }).await?.map_err(|e| anyhow::anyhow!("Google follow-up navigation failed: {e}"))?;
-
-                            follow_up_results.extend(parse_google_results(&html));
-                            
-                            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                            let jitter = 10 + (now % 10);
-                            tokio_handle.spawn(async move { tokio::time::sleep(std::time::Duration::from_secs(jitter)).await }).await?;
+                                let _ = tokio_handle.spawn(async move { google_page.close().await }).await;
+                            }
+                            Err(e) => log_message(format!("⚠️ Could not open a follow-up tab: {:#}", e), None),
                         }
-                        let _ = tokio_handle.spawn(async move { google_page.close().await }).await;
                     } else {
                         log_message("🔍 DuckDuckGo: Sequential follow-up mode...".to_string(), None);
                         for q in follow_up_queries {
@@ -843,7 +916,22 @@ pub async fn run_deep_research_bg(
     iteration += 1;
 }
 
-    log_message("✅ Data collection complete. Finalizing report...".to_string(), Some("Synthesizing...".to_string()));
+    log::info!("Deep Research: collection finished — {} analyzed, {} failed, {} unreached, stopped_early={:?}",
+        successful_results.len(),
+        status_entries.len() - successful_results.len(),
+        research_pool.len(),
+        collection_error);
+
+    // Only bail when there is nothing to synthesize. With even one analyzed source the report is
+    // built and handed to the model, so a partial run still produces output.
+    if successful_results.is_empty() {
+        bail!("{}", collection_error.unwrap_or_else(|| "no sources could be analyzed".to_string()));
+    }
+
+    match &collection_error {
+        Some(error) => log_message(format!("⚠️ Data collection stopped early ({}). Finalizing report with {} sources...", error, successful_results.len()), Some("Synthesizing...".to_string())),
+        None => log_message("✅ Data collection complete. Finalizing report...".to_string(), Some("Synthesizing...".to_string())),
+    }
 
     let mut raw_report = format!("# Deep Research Discovery Report: {}\n\n", topic);
     raw_report.push_str("## Investigative Status Table\n\n");
@@ -858,7 +946,11 @@ pub async fn run_deep_research_bg(
     for (idx, r) in research_pool.iter().enumerate().take(10) {
         let _ = writeln!(raw_report, "| ⏸️ Unreached | {} | {} | [{}]({}) |", status_entries.len() + idx + 1, r.title.replace('|', "\\|"), r.url, r.url);
     }
-    
+
+    if let Some(error) = &collection_error {
+        let _ = writeln!(raw_report, "\n> Data collection stopped early: {}. The material below is partial.", error);
+    }
+
     raw_report.push_str("\n---\n\n");
 
     for (res, page_markdown) in &successful_results {
@@ -901,13 +993,19 @@ pub async fn identify_gaps_and_relaunch(
     };
 
     let mut response_text = String::new();
-    if let Ok(mut stream) = model.stream_completion_text(request, async_cx).await {
-        while let Some(chunk) = stream.stream.next().await {
-            if let Ok(text) = chunk {
-                response_text.push_str(&text);
+    match model.stream_completion_text(request, async_cx).await {
+        Ok(mut stream) => {
+            while let Some(chunk) = stream.stream.next().await {
+                match chunk {
+                    Ok(text) => response_text.push_str(&text),
+                    Err(e) => log::error!("Deep Research: gap analysis stream error: {e}"),
+                }
             }
         }
+        Err(e) => log::error!("Deep Research: gap analysis request failed: {e}"),
     }
+    log::info!("Deep Research: gap analysis returned {} bytes: {:?}",
+        response_text.len(), response_text.chars().take(200).collect::<String>());
 
     let mut queries = Vec::new();
     for line in response_text.lines() {
@@ -959,17 +1057,25 @@ pub async fn condense_report(
             1. Citing multiple diverse sources is CRITICAL. \n\
             2. SYNTHESIZE: Do not simply list findings source-by-source. Merge common data points into cohesive sections.\n\
             3. DEDUPLICATE: Ensure there is NO redundancy or repetition in the final report. If two sources say the same thing, mention it once with both citations.\n\
-            4. TECHNICAL DENSITY: Prioritize hard data, specifications, and nuanced conclusions over general summaries."
+            4. TECHNICAL DENSITY: Prioritize hard data, specifications, and nuanced conclusions over general summaries.\n\
+            5. The report itself is your entire reply. No preamble, no questions, no tool use, no offer to help."
         );
 
+        // The topic is stated as a subject, not as a quoted request. Framing it as "the user
+        // asked for X" invites the model to interpret intent and answer X instead of writing
+        // the report, which is what happened when the topic was the word "hey".
         let user_message = format!(
-            "The user asked to deeply research: '{}'.\n\
-            Below is the raw, unedited text scraped from top ranking web pages related to the topic.\n\
+            "Write a research report on this subject: {}\n\
             \n\
-            ### Raw Research Material\n\
+            The material below was scraped from web pages on the subject. It is data to be\n\
+            written up, not a message to reply to.\n\
+            \n\
+            ### Research Material\n\
             {}\n\
             \n\
-            Provide a technical, high-density report.",
+            ### End Of Material\n\
+            \n\
+            Write the report now. Output the report only.",
             topic, raw_report
         );
 
@@ -990,31 +1096,56 @@ pub async fn condense_report(
 
         log::info!("🧠 DeepResearchTool: Submitting {} bytes of scraped HTML data to Claude for synthesis...", request.messages.iter().map(|m| m.string_contents().len()).sum::<usize>());
 
-        if let Ok(mut stream) = model.stream_completion_text(request, async_cx).await {
+        let stream = match model.stream_completion_text(request, async_cx).await {
+            Ok(stream) => Some(stream),
+            Err(e) => {
+                log::error!("Deep Research: synthesis request failed: {e}");
+                if let Some(es) = &event_stream {
+                    es.push_log(format!("❌ Synthesis request failed: {}", e));
+                }
+                None
+            }
+        };
+        if let Some(mut stream) = stream {
             let mut response_text = String::new();
             let mut last_logged_len = 0;
             use futures::StreamExt as _;
             while let Some(chunk) = stream.stream.next().await {
-                if let Ok(text) = chunk {
-                    response_text.push_str(text.as_ref());
-                    
-                    // Log progress to UI every ~500 chars to show it's actively generating
-                    if response_text.len() > last_logged_len + 500 {
-                        last_logged_len = response_text.len();
-                        if let Some(es) = &event_stream {
-                            es.push_log(format!("⏳ Claude is synthesizing... generated {} bytes of final report so far", response_text.len()));
+                match chunk {
+                    Err(e) => log::error!("Deep Research: synthesis stream error: {e}"),
+                    Ok(text) => {
+                        response_text.push_str(text.as_ref());
+
+                        // Log progress to UI every ~500 chars to show it's actively generating
+                        if response_text.len() > last_logged_len + 500 {
+                            last_logged_len = response_text.len();
+                            if let Some(es) = &event_stream {
+                                es.push_log(format!("⏳ Claude is synthesizing... generated {} bytes of final report so far", response_text.len()));
+                            }
                         }
                     }
                 }
             }
-            if !response_text.is_empty() {
-                return Ok(response_text);
+            let response_text = response_text.trim();
+            log::info!("🧠 DeepResearchTool: synthesis returned {} bytes, starting: {:?}",
+                response_text.len(), response_text.chars().take(200).collect::<String>());
+
+            // An agentic backend can answer with a short acknowledgement instead of the report.
+            // Returning that would replace everything the run collected with a stub, so the raw
+            // material is kept instead.
+            if response_text.len() >= 1000 {
+                return Ok(response_text.to_string());
             }
+
+            if let Some(es) = &event_stream {
+                es.push_log(format!("⚠️ Synthesis returned {} bytes instead of a report.", response_text.len()));
+            }
+            bail!("synthesis returned {} bytes instead of a report: {:?}",
+                response_text.len(), response_text.chars().take(200).collect::<String>());
         }
     }
-    
-    // Fall back to just returning the raw report if LLM fails
-    Ok(format!("LLM Condensation Failed. Showing Raw Report:\n\n{}", raw_report))
+
+    bail!("no model available for synthesis")
 }
 
 

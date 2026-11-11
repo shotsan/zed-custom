@@ -138,6 +138,14 @@ pub struct Config {
     pub kinesis_stream: Option<String>,
     pub kinesis_access_key: Option<String>,
     pub kinesis_secret_key: Option<String>,
+    pub azure_ad_client_id: Option<String>,
+    pub azure_ad_client_secret: Option<String>,
+    pub azure_ad_tenant_id: Option<String>,
+    pub azure_ad_url: Option<String>,
+    pub azure_b2c_tenant_name: Option<String>,
+    pub azure_b2c_policy_name: Option<String>,
+    pub azure_openai_endpoint: Option<String>,
+    pub azure_openai_key: Option<String>,
     pub zed_environment: Arc<str>,
     pub openai_api_key: Option<Arc<str>>,
     pub google_ai_api_key: Option<Arc<str>>,
@@ -159,6 +167,9 @@ impl Config {
 
     /// Returns the base `zed.dev` URL.
     pub fn zed_dot_dev_url(&self) -> &str {
+        if self.zed_environment.starts_with("http") {
+            return self.zed_environment.as_ref();
+        }
         match self.zed_environment.as_ref() {
             "development" => "http://localhost:3000",
             "staging" => "https://staging.zed.dev",
@@ -206,6 +217,14 @@ impl Config {
             kinesis_access_key: None,
             kinesis_secret_key: None,
             kinesis_stream: None,
+            azure_ad_client_id: None,
+            azure_ad_client_secret: None,
+            azure_ad_tenant_id: None,
+            azure_ad_url: None,
+            azure_b2c_tenant_name: None,
+            azure_b2c_policy_name: None,
+            azure_openai_endpoint: None,
+            azure_openai_key: None,
         }
     }
 }

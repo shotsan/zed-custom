@@ -45,6 +45,10 @@ pub struct AcpConnection {
     default_mode: Option<acp::SessionModeId>,
     default_model: Option<acp::ModelId>,
     default_config_options: HashMap<String, String>,
+    /// Attached as `_meta` to every `session/new` request. Claude Code's ACP adapter reads
+    /// `systemPrompt` and `disableBuiltInTools` from it, which is the only way to stop a session
+    /// from running under the coding-agent preset.
+    session_meta: Option<acp::Meta>,
     root_dir: PathBuf,
     child: Child,
     session_list: Option<Rc<AcpSessionList>>,
@@ -174,7 +178,35 @@ pub async fn connect(
         default_mode,
         default_model,
         default_config_options,
+        None,
         is_remote,
+        cx,
+    )
+    .await?;
+    Ok(Rc::new(conn) as _)
+}
+
+/// Connects with `_meta` attached to every `session/new` request.
+///
+/// Used for completion-style calls such as deep research, where the agent must answer with the
+/// requested text rather than behave as a coding agent. Claude Code's ACP adapter defaults its
+/// system prompt to the `claude_code` preset, and only `_meta.systemPrompt` replaces it.
+pub async fn connect_with_session_meta(
+    server_name: SharedString,
+    command: AgentServerCommand,
+    root_dir: &Path,
+    session_meta: acp::Meta,
+    cx: &mut AsyncApp,
+) -> Result<Rc<dyn AgentConnection>> {
+    let conn = AcpConnection::stdio(
+        server_name,
+        command,
+        root_dir,
+        None,
+        None,
+        HashMap::default(),
+        Some(session_meta),
+        false,
         cx,
     )
     .await?;
@@ -191,6 +223,7 @@ impl AcpConnection {
         default_mode: Option<acp::SessionModeId>,
         default_model: Option<acp::ModelId>,
         default_config_options: HashMap<String, String>,
+        session_meta: Option<acp::Meta>,
         is_remote: bool,
         cx: &mut AsyncApp,
     ) -> Result<Self> {
@@ -337,6 +370,7 @@ impl AcpConnection {
             default_mode,
             default_model,
             default_config_options,
+            session_meta,
             session_list,
             _io_task: io_task,
             _wait_task: wait_task,
@@ -376,8 +410,12 @@ impl AgentConnection for AcpConnection {
         let mcp_servers = mcp_servers_for_project(&project, cx);
 
         cx.spawn(async move |cx| {
+            let mut request = acp::NewSessionRequest::new(cwd).mcp_servers(mcp_servers);
+            if let Some(session_meta) = self.session_meta.clone() {
+                request = request.meta(session_meta);
+            }
             let response = self.connection
-                .new_session(acp::NewSessionRequest::new(cwd).mcp_servers(mcp_servers))
+                .new_session(request)
                 .await
                 .map_err(map_acp_error)?;
 

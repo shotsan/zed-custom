@@ -1,5 +1,7 @@
 pub mod events;
 pub mod extensions;
+pub mod azure_ad;
+pub mod llm;
 
 use crate::{AppState, Error, Result, auth, db::UserId, rpc};
 use anyhow::Context as _;
@@ -87,14 +89,23 @@ impl std::fmt::Display for SystemIdHeader {
 }
 
 pub fn routes(rpc_server: Arc<rpc::Server>) -> Router<(), Body> {
-    Router::new()
+    let protected_routes = Router::new()
         .route("/users/:id/access_tokens", post(create_access_token))
         .route("/rpc_server_snapshot", get(get_rpc_server_snapshot))
         .layer(
             ServiceBuilder::new()
-                .layer(Extension(rpc_server))
+                .layer(Extension(rpc_server.clone()))
                 .layer(middleware::from_fn(validate_api_token)),
-        )
+        );
+
+    let public_routes = Router::new()
+        .route("/auth/login", get(azure_ad::login))
+        .route("/auth/callback", get(azure_ad::callback))
+        .layer(Extension(rpc_server));
+
+    Router::new()
+        .merge(protected_routes)
+        .merge(public_routes)
 }
 
 pub async fn validate_api_token<B>(req: Request<B>, next: Next<B>) -> impl IntoResponse {
